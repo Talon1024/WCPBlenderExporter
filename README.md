@@ -28,9 +28,10 @@ To install the exporter script, create a custom folder for Blender scripts, crea
  5. At the top of the mesh file source code, you will see the texture filenames of the materials that your model uses and their associated texture numbers. Use this as a guide to convert the textures for WCSO.
 
  For example:
+ 
  		IFF "Duhiky.iff"
         
-		 // Duhiky.png     --> 00022000.mat
+		// Duhiky.png     --> 00022000.mat
  		// Basicmetal.tga --> 00022001.mat
 	 	// 424242.jpg     --> 00424242.mat
  
