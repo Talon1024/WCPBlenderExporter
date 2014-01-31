@@ -45,7 +45,7 @@ To use the mesh, you will need to reference the mesh file in a ship file.
  
 ## Known issues
 
- - Rotation matrix is not calculated correctly for rotations on Blender's Z axis.
+ - Hardpoint rotation matrix calculation may be slightly off.
 
 ## Planned features
 These are features planned for future versions of Blender Commander, and they are not implemented yet.
