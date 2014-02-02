@@ -43,10 +43,6 @@ To install the exporter script, create a custom folder for Blender scripts, crea
 After you have exported the mesh, you will need to compile the mesh using WCPPascal, copy it to the `mesh` folder under your WC Secret Ops root directory, and then convert the textures to WCP/SO .mat format, and place them in the `mat` folder under your WC Secret Ops root directory.
 
 To use the mesh, you will need to reference the mesh file in a ship file.
- 
-## Known issues
-
- - Hardpoint rotation matrix calculation may be slightly off.
 
 ## Planned features
 These are features planned for future versions of Blender Commander, and they are not implemented yet.
