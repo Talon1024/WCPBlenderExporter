@@ -168,7 +168,7 @@ def get_hardpoints():
     for o in bpy.data.objects:
         if o.type == "EMPTY" and o.name.startswith("hp-") and not o.hide:
             rot_matrix = calc_rot_matrix(o.rotation_euler.x,
-                                         -o.rotation_euler.z,
+                                         o.rotation_euler.z,
                                          o.rotation_euler.y)
             hardpoints.append({"x": o.location.x,
                                "y": o.location.y,
