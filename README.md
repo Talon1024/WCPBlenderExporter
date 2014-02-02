@@ -17,10 +17,10 @@ To install the exporter script, create a custom folder for Blender scripts, crea
 
 ## Usage
 
- 1. LOD (Level of Detail) models must be named as such:
- `detail-0`
- `detail-1`
- `detail-2`
+ 1. LOD (Level of Detail) models must be named as such:  
+ `detail-0`  
+ `detail-1`  
+ `detail-2`  
 
  2. You can make the converter use the active object as the LOD 0 mesh. If you don't turn this option on, or if the active object is not a mesh, the converter will try to use the object in the scene named `detail-0` as the LOD 0 mesh if it exists. Otherwise, nothing is exported.
  3. Each face must have a material assigned to it, and each material used by the model must have at least one image texture.
@@ -37,7 +37,8 @@ To install the exporter script, create a custom folder for Blender scripts, crea
  
  This indicates that `Duhiky.png` should be converted to `00022000.mat`, `Basicmetal.tga` should be converted to `00022001.mat`, `424242.jpg` should be converted to `00424242.mat`, etc.
  6. Hardpoints must be empties named `hp-xxxx`, where `xxxx` is the name of the hardpoint. For example. `hp-gun1` will be exported as a hardpoint named `gun1`. The rotation matrix of the hardpoint is calculated automatically.
- 7. Optionally, you can override the calculated collision sphere and radius by using an empty named `collsphr`.
+ 7. Hidden hardpoint empties (hardpoint empties that are not visible in Blender's viewport) will not be exported.
+ 8. Optionally, you can override the calculated collision sphere and radius by using an empty named `collsphr`.
 
 After you have exported the mesh, you will need to compile the mesh using WCPPascal, copy it to the `mesh` folder under your WC Secret Ops root directory, and then convert the textures to WCP/SO .mat format, and place them in the `mat` folder under your WC Secret Ops root directory.
 
