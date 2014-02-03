@@ -80,12 +80,12 @@ class ExportPAS(Operator, ExportHelper):
             default = True
         )
 
-#     generate_bsp = BoolProperty(
-#             name = "Generate BSP",
-#             description = "Generate a BSP tree "
-#             "(for corvette and capship component meshes)",
-#             default = False
-#         )
+##     generate_bsp = BoolProperty(
+##             name = "Generate BSP",
+##             description = "Generate a BSP tree "
+##             "(for corvette and capship component meshes)",
+##             default = False
+##         )
 ##
 ##    axis_forward = EnumProperty(
 ##            name="Forward Axis",
