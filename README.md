@@ -47,4 +47,3 @@ To use the mesh, you will need to reference the mesh file in a ship file.
 ## Planned features
 These are features planned for future versions of Blender Commander, and they are not implemented yet.
  - BSP tree generation for corvette and capital ship component meshes.
- - Binary IFF file export
