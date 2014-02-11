@@ -17,9 +17,6 @@
 #
 # <pep8-80 compliant>
 
-import OutputPAS_Blender
-import bpy
-
 bl_info = {
 "name": "WCP/SO IFF Mesh Source File",
 "author": "Kevin Caccamo",
@@ -33,6 +30,9 @@ bl_info = {
 "category": "Import-Export"
 }
 
+
+import OutputPAS_Blender
+import bpy
 
 
 # ExportHelper is a helper class, defines filename and

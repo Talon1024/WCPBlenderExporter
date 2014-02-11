@@ -100,9 +100,9 @@ class MeshIff(iff.IffFile):
         hardpt.add_member(name)
         self._mhard.add_member(hardpt)
 
-    def remove_hardpt(self):
+    def remove_hardpt(self, hp_idx):
+        self._mhard.remove_member(hp_idx)
+
+    def remove_hardpts(self):
         for mem in range(self.root_form.get_num_members()):
             self._mhard.remove_member(mem)
-
-    def get_coll_form(self):
-        return self.mcoll

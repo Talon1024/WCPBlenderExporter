@@ -7,11 +7,11 @@ class IffForm:
     # A FORM is an IFF data structure that can hold CHUNKs or other FORMs
     def __init__(self, name, members=[]):
         if len(name) == 4:  # The _name of the FORM must be 4 letters long
-            self._name = name
+            self._name = name.upper()
         elif len(name) > 4:
-            self._name = name[4:]
+            self._name = name[4:].upper()
         elif len(name) < 4:
-            self._name = name.ljust(4)
+            self._name = name.ljust(4).upper()
         # Make a slice copy of the member list so that every FORM can have
         # different members. If this is not done, all FORM objects will have
         # the same members
@@ -47,21 +47,21 @@ class IffForm:
 
     def to_xmf(self):
         """Convert this FORM to an XMF (IFF Source) string"""
-        xmfString = io.StringIO()
-        xmfString.write('\nFORM "' + self._name + '"\n{\n')
+        xmf_string = io.StringIO()
+        xmf_string.write('\nFORM "' + self._name + '"\n{\n')
         for x in self._members:
-            xmfString.write(x.to_xmf())
-        xmfString.write("\n}\n")
-        return xmfString.getvalue()
+            xmf_string.write(x.to_xmf())
+        xmf_string.write("\n}\n")
+        return xmf_string.getvalue()
 
     def to_bytes(self):
-        iffbytes = bytes()
+        iffbytes = bytearray()
         for x in self._members:
-            iffbytes = iffbytes + x.to_bytes()
-        iffbytes = self._name.encode("ascii", "replace") + iffbytes
+            iffbytes.append(x.to_bytes())
+        iffbytes.insert(0, self._name.encode("ascii", "replace"))
         formlen = len(iffbytes)
-        iffbytes = struct.pack(">l", formlen) + iffbytes
-        iffbytes = b"FORM" + iffbytes
+        iffbytes.insert(0, struct.pack(">l", formlen))
+        iffbytes.insert(0, b"FORM")
         return iffbytes
 
     def get_num_members(self):
@@ -87,35 +87,35 @@ class IffChunk(IffForm):
         """
         Returns an XMF string.
         """
-        xmfString = io.StringIO()
-        xmfString.write('CHUNK "' + self._name + '"\n{\n')
+        xmf_string = io.StringIO()
+        xmf_string.write('CHUNK "' + self._name + '"\n{\n')
         for x in self._members:
             if isinstance(x, int):
-                xmfString.write("long %i" % x)
+                xmf_string.write("long %i" % x)
             if isinstance(x, float):
-                xmfString.write("float %f" % x)
+                xmf_string.write("float %f" % x)
             if isinstance(x, str):
-                xmfString.write('cstring "%s"' % x)
-            xmfString.write("\n")
-        xmfString.write("}")
-        return xmfString.getvalue()
+                xmf_string.write('cstring "%s"' % x)
+            xmf_string.write("\n")
+        xmf_string.write("}")
+        return xmf_string.getvalue()
 
     def to_bytes(self):
-        iffbytes = bytes()
+        iffbytes = bytearray()
         for x in self._members:
             if isinstance(x, int):
-                iffbytes = iffbytes + struct.pack("<l", x)
+                iffbytes.append(struct.pack("<l", x))
             if isinstance(x, float):
-                iffbytes = iffbytes + struct.pack("<f", x)
+                iffbytes.append(struct.pack("<f", x))
             if isinstance(x, str):
-                iffbytes = iffbytes + x.encode("ascii", "replace")
-                iffbytes = iffbytes + b"\x00"
+                iffbytes.append(x.encode("ascii", "replace"))
+                iffbytes.append(0)
                 # If the string contains an even number of characters,
                 # add an extra 0-byte for padding
                 if (len(x) % 2 == 0):
-                    iffbytes = iffbytes + b"\x00"
-        iffbytes = struct.pack(">l", len(iffbytes)) + iffbytes
-        iffbytes = self._name.encode("ascii", "replace") + iffbytes
+                    iffbytes.append(0)
+        iffbytes.insert(0, struct.pack(">l", len(iffbytes)))
+        iffbytes.insert(0, self._name.encode("ascii", "replace"))
         return iffbytes
 
 
@@ -126,14 +126,24 @@ class IffFile:
             self.root_form = root_form
         elif isinstance(root_form, str):
             self.root_form = IffForm(root_form)
+        else:
+            raise TypeError(
+                "Root FORM must be a string (which will be made "
+                "into a FORM object with the given name) or a FORM object."
+            )
         if isinstance(filename, str):
             self.filename = filename
+        else:
+            raise TypeError("Filename must be a string")
 
     def to_xmf(self):
-        xmfString = 'IFF "' + self.filename + '"\n{'
-        xmfString = xmfString + self.root_form.to_xmf()
-        xmfString = xmfString + "}\n"
-        return xmfString
+        xmf_string = io.StringIO()
+        xmf_string.write('IFF "')
+        xmf_string.write(self.filename)
+        xmf_string.write('"\n{')
+        xmf_string.write(self.root_form.to_xmf())
+        xmf_string.write("}\n")
+        return xmf_string.getvalue()
 
     def to_bytes(self):
         return self.root_form.to_bytes()
