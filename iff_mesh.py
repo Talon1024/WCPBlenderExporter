@@ -59,23 +59,23 @@ class MeshIff(iff.IffFile):
         self._mhard = iff.IffForm("HARD")
         self.root_form.add_member(self._mhard)
 
-        self.mcoll = iff.IffForm("COLL")
-        self.root_form.add_member(self.mcoll)
+        self._mcoll = iff.IffForm("COLL")
+        self.root_form.add_member(self._mcoll)
 
         self._mfar = iff.IffChunk("FAR ", [float(0), float(900000)])
         self.root_form.add_member(self._mfar)
 
     def make_coll_sphr(self, X, Y, Z, radius):
-        if self.mcoll.has_members():
-            for mem in range(self.mcoll.get_num_members()):
-                self.mcoll.remove_member(mem)
+        if self._mcoll.has_members():
+            for mem in range(self._mcoll.get_num_members()):
+                self._mcoll.remove_member(mem)
 
         _mcollsphr = iff.IffChunk("SPHR")
         _mcollsphr.add_member(X)
         _mcollsphr.add_member(Y)
         _mcollsphr.add_member(Z)
         _mcollsphr.add_member(radius)
-        self.mcoll.add_member(_mcollsphr)
+        self._mcoll.add_member(_mcollsphr)
 
     def make_coll_tree(self):
         return NotImplemented
