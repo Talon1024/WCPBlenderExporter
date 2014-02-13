@@ -57,11 +57,11 @@ class IffForm:
     def to_bytes(self):
         iffbytes = bytearray()
         for x in self._members:
-            iffbytes.append(x.to_bytes())
-        iffbytes.insert(0, self._name.encode("ascii", "replace"))
+            iffbytes.extend(x.to_bytes())
+        iffbytes = bytes(iffbytes)
         formlen = len(iffbytes)
-        iffbytes.insert(0, struct.pack(">l", formlen))
-        iffbytes.insert(0, b"FORM")
+        iffbytes = struct.pack(">l", formlen) + iffbytes
+        iffbytes = b"FORM" + iffbytes
         return iffbytes
 
     def get_num_members(self):
@@ -104,18 +104,19 @@ class IffChunk(IffForm):
         iffbytes = bytearray()
         for x in self._members:
             if isinstance(x, int):
-                iffbytes.append(struct.pack("<l", x))
+                iffbytes.extend(struct.pack("<l", x))
             if isinstance(x, float):
-                iffbytes.append(struct.pack("<f", x))
+                iffbytes.extend(struct.pack("<f", x))
             if isinstance(x, str):
-                iffbytes.append(x.encode("ascii", "replace"))
+                iffbytes.extend(x.encode("ascii", "replace"))
                 iffbytes.append(0)
                 # If the string contains an even number of characters,
                 # add an extra 0-byte for padding
                 if (len(x) % 2 == 0):
                     iffbytes.append(0)
-        iffbytes.insert(0, struct.pack(">l", len(iffbytes)))
-        iffbytes.insert(0, self._name.encode("ascii", "replace"))
+        iffbytes = bytes(iffbytes)
+        iffbytes = struct.pack(">l", len(iffbytes)) + iffbytes
+        iffbytes = self._name.encode("ascii", "replace") + iffbytes
         return iffbytes
 
 
