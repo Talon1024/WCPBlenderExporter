@@ -59,7 +59,7 @@ class IffForm:
         for x in self._members:
             iffbytes.extend(x.to_bytes())
         iffbytes = bytes(iffbytes)
-        formlen = len(iffbytes)
+        formlen = len(iffbytes) + 4
         iffbytes = (b"FORM" +
                     struct.pack(">l", formlen) +
                     self._name.encode("ascii", "replace") +

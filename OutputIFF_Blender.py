@@ -285,11 +285,14 @@ def write_iff(filepath,
     by WCPPascal into a WCP/SO format mesh.
     """
     # Aliases to long function names
+    # Filename without extension
+    get_fname = bpy.path.display_name_from_filepath
     # Filename with extension
     get_bname = bpy.path.basename
 
     # Get directory path of output file, plus filename without extension
     filename = filepath[:filepath.rfind(".")]
+    modelname = get_fname(filepath)
 
     # Create an IFF mesh object
     imesh = iff_mesh.MeshIff(filename)
@@ -357,6 +360,10 @@ def write_iff(filepath,
         # Create an IFF mesh LOD object for this LOD
         imeshl = iff_mesh.MeshLODForm(lod)
 
+        #Name
+        imeshl_name = imeshl.get_name_chunk()
+        imeshl_name.add_member(modelname)
+
         #Vertices
         imeshl_verts = imeshl.get_vert_chunk()
         for v in bl_mesh.vertices:
@@ -369,9 +376,9 @@ def write_iff(filepath,
         imeshl_norms = imeshl.get_vtnm_chunk()
         for n in unique_normals:
             nx, ny, nz = n[:]
-            imeshl_norms.add_member(nx)
-            imeshl_norms.add_member(-ny)
-            imeshl_norms.add_member(nz)
+            imeshl_norms.add_member(float(nx))
+            imeshl_norms.add_member(float(-ny))
+            imeshl_norms.add_member(float(nz))
 
         # Vertices on each face
         imeshl_fvrts = imeshl.get_fvrt_chunk()
