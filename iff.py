@@ -60,8 +60,10 @@ class IffForm:
             iffbytes.extend(x.to_bytes())
         iffbytes = bytes(iffbytes)
         formlen = len(iffbytes)
-        iffbytes = struct.pack(">l", formlen) + iffbytes
-        iffbytes = b"FORM" + iffbytes
+        iffbytes = (b"FORM" +
+                    struct.pack(">l", formlen) +
+                    self._name.encode("ascii", "replace") +
+                    iffbytes)
         return iffbytes
 
     def get_num_members(self):
@@ -115,8 +117,9 @@ class IffChunk(IffForm):
                 if (len(x) % 2 == 0):
                     iffbytes.append(0)
         iffbytes = bytes(iffbytes)
-        iffbytes = struct.pack(">l", len(iffbytes)) + iffbytes
-        iffbytes = self._name.encode("ascii", "replace") + iffbytes
+        iffbytes = (self._name.encode("ascii", "replace") +
+                    struct.pack(">l", len(iffbytes)) +
+                    iffbytes)
         return iffbytes
 
 
