@@ -1,4 +1,5 @@
-#Classes for IFF data structures
+# -*- coding: utf8 -*-
+# Classes for IFF data structures
 import struct
 import io
 
@@ -74,8 +75,8 @@ class IffForm:
 
 
 class IffChunk(IffForm):
-    #A CHUNK is an IFF data structure that holds binary data,
-    #such as integers, floats, or strings.
+    # A CHUNK is an IFF data structure that holds binary data,
+    # such as integers, floats, or strings.
 
     def is_member_valid(self, member):
         if (isinstance(member, int) or

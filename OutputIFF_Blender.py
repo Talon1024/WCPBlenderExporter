@@ -236,7 +236,15 @@ def get_materials(lod_data, start_texnum, apply_modifiers):
                 # If the filename is numeric, use it as the texture index.
                 img_num = int(img_fname)
                 if img_num >= 0 and img_num <= 99999990:
-                    mtl_texnums[img_bname] = img_num
+                    # What if the user has two numeric image filenames that
+                    # are the same number? i.e. 424242.jpg and 424242.png
+                    if img_num not in mtl_texnums.values():
+                        mtl_texnums[img_bname] = img_num
+                    else:
+                        mtl_texnums[img_bname] = curr_txnum
+                        print(img_fname, "is already in use! Using",
+                            curr_txnum, "instead.")
+                        num_textures += 1
                 else:
                     # If the number is too big, use the "default" value.
                     mtl_texnums[img_bname] = curr_txnum
