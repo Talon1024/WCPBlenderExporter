@@ -210,15 +210,17 @@ def get_materials(lod_data, start_texnum, apply_modifiers):
     get_bname = bpy.path.basename  # Filename with extension
 
     num_lods = lod_data["num_lods"]
-    mtl_texnums = dict()  # Material texture filename -> texture index mapping
-    used_mtls = set()     # Materials used by the mesh
+    mtl_texnums = OrderedDict()  # Texture filename -> texture number mapping
+    used_mtls = []  # Materials used by the mesh
 
     # Get all of the material names used in each LOD mesh.
     for lod in range(num_lods):
         mesh = lod_data["LOD-" + str(lod)].to_mesh(
             bpy.context.scene, apply_modifiers, "PREVIEW")
         for f in mesh.tessfaces:
-            used_mtls.add(mesh.materials[f.material_index].name)
+            mtl_name = mesh.materials[f.material_index].name
+            if mtl_name not in used_mtls:
+                used_mtls.append(mtl_name)
 
     # Get the textures and associate each texture with a material number,
     # beginning at the user's specified starting texture number.
