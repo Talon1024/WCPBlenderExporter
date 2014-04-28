@@ -20,6 +20,7 @@
 import iff_mesh
 import bpy
 from math import sin, cos
+from collections import OrderedDict
 
 MAX_NUM_LODS = 3
 LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
@@ -211,15 +212,18 @@ def get_materials(lod_data, start_texnum, apply_modifiers):
     get_bname = bpy.path.basename  # Filename with extension
 
     num_lods = lod_data["num_lods"]
-    mtl_texnums = dict()  # Material texture filename -> texture index mapping
-    used_mtls = set()     # Materials used by the mesh
+    # Use OrderedDict to retain order of texture -> texnum
+    mtl_texnums = OrderedDict()  # Texture filename -> texture number mapping
+    used_mtls = []  # Materials used by the mesh
 
     # Get all of the material names used in each LOD mesh.
     for lod in range(num_lods):
         mesh = lod_data["LOD-" + str(lod)].to_mesh(
             bpy.context.scene, apply_modifiers, "PREVIEW")
         for f in mesh.tessfaces:
-            used_mtls.add(mesh.materials[f.material_index].name)
+            cur_mtl = mesh.materials[f.material_index].name
+            if cur_mtl not in used_mtls:
+                used_mtls.add(cur_mtl)
 
     # Get the textures and associate each texture with a material number,
     # beginning at the user's specified starting texture number.
