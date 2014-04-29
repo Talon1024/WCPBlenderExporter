@@ -65,12 +65,22 @@ For modders who want to use this exporter script, an example .blend file and acc
 ## Getting involved (Testing)
 
 If you want to try out the latest version of this thing yourself:
+
 1. Follow the installation instructions above, but instead of downloading a release, clone this repository to get the latest development version of the code
 2. Copy all the .py files to the `addons` folder under your Blender scripts folder.
 
-To clone the repository, open the Linux terminal/Command prompt/Git Bash/whatever you use, go to a directory outside of your Blender scripts folder, and type in `git clone https://github.com/Talon1024/WCPBlenderExporter`. This will create a folder named "WCPBlenderExporter" containing the latest versions of the code files.
+To clone the repository:
 
-To update to the latest development version of the code, go to the folder you cloned the repository into using the Linux terminal/Command prompt/Git Bash/whatever you use, and type in `git pull origin master`.
+1. Open the Linux terminal/Command prompt/Git Bash/whatever you use.
+2. Go to a directory outside of your Blender scripts folder.
+3. Type in `git clone https://github.com/Talon1024/WCPBlenderExporter`, and press enter.
+
+This will create a folder named "WCPBlenderExporter" containing the latest versions of the code files.
+
+To update to the latest development version of the code:
+
+1. Go to the folder you cloned the repository into using the Linux terminal/Command prompt/Git Bash/whatever you use.
+2. Type in `git pull origin master`, and press enter.
 
 ## Getting involved (Development)
 
