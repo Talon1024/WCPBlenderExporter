@@ -223,7 +223,7 @@ def get_materials(lod_data, start_texnum, apply_modifiers):
         for f in mesh.tessfaces:
             cur_mtl = mesh.materials[f.material_index].name
             if cur_mtl not in used_mtls:
-                used_mtls.add(cur_mtl)
+                used_mtls.append(cur_mtl)
 
     # Get the textures and associate each texture with a material number,
     # beginning at the user's specified starting texture number.
