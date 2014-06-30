@@ -138,8 +138,8 @@ def get_lod_data(ACTIVE_OBJ_AS_LOD0):
                 num_lods += 1
             else:    # Otherwise, use the detail-0 object
                 try:
-                    lod_data["LOD-" + str(lod)] = \
-                        bpy.data.objects[LOD_NAMES[lod]]
+                    lod_data["LOD-" + str(lod)] = (
+                        bpy.data.objects[LOD_NAMES[lod]])
                     if bpy.data.objects[LOD_NAMES[lod]].type != "MESH":
                         error_msg = LOD_NAMES[lod] + " is not a mesh!"
                         return ({"ERROR"}, error_msg)
@@ -151,8 +151,8 @@ def get_lod_data(ACTIVE_OBJ_AS_LOD0):
                     return ({"ERROR"}, error_msg)
         else:   # Other LODs
             try:
-                lod_data["LOD-" + str(lod)] = \
-                    bpy.data.objects[LOD_NAMES[lod]]
+                lod_data["LOD-" + str(lod)] = (
+                    bpy.data.objects[LOD_NAMES[lod]])
                 num_lods += 1
             except KeyError:
                 print("Unable to find a mesh for LOD " + str(lod))
@@ -204,6 +204,14 @@ def calc_dplane(vert, facenrm):
     return dplane
 
 
+def get_first_texture_slot(mtl):
+    for mtex in reversed(mtl.texture_slots):
+        if mtex:
+            return mtex
+    else:
+        return None
+
+
 def get_materials(lod_data, start_texnum, apply_modifiers):
     """Convert all of the named material textures to texture indices.
     Returns a mapping from material texture filenames to texture indices."""
@@ -230,7 +238,7 @@ def get_materials(lod_data, start_texnum, apply_modifiers):
     num_textures = 0
     for mtl_name in used_mtls:
         curr_mtl = bpy.data.materials[mtl_name]
-        curr_tx = curr_mtl.texture_slots[0].texture
+        curr_tx = get_first_texture_slot(curr_mtl)
         curr_txnum = start_texnum + num_textures
 
         if curr_tx.type == "IMAGE":
@@ -269,7 +277,7 @@ def get_materials(lod_data, start_texnum, apply_modifiers):
     return mtl_texnums
 
 
-def get_txinfo(mtl_texnums, as_comment=True):
+def get_txinfo(mtl_texnums, as_comment=False):
     """Gets a string showing the Image Filename->Texture number"""
     # Used to make the Image Filename->Material Number list
     # easier to read.

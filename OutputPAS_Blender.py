@@ -19,6 +19,7 @@
 
 import bpy
 from math import sin, cos
+from collections import OrderedDict
 
 MAX_NUM_LODS = 3
 LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
@@ -136,8 +137,8 @@ def get_lod_data(ACTIVE_OBJ_AS_LOD0):
                 num_lods += 1
             else:    # Otherwise, use the detail-0 object
                 try:
-                    lod_data["LOD-" + str(lod)] = \
-                        bpy.data.objects[LOD_NAMES[lod]]
+                    lod_data["LOD-" + str(lod)] = (
+                        bpy.data.objects[LOD_NAMES[lod]])
                     if bpy.data.objects[LOD_NAMES[lod]].type != "MESH":
                         error_msg = LOD_NAMES[lod] + " is not a mesh!"
                         return ({"ERROR"}, error_msg)
@@ -149,8 +150,8 @@ def get_lod_data(ACTIVE_OBJ_AS_LOD0):
                     return ({"ERROR"}, error_msg)
         else:   # Other LODs
             try:
-                lod_data["LOD-" + str(lod)] = \
-                    bpy.data.objects[LOD_NAMES[lod]]
+                lod_data["LOD-" + str(lod)] = (
+                    bpy.data.objects[LOD_NAMES[lod]])
                 num_lods += 1
             except KeyError:
                 print("Unable to find a mesh for LOD " + str(lod))
@@ -202,6 +203,14 @@ def calc_dplane(vert, facenrm):
     return dplane
 
 
+def get_first_texture_slot(mtl):
+    for mtex in reversed(mtl.texture_slots):
+        if mtex:
+            return mtex
+    else:
+        return None
+
+
 def get_materials(lod_data, start_texnum, apply_modifiers):
     """Convert all of the named material textures to texture indices.
     Returns a mapping from material texture filenames to texture indices."""
@@ -210,6 +219,7 @@ def get_materials(lod_data, start_texnum, apply_modifiers):
     get_bname = bpy.path.basename  # Filename with extension
 
     num_lods = lod_data["num_lods"]
+    # Use OrderedDict to retain order of texture -> texnum
     mtl_texnums = OrderedDict()  # Texture filename -> texture number mapping
     used_mtls = []  # Materials used by the mesh
 
@@ -218,16 +228,16 @@ def get_materials(lod_data, start_texnum, apply_modifiers):
         mesh = lod_data["LOD-" + str(lod)].to_mesh(
             bpy.context.scene, apply_modifiers, "PREVIEW")
         for f in mesh.tessfaces:
-            mtl_name = mesh.materials[f.material_index].name
-            if mtl_name not in used_mtls:
-                used_mtls.append(mtl_name)
+            cur_mtl = mesh.materials[f.material_index].name
+            if cur_mtl not in used_mtls:
+                used_mtls.append(cur_mtl)
 
     # Get the textures and associate each texture with a material number,
     # beginning at the user's specified starting texture number.
     num_textures = 0
     for mtl_name in used_mtls:
         curr_mtl = bpy.data.materials[mtl_name]
-        curr_tx = curr_mtl.texture_slots[0].texture
+        curr_tx = get_first_texture_slot(curr_mtl)
         curr_txnum = start_texnum + num_textures
 
         if curr_tx.type == "IMAGE":
@@ -237,7 +247,15 @@ def get_materials(lod_data, start_texnum, apply_modifiers):
                 # If the filename is numeric, use it as the texture index.
                 img_num = int(img_fname)
                 if img_num >= 0 and img_num <= 99999990:
-                    mtl_texnums[img_bname] = img_num
+                    # What if the user has two numeric image filenames that
+                    # are the same number? i.e. 424242.jpg and 424242.png
+                    if img_num not in mtl_texnums.values():
+                        mtl_texnums[img_bname] = img_num
+                    else:
+                        mtl_texnums[img_bname] = curr_txnum
+                        print(img_fname, "is already in use! Using",
+                            curr_txnum, "instead.")
+                        num_textures += 1
                 else:
                     # If the number is too big, use the "default" value.
                     mtl_texnums[img_bname] = curr_txnum
