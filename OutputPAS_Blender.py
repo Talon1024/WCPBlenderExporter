@@ -1,5 +1,6 @@
+# -*- coding: utf8 -*-
 #  Blender WCP IFF source exporter script by Kevin Caccamo
-#  Copyright (C) 2013 Kevin Caccamo
+#  Copyright (C) 2013-2014 Kevin Caccamo
 #  E-mail: kevin@ciinet.org
 #
 #  This program is free software; you can redistribute it and/or
@@ -24,6 +25,9 @@ from collections import OrderedDict
 MAX_NUM_LODS = 3
 LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
 LFLAG_FULLBRIGHT = 2
+# Non-critical warnings will be reported to Blender. Critical errors will be
+# exceptions.
+warnings = []
 
 
 def calc_rot_matrix(rx, ry, rz):
@@ -126,35 +130,52 @@ def get_lod_data(ACTIVE_OBJ_AS_LOD0):
 
     # Get the LOD data
     lod_data = dict()
-    ob = bpy.context.active_object
     for lod in range(MAX_NUM_LODS):
+        ob = None
+        lod_ob_name = LOD_NAMES[lod]
         if lod == 0:    # LOD 0 can either be the active object or detail-0
             # If the user wants to use the active object...
+            ob = bpy.context.active_object
             if (ACTIVE_OBJ_AS_LOD0 and
-                    ob.type == "MESH" and
-                    ob.name not in LOD_NAMES):
-                lod_data["LOD-" + str(lod)] = ob
-                num_lods += 1
+                    ob.name != lod_ob_name):
+                if ob.type == "MESH":
+                    ob = bpy.context.active_object
+                    lod_data["LOD-" + str(lod)] = ob
+                    num_lods += 1
+                else:
+                    error_msg = "Object " + ob.name + " is not a mesh!"
+                    warnings.append(({"INFO"}, error_msg))
+                    ob = bpy.data.objects[lod_ob_name]
+                    try:
+                        lod_data["LOD-" + str(lod)] = ob
+                        if ob.type != "MESH":
+                            error_msg = lod_ob_name + " is not a mesh!"
+                            raise TypeError(error_msg)
+                        num_lods += 1
+                    except KeyError:
+                        error_msg = ("Cannot find an object named " +
+                                     lod_ob_name + "!")
+                        raise KeyError(error_msg)
             else:    # Otherwise, use the detail-0 object
+                ob = bpy.data.objects[lod_ob_name]
                 try:
-                    lod_data["LOD-" + str(lod)] = (
-                        bpy.data.objects[LOD_NAMES[lod]])
-                    if bpy.data.objects[LOD_NAMES[lod]].type != "MESH":
-                        error_msg = LOD_NAMES[lod] + " is not a mesh!"
-                        return ({"ERROR"}, error_msg)
+                    lod_data["LOD-" + str(lod)] = ob
+                    if ob.type != "MESH":
+                        error_msg = lod_ob_name + " is not a mesh!"
+                        raise TypeError(error_msg)
                     num_lods += 1
                 except KeyError:
                     error_msg = ("Cannot find an object named " +
-                                 LOD_NAMES[lod] + "!")
-                    print(error_msg)
-                    return ({"ERROR"}, error_msg)
+                                 lod_ob_name + "!")
+                    raise KeyError(error_msg)
         else:   # Other LODs
             try:
-                lod_data["LOD-" + str(lod)] = (
-                    bpy.data.objects[LOD_NAMES[lod]])
+                ob = bpy.data.objects[lod_ob_name]
+                lod_data["LOD-" + str(lod)] = ob
                 num_lods += 1
             except KeyError:
-                print("Unable to find a mesh for LOD " + str(lod))
+                error_msg = "Unable to find a mesh for LOD " + str(lod)
+                warnings.append(({"INFO"}, error_msg))
     lod_data["num_lods"] = num_lods
     return lod_data
 
@@ -237,7 +258,7 @@ def get_materials(lod_data, start_texnum, apply_modifiers):
     num_textures = 0
     for mtl_name in used_mtls:
         curr_mtl = bpy.data.materials[mtl_name]
-        curr_tx = get_first_texture_slot(curr_mtl)
+        curr_tx = get_first_texture_slot(curr_mtl).texture
         curr_txnum = start_texnum + num_textures
 
         if curr_tx.type == "IMAGE":
@@ -254,7 +275,7 @@ def get_materials(lod_data, start_texnum, apply_modifiers):
                     else:
                         mtl_texnums[img_bname] = curr_txnum
                         print(img_fname, "is already in use! Using",
-                            curr_txnum, "instead.")
+                              curr_txnum, "instead.")
                         num_textures += 1
                 else:
                     # If the number is too big, use the "default" value.
@@ -271,8 +292,7 @@ def get_materials(lod_data, start_texnum, apply_modifiers):
                     num_textures += 1
         else:
             error_msg = curr_tx.name + " is not an image texture."
-            print(error_msg)
-            return ({"ERROR"}, error_msg)
+            raise TypeError(error_msg)
     return mtl_texnums
 
 
@@ -634,3 +654,4 @@ def write_iff(filepath,
           '}', '\n',
           sep='', file=outfile)
     outfile.close()
+    return warnings

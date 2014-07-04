@@ -145,10 +145,9 @@ class ExportIFF(Operator, ExportHelper):
         status = OutputIFF_Blender.write_iff(
                     self.filepath, self.texnum, self.apply_modifiers,
                     self.active_as_lod0)
-        if type(status) == tuple:
-            self.report(*status)
-            return {'CANCELLED'}
-        return {'FINISHED'}
+        for warning in status:
+            self.report(*warning)
+        return {"FINISHED"}
 
 
 # Only needed if you want to add into a dynamic menu
