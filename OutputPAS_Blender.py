@@ -79,12 +79,12 @@ def multiply_3x3_matrices(matrix1, matrix2):
          matrix1[0][1] * matrix2[1][0] +
          matrix1[0][2] * matrix2[2][0],
 
-        # First row of matrix1 * second column of matrix2
+         # First row of matrix1 * second column of matrix2
          matrix1[0][0] * matrix2[0][1] +
          matrix1[0][1] * matrix2[1][1] +
          matrix1[0][2] * matrix2[2][1],
 
-        # First row of matrix1 * third column of matrix2
+         # First row of matrix1 * third column of matrix2
          matrix1[0][0] * matrix2[0][2] +
          matrix1[0][1] * matrix2[1][2] +
          matrix1[0][2] * matrix2[2][2]],
@@ -95,12 +95,12 @@ def multiply_3x3_matrices(matrix1, matrix2):
          matrix1[1][1] * matrix2[1][0] +
          matrix1[1][2] * matrix2[2][0],
 
-        # Second row of matrix1 * second column of matrix2
+         # Second row of matrix1 * second column of matrix2
          matrix1[1][0] * matrix2[0][1] +
          matrix1[1][1] * matrix2[1][1] +
          matrix1[1][2] * matrix2[2][1],
 
-        # Second row of matrix1 * third column of matrix2
+         # Second row of matrix1 * third column of matrix2
          matrix1[1][0] * matrix2[0][2] +
          matrix1[1][1] * matrix2[1][2] +
          matrix1[1][2] * matrix2[2][2]],
@@ -111,12 +111,12 @@ def multiply_3x3_matrices(matrix1, matrix2):
          matrix1[2][1] * matrix2[1][0] +
          matrix1[2][2] * matrix2[2][0],
 
-        # Third row of matrix1 * second column of matrix2
+         # Third row of matrix1 * second column of matrix2
          matrix1[2][0] * matrix2[0][1] +
          matrix1[2][1] * matrix2[1][1] +
          matrix1[2][2] * matrix2[2][1],
 
-        # Third row of matrix1 * third column of matrix2
+         # Third row of matrix1 * third column of matrix2
          matrix1[2][0] * matrix2[0][2] +
          matrix1[2][1] * matrix2[1][2] +
          matrix1[2][2] * matrix2[2][2]]
@@ -538,7 +538,7 @@ def write_iff(filepath,
         # I might as well do it this way, plus, it makes code lines shorter.
         ffmt = "float {:.6f}\n".format
 
-        #Vertices
+        # Vertices
         print(' '*12, '}', '\n',
               ' '*12, 'CHUNK "VERT"', '\n',
               ' '*12, '{',
@@ -546,7 +546,7 @@ def write_iff(filepath,
 
         write_verts(outfile, mesh.vertices)
 
-        #Normals
+        # Normals
         print(' '*12, '}', '\n',
               ' '*12, 'CHUNK "VTNM"', '\n',
               ' '*12, '{',
@@ -562,7 +562,7 @@ def write_iff(filepath,
 
         write_fvrts(outfile, mesh, fnrmrefs, vnrmrefs)
 
-        #Faces
+        # Faces
         print(' '*12, '}', '\n',
               ' '*12, 'CHUNK "FACE"', '\n',
               ' '*12, '{',
