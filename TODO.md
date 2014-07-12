@@ -1,5 +1,9 @@
 # TODO #
 
+## Planned features ##
+
+- BSP tree builder for corvette and capship component meshes.
+
 ## Short-term goals ##
 
 - Implement axis conversion.

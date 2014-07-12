@@ -89,8 +89,4 @@ To update to the latest development version of the code:
 
 ## Getting involved (Development)
 
-If you want to contribute to this project, get the latest development version of the code, and check out the issues page, or the planned features below.
-
-## Planned features
-These are features planned for future versions of Blender Commander, and they are not implemented yet.
- - BSP tree generation for corvette and capital ship component meshes.
+If you want to contribute to this project, get the latest development version of the code, and check out the issues page, or the [TODO Document](TODO.md).
