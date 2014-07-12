@@ -1,0 +1,11 @@
+# TODO #
+
+## Short-term goals ##
+
+- Implement axis conversion.
+- (Possibly) merge the PAS and IFF exporter initialization scripts into one file.
+
+## Long-term goals ##
+
+- Write a BSP tree builder, both in Python and C++.
+- Create a web service for Apache that allows users to upload a model, and download a BSP tree for it.
