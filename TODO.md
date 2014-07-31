@@ -7,7 +7,8 @@
 ## Short-term goals ##
 
 - Implement axis conversion.
-- (Possibly) merge the PAS and IFF exporter initialization scripts into one file.
+- Merge the PAS and IFF exporter initialization scripts into one file.
+- Convert export backends to object-oriented style
 
 ## Long-term goals ##
 

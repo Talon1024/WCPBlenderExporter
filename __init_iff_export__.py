@@ -122,29 +122,31 @@ class ExportIFF(Operator, ExportHelper):
 
     def execute(self, context):
         ##axis_conversion(self.axis_forward, self.axis_up, "Z", "Y")
-        if context.active_object.type == "MESH":
-            pass
-        else:
-            # If the user's active object is not a mesh,
-            # use a mesh object named detail-0
-            self.active_as_lod0 = False
-            print("Active object is not a mesh!"
-                  " Using an object named detail-0 instead...")
+        if self.active_as_lod0:
+            ob = context.active_object
+            if (ob.type == "MESH" and
+                    ob.name not in OutputIFF_Blender.LOD_NAMES):
+                pass
+            else:
+                # If the user's active object is not a mesh, or if
+                # the user's active object has a reserved name, use
+                # a mesh object named detail-0
+                self.active_as_lod0 = False
         try:
-            if self.active_as_lod0 == False:
+            if not self.active_as_lod0:
                 bpy.data.objects["detail-0"]
-            PASFile = open(self.filepath, "x")
-            PASFile.close()
+            OutFile = open(self.filepath, "x")
+            OutFile.close()
         except KeyError:
-            print("Unable to find an LOD 0 mesh in the scene!"
-                  " Make sure you have an object named 'detail-0'")
+            raise KeyError("Unable to find an LOD 0 mesh in the scene!"
+                        " Make sure you have an object named 'detail-0'")
         except FileExistsError:
-            print("File already exists!")
+            self.report({"INFO"}, "File already exists!")
 
-        print("running write_pas...")
         status = OutputIFF_Blender.write_iff(
                     self.filepath, self.texnum, self.apply_modifiers,
-                    self.active_as_lod0)
+                    self.active_as_lod0
+                )
         for warning in status:
             self.report(*warning)
         return {"FINISHED"}

@@ -135,8 +135,8 @@ class ExportPAS(Operator, ExportHelper):
             PASFile = open(self.filepath, "x")
             PASFile.close()
         except KeyError:
-            print("Unable to find an LOD 0 mesh in the scene!"
-                  " Make sure you have an object named 'detail-0'")
+            raise KeyError("Unable to find an LOD 0 mesh in the scene!"
+                        " Make sure you have an object named 'detail-0'")
         except FileExistsError:
             print("File already exists!")
 

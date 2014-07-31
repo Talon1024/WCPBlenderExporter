@@ -123,17 +123,20 @@ class ExportIFF(Operator, ExportHelper):
     #         )
 
     def execute(self, context):
-        axis_conversion(self.axis_forward, self.axis_up, "Z", "Y")
+        # Get the matrix to transform the model to "WCP/SO" orientation
+        pretransform_matrix = axis_conversion(
+            self.axis_forward, self.axis_up, "Z", "Y"
+        ).to_4x4()
 
         # Create the output file if it doesn't already exist
         try:
-            OutFile = open(self.filepath, "x")
-            OutFile.close()
+            outfile = open(self.filepath, "x")
+            outfile.close()
         except FileExistsError:
             self.report({"INFO"}, "File already exists!")
         status = OutputIFF_Blender.write_iff(
             self.filepath, self.texnum, self.apply_modifiers,
-            self.active_as_lod0
+            self.active_as_lod0 #, self.pretransform_matrix
         )
         for message in status:
             self.report(*message)
@@ -212,17 +215,20 @@ class ExportXMF(Operator, ExportHelper):
     )
 
     def execute(self, context):
-        axis_conversion(self.axis_forward, self.axis_up, "Z", "Y")
+        # Get the matrix to transform the model to "WCP/SO" orientation
+        pretransform_matrix = axis_conversion(
+            self.axis_forward, self.axis_up, "Z", "Y"
+        ).to_4x4()
 
         # Create the output file if it doesn't already exist
         try:
-            OutFile = open(self.filepath, "x")
-            OutFile.close()
+            outfile = open(self.filepath, "x")
+            outfile.close()
         except FileExistsError:
             self.report({"INFO"}, "File already exists!")
         status = OutputPAS_Blender.write_iff(
             self.filepath, self.texnum, self.apply_modifiers,
-            self.active_as_lod0
+            self.active_as_lod0 #, self.pretransform_matrix
         )
         for message in status:
             self.report(*message)
