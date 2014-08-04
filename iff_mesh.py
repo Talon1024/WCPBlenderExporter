@@ -1,4 +1,5 @@
 import iff
+import warnings
 
 
 class MeshLODForm(iff.IffForm):
@@ -23,25 +24,125 @@ class MeshLODForm(iff.IffForm):
         self._mesh_form.add_member(self._geom_form)
         self._members = [self._mesh_form]
 
+    def set_name(self, name):
+        if name_chunk.has_members():
+            name_chunk.clear_members()
+        if isinstance(name, str):
+            name_chunk.add_member(name)
+        else:
+            raise TypeError("Name of this mesh LOD must be a string!")
+
+    def add_vertex(self, vx, vy, vz):
+        # Check data types before adding to respective chunks
+        if (isinstance(vx, float) and
+                isinstance(vy, float) and
+                isinstance(vz, float)):
+            vert_chunk.add_member(vx)
+            vert_chunk.add_member(vy)
+            vert_chunk.add_member(vz)
+        else:
+            raise TypeError("The vertex coordinates must be floating point"
+                            " values!")
+
+    def add_normal(self, nx, ny, nz):
+        # Check data types before adding to respective chunks
+        if (isinstance(nx, float) and
+                isinstance(ny, float) and
+                isinstance(nz, float)):
+            vtnm_chunk.add_member(nx)
+            vtnm_chunk.add_member(ny)
+            vtnm_chunk.add_member(nz)
+        else:
+            raise TypeError("The normal vector must be floating point"
+                            " values!")
+
+    def add_fvrt(self, vert_idx, vtnm_idx, uv_x, uv_y):
+        if (not(isinstance(vert_idx, int) and
+                isinstance(vtnm_idx, int))):
+            raise TypeError("The vertex and vertex normal indices must"
+                            " be integers!")
+        if (not(isinstance(uv_x, float) and
+                isinstance(uv_y, float))):
+            raise TypeError("The UV coordinates must be floating point"
+                            " values!")
+        # Both data types have been checked, so
+        # we know we can safely add them to the chunk
+        fvrt_chunk.add_member(vert_idx)
+        fvrt_chunk.add_member(vtnm_idx)
+        fvrt_chunk.add_member(uv_x)
+        fvrt_chunk.add_member(uv_y)
+
+    def add_face(self, vtnm_idx, dplane, texnum,
+                 fvrt_idx, num_verts, light_flags):
+        if not isinstance(vtnm_idx, int):
+            raise TypeError("Vertex normal index must be an integer!")
+        if not isinstance(dplane, float):
+            raise TypeError("D-Plane value must be a floating point number!")
+        if not isinstance(texnum, int):
+            raise TypeError("Texture number must be an integer!")
+        if not isinstance(fvrt_idx, int):
+            raise TypeError("First FVRT index must be an integer!")
+        if not isinstance(num_verts, int):
+            raise TypeError("Number of vertices must be an integer!")
+        if not isinstance(light_flags, int):
+            raise TypeError("Lighting wordflag must be an integer!")
+        face_chunk.add_member(vtnm_idx)  # Face normal
+        face_chunk.add_member(dplane)  # D-Plane
+        face_chunk.add_member(texnum)  # Texture number
+        face_chunk.add_member(fvrt_idx)  # Index of face's first FVRT
+        face_chunk.add_member(num_verts)  # Number of vertices
+        face_chunk.add_member(light_flags)  # Lighting flags
+        face_chunk.add_member(0x7F0096FF)  # Unknown
+
+    def set_center(self, cx, cy, cz):
+        if cntr_chunk.has_members():
+            cntr_chunk.clear_members()
+        if (isinstance(cx, float) and
+                isinstance(cy, float) and
+                isinstance(cz, float)):
+            cntr_chunk.add_member(cx)
+            cntr_chunk.add_member(cy)
+            cntr_chunk.add_member(cz)
+        else:
+            raise TypeError("Center coordinates must be floating point"
+                            " values!")
+
+    def set_radius(self, radius):
+        if radi_chunk.has_members():
+            radi_chunk.clear_members()
+        if isinstance(radius, float):
+            radi_chunk.add_member(radius)
+        else:
+            raise TypeError("Radius must be a floating point value!")
+
+
+    # Do not use! These methods are only here for backwards compatibility
     def get_name_chunk(self):
+        warnings.warn("get_name_chunk is deprecated!", DeprecationWarning)
         return self.name_chunk
 
     def get_vert_chunk(self):
+        warnings.warn("get_vert_chunk is deprecated!", DeprecationWarning)
         return self.vert_chunk
 
     def get_vtnm_chunk(self):
+        warnings.warn("get_vtnm_chunk is deprecated!", DeprecationWarning)
         return self.vtnm_chunk
 
     def get_fvrt_chunk(self):
+        warnings.warn("get_fvrt_chunk is deprecated!", DeprecationWarning)
         return self.fvrt_chunk
 
     def get_face_chunk(self):
+        warnings.warn("get_face_chunk is deprecated!", DeprecationWarning)
         return self.face_chunk
 
     def get_cntr_chunk(self):
+        warnings.warn("get_cntr_chunk is deprecated!", DeprecationWarning)
         return self.cntr_chunk
 
     def get_radi_chunk(self):
+        warnings.warn("get_radi_chunk is deprecated!", DeprecationWarning)
         return self.radi_chunk
 
 
@@ -80,9 +181,6 @@ class MeshIff(iff.IffFile):
     def make_coll_tree(self):
         return NotImplemented
 
-    def get_meshes_form(self):
-        return self.mmeshes
-
     def add_hardpt(self, x, y, z, rot_matrix, name):
         hardpt = iff.IffChunk("HARD")
         hardpt.add_member(rot_matrix[0][0])
@@ -106,3 +204,11 @@ class MeshIff(iff.IffFile):
     def remove_hardpts(self):
         for mem in range(self.root_form.get_num_members()):
             self._mhard.remove_member(mem)
+
+    def add_lod(self, lod):
+        if isinstance(lod, MeshLODForm):
+            self.mmeshes.add_member(lod)
+
+    def get_meshes_form(self):
+        warnings.warn("get_meshes_form is deprecated!", DeprecationWarning)
+        return self.mmeshes

@@ -136,7 +136,7 @@ class ExportIFF(Operator, ExportHelper):
             self.report({"INFO"}, "File already exists!")
         status = OutputIFF_Blender.write_iff(
             self.filepath, self.texnum, self.apply_modifiers,
-            self.active_as_lod0 #, self.pretransform_matrix
+            self.active_as_lod0 #, pretransform_matrix
         )
         for message in status:
             self.report(*message)
@@ -228,7 +228,7 @@ class ExportXMF(Operator, ExportHelper):
             self.report({"INFO"}, "File already exists!")
         status = OutputPAS_Blender.write_iff(
             self.filepath, self.texnum, self.apply_modifiers,
-            self.active_as_lod0 #, self.pretransform_matrix
+            self.active_as_lod0 #, pretransform_matrix
         )
         for message in status:
             self.report(*message)

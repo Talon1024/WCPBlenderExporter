@@ -73,6 +73,10 @@ class IffForm:
     def has_members(self):
         return len(self._members) > 0
 
+    def clear_members(self):
+        """Remove all members from this FORM"""
+        self._members = []
+
 
 class IffChunk(IffForm):
     # A CHUNK is an IFF data structure that holds binary data,
