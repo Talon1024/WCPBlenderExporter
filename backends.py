@@ -546,19 +546,21 @@ class PASExporter(ExportBackend):
         get_bname = bpy.path.basename  # Filename with extension
 
         # Get LOD data and number of LODs
-        lod_data = get_lod_data(active_obj_as_lod0)
+        lod_data = self.get_lod_data(active_obj_as_lod0)
         if type(lod_data) == tuple:  # tuple means error
             return lod_data
         num_lods = lod_data["num_lods"]
 
         # Get the hardpoints
-        hardpoints = get_hardpoints()
+        hardpoints = self.get_hardpoints()
 
         # Get filename w/o extension
         filename = bpy.path.display_name_from_filepath(filepath)
 
         # Get texture indices for each material
-        mtl_texnums = get_materials(lod_data, start_texnum, apply_modifiers)
+        mtl_texnums = self.get_materials(
+            lod_data, start_texnum, apply_modifiers
+        )
         if type(mtl_texnums) == tuple:  # tuple means error
             return mtl_texnums
 
@@ -568,7 +570,7 @@ class PASExporter(ExportBackend):
         print('IFF "', filename, '.iff"', '\n',
               sep="", file=outfile)
 
-        print(get_txinfo(mtl_texnums), file=outfile)
+        print(self.get_txinfo(mtl_texnums), file=outfile)
 
         print('{', '\n',
               ' '*2, 'FORM "DETA"', '\n',
@@ -762,7 +764,7 @@ class PASExporter(ExportBackend):
 
             # Location, radius metadata for this LOD
             loc = lod_data["LOD-" + str(lod)].location
-            radius = calc_radius(lod_data["LOD-" + str(lod)].dimensions)
+            radius = self.calc_radius(lod_data["LOD-" + str(lod)].dimensions)
 
             # Center of object
             print('            }', '\n',
@@ -819,11 +821,11 @@ class PASExporter(ExportBackend):
             else:
                 print("collsphr object must be an empty")
                 loc = lod_data["LOD-0"].location
-                radius = calc_radius(lod_data["LOD-0"].dimensions)
+                radius = self.calc_radius(lod_data["LOD-0"].dimensions)
         except KeyError:
             print("collsphr object not found")
             loc = lod_data["LOD-0"].location
-            radius = calc_radius(lod_data["LOD-0"].dimensions)
+            radius = self.calc_radius(lod_data["LOD-0"].dimensions)
         print(' '*4, '}', '\n',
               ' '*4, 'FORM "COLL"', '\n',      # Collision info
               ' '*4, '{', '\n',
