@@ -30,6 +30,7 @@ LFLAG_FULLBRIGHT = 2
 # exceptions.
 warnings = []
 
+
 class ExportBackend:
 
     def calc_rot_matrix(self, rx, ry, rz):
@@ -66,7 +67,6 @@ class ExportBackend:
         rot_matrix = self.multiply_3x3_matrices(matrix_z, matrix_y)
         rot_matrix = self.multiply_3x3_matrices(rot_matrix, matrix_x)
         return rot_matrix
-
 
     def multiply_3x3_matrices(self, matrix1, matrix2):
         """
@@ -125,7 +125,6 @@ class ExportBackend:
         ]
         return result_matrix
 
-
     def get_lod_data(self, ACTIVE_OBJ_AS_LOD0):
         """Get the level of detail data pertinent to the game engine"""
         num_lods = 0
@@ -181,7 +180,6 @@ class ExportBackend:
         lod_data["num_lods"] = num_lods
         return lod_data
 
-
     def get_hardpoints(self):
         """
         For all empties named "hp-xxxx" in the scene,
@@ -205,7 +203,6 @@ class ExportBackend:
                 )
         return hardpoints
 
-
     def calc_radius(self, dim):
         """Calculate the radius of the model.
 
@@ -214,7 +211,6 @@ class ExportBackend:
         max_bb = max(dim)
         radius = max_bb / 2
         return radius
-
 
     def calc_dplane(self, vert, facenrm):
         """Calculate the D-Plane of the face.
@@ -229,7 +225,6 @@ class ExportBackend:
                    (facenrm[2] * vert[2]))
         return dplane
 
-
     def get_first_texture_slot(self, mtl):
         for mtex in reversed(mtl.texture_slots):
             if mtex:
@@ -237,18 +232,24 @@ class ExportBackend:
         else:
             return None
 
-
     def get_materials(self, lod_data, start_texnum, apply_modifiers):
-        """Convert all of the named material textures to texture indices.
-        Returns a mapping from material texture filenames to texture indices."""
+        """Convert all of the named material textures to
+        texture indices.
+
+        Returns a mapping from material texture filenames
+        to texture indices."""
         # Aliases to long function names
-        get_fname = bpy.path.display_name_from_filepath  # Filename w/o extension
-        get_bname = bpy.path.basename  # Filename with extension
+        # Filename w/o extension
+        get_fname = bpy.path.display_name_from_filepath
+        # Filename with extension
+        get_bname = bpy.path.basename
 
         num_lods = lod_data["num_lods"]
         # Use OrderedDict to retain order of texture -> texnum
-        mtl_texnums = OrderedDict()  # Texture filename -> texture number mapping
-        used_mtls = []  # Materials used by the mesh
+        # Texture filename -> texture number mapping
+        mtl_texnums = OrderedDict()
+        # Materials used by the mesh
+        used_mtls = []
 
         # Get all of the material names used in each LOD mesh.
         for lod in range(num_lods):
@@ -301,7 +302,6 @@ class ExportBackend:
                 raise TypeError(error_msg)
         return mtl_texnums
 
-
     def get_txinfo(self, mtl_texnums, as_comment=False):
         """Gets a string showing the Image Filename->Texture number"""
         # Used to make the Image Filename->Material Number list
@@ -317,6 +317,7 @@ class ExportBackend:
                 tx_info += "// "
             tx_info += "{} --> {!s:0>8}.mat\n".format(img_fname, texnum)
         return tx_info
+
 
 class IFFExporter(ExportBackend):
 
@@ -354,7 +355,9 @@ class IFFExporter(ExportBackend):
         hardpoints = self.get_hardpoints()
 
         # Get texture indices for each material
-        mtl_texnums = self.get_materials(lod_data, start_texnum, apply_modifiers)
+        mtl_texnums = self.get_materials(
+            lod_data, start_texnum, apply_modifiers
+        )
         if type(mtl_texnums) == tuple:  # tuple means error
             return mtl_texnums
 
@@ -525,34 +528,37 @@ class IFFExporter(ExportBackend):
         imesh.write_file_bin()
         return warnings
 
+
 class PASExporter(ExportBackend):
 
-    def export(self,
-               filepath,
-               start_texnum=22000,
-               apply_modifiers=True,
-               active_obj_as_lod0=True,
-               generate_bsp=False):
+    def write_iff(self,
+                  filepath,
+                  start_texnum=22000,
+                  apply_modifiers=True,
+                  active_obj_as_lod0=True,
+                  generate_bsp=False):
         """
         Export a .pas file from the Blender scene.
         The model is exported as a .pas file that can be compiled
         by WCPPascal into a WCP/SO format mesh.
         """
+        # Aliases to long function names
+        get_bname = bpy.path.basename  # Filename with extension
 
         # Get LOD data and number of LODs
-        lod_data = self.get_lod_data(active_obj_as_lod0)
+        lod_data = get_lod_data(active_obj_as_lod0)
         if type(lod_data) == tuple:  # tuple means error
             return lod_data
         num_lods = lod_data["num_lods"]
 
         # Get the hardpoints
-        hardpoints = self.get_hardpoints()
+        hardpoints = get_hardpoints()
 
         # Get filename w/o extension
         filename = bpy.path.display_name_from_filepath(filepath)
 
         # Get texture indices for each material
-        mtl_texnums = self.get_materials(lod_data, start_texnum, apply_modifiers)
+        mtl_texnums = get_materials(lod_data, start_texnum, apply_modifiers)
         if type(mtl_texnums) == tuple:  # tuple means error
             return mtl_texnums
 
@@ -562,7 +568,7 @@ class PASExporter(ExportBackend):
         print('IFF "', filename, '.iff"', '\n',
               sep="", file=outfile)
 
-        print(self.get_txinfo(mtl_texnums), file=outfile)
+        print(get_txinfo(mtl_texnums), file=outfile)
 
         print('{', '\n',
               ' '*2, 'FORM "DETA"', '\n',
@@ -632,9 +638,11 @@ class PASExporter(ExportBackend):
                 ' '*14, 'cstring "', filename, '"', '\n',
                 sep='', end='', file=outfile)
 
-            # Alias to format method of format string. The format string is being
-            # used for nothing more than formatting output values, so I figured
-            # I might as well do it this way, plus, it makes code lines shorter.
+            # Alias to format method of format string. The format string
+            # is being used for nothing more than formatting output values,
+            # so I figured I might as well do it this way, plus, it makes
+            # code lines shorter.
+            lfmt = "long {}\n".format
             ffmt = "float {:.6f}\n".format
 
             # Vertices
@@ -643,7 +651,12 @@ class PASExporter(ExportBackend):
                   ' '*12, '{',
                   sep='', file=outfile)
 
-            write_verts(outfile, mesh.vertices)
+            for v in verts:
+                vx, vy, vz = v.co[:]
+                print(' '*14, ffmt(vx),  # Vertex X
+                      ' '*14, ffmt(-vy),  # Vertex Y
+                      ' '*14, ffmt(vz),  # Vertex Z
+                      sep='', file=outfile)
 
             # Normals
             print(' '*12, '}', '\n',
@@ -651,7 +664,12 @@ class PASExporter(ExportBackend):
                   ' '*12, '{',
                   sep="", file=outfile)
 
-            write_norms(outfile, unique_normals)
+            for n in unique_normals:
+                vx, vy, vz = n[:]
+                print(' '*14, ffmt(vx),  # Normal X
+                      ' '*14, ffmt(-vy),  # Normal Y
+                      ' '*14, ffmt(vz),  # Normal Z
+                      sep='', file=outfile)
 
             # Vertices on each face
             print(' '*12, '}', '\n',
@@ -659,7 +677,26 @@ class PASExporter(ExportBackend):
                   ' '*12, '{',
                   sep='', file=outfile)
 
-            write_fvrts(outfile, mesh, fnrmrefs, vnrmrefs)
+            fnrm_idx = 0
+            uv_map = mesh.tessface_uv_textures.active.data
+            for f, u in zip(mesh.tessfaces, uv_map):
+                for v, uv in zip(f.vertices, u.uv):
+                    if f.use_smooth:
+                        # If smoothing is enabled, use the vertex normal
+                        vtnm_idx = vnrmrefs[v]
+                    else:
+                        # Otherwise, use the face normal
+                        vtnm_idx = fnrmrefs[fnrm_idx]
+                    vert_idx = v
+                    uvX, uvY = uv
+                    print(' '*14, lfmt(vert_idx),  # Reference to VERT
+                          ' '*14, lfmt(vtnm_idx),  # Reference to VTNM
+                          ' '*14, ffmt(uvX),
+                          # -uvY allows textures to be converted without
+                          # the modder having to vertically flip them.
+                          ' '*14, ffmt(-uvY),
+                          sep='', file=outfile)
+                fnrm_idx += 1
 
             # Faces
             print(' '*12, '}', '\n',
@@ -667,11 +704,65 @@ class PASExporter(ExportBackend):
                   ' '*12, '{',
                   sep='', file=outfile)
 
-            write_faces(start_texnum, mtl_texnums, outfile, mesh, fnrmrefs)
+            fvrt_idx = 0
+            cur_face_idx = 0
+            for f in range(len(mesh.tessfaces)):
+                cur_face = mesh.tessfaces[f]  # Alias to current face
+
+                # If the face has a material with an image texture,
+                # get the corresponding texture number
+                facemtl = mesh.materials[cur_face.material_index]
+                facetex = facemtl.active_texture
+                if facetex.type == "IMAGE":
+                    matfilename = get_bname(facetex.image.filepath)
+                    texnum = mtl_texnums[matfilename]
+                else:
+                    # Otherwise, use the default texture number
+                    texnum = start_texnum
+
+                # If the material on the face is shadeless,
+                # set the corresponding lighting bitflag.
+                # More bitflags will be added as they are discovered.
+                light_flags = 0
+                if facemtl.use_shadeless:
+                    light_flags |= LFLAG_FULLBRIGHT
+                if "light_flags" in facemtl:
+                    # If the user has defined a custom value to use
+                    # for the lighting bitflag, override the calculated
+                    # value with the custom value.
+                    try:
+                        light_flags = int(facemtl["light_flags"])
+                    except ValueError:
+                        light_flags = 0
+                        print("Cannot convert", facemtl["light_flags"],
+                              "to an integer value!")
+
+                num_verts = len(cur_face.vertices)
+
+                vtnm_idx = fnrmrefs[cur_face_idx]
+
+                # Vertex coordinates and normals are needed
+                # in order to calculate the D-Plane.
+                first_vert = mesh.vertices[cur_face.vertices[0]].co
+                face_nrm = cur_face.normal
+                dplane = self.calc_dplane(first_vert, face_nrm)
+
+                print(
+                    ' '*14, lfmt(vtnm_idx),     # Face normal
+                    ' '*14, ffmt(dplane),       # D-Plane
+                    ' '*14, lfmt(texnum),       # Texture number
+                    ' '*14, lfmt(fvrt_idx),     # Index of face's first FVRT
+                    ' '*14, lfmt(num_verts),    # Number of vertices
+                    ' '*14, lfmt(light_flags),  # Lighting flags
+                    ' '*14, lfmt('$7F0096FF'),  # Unknown
+                    sep='', file=outfile
+                )
+                fvrt_idx += num_verts
+                cur_face_idx += 1
 
             # Location, radius metadata for this LOD
             loc = lod_data["LOD-" + str(lod)].location
-            radius = self.calc_radius(lod_data["LOD-" + str(lod)].dimensions)
+            radius = calc_radius(lod_data["LOD-" + str(lod)].dimensions)
 
             # Center of object
             print('            }', '\n',
@@ -728,11 +819,11 @@ class PASExporter(ExportBackend):
             else:
                 print("collsphr object must be an empty")
                 loc = lod_data["LOD-0"].location
-                radius = self.calc_radius(lod_data["LOD-0"].dimensions)
+                radius = calc_radius(lod_data["LOD-0"].dimensions)
         except KeyError:
             print("collsphr object not found")
             loc = lod_data["LOD-0"].location
-            radius = self.calc_radius(lod_data["LOD-0"].dimensions)
+            radius = calc_radius(lod_data["LOD-0"].dimensions)
         print(' '*4, '}', '\n',
               ' '*4, 'FORM "COLL"', '\n',      # Collision info
               ' '*4, '{', '\n',
