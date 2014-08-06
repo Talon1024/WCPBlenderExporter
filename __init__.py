@@ -32,8 +32,6 @@ bl_info = {
 }
 
 import bpy
-import OutputPAS_Blender
-import OutputIFF_Blender
 
 # ExportHelper is a helper class, defines filename and
 # invoke() function which calls the file selector.
@@ -134,9 +132,12 @@ class ExportIFF(Operator, ExportHelper):
             outfile.close()
         except FileExistsError:
             self.report({"INFO"}, "File already exists!")
-        status = OutputIFF_Blender.write_iff(
+
+        from backends import IFFExporter
+
+        status = IFFExporter.write_iff(
             self.filepath, self.texnum, self.apply_modifiers,
-            self.active_as_lod0 #, pretransform_matrix
+            self.active_as_lod0  # , pretransform_matrix
         )
         for message in status:
             self.report(*message)
@@ -226,9 +227,12 @@ class ExportXMF(Operator, ExportHelper):
             outfile.close()
         except FileExistsError:
             self.report({"INFO"}, "File already exists!")
-        status = OutputPAS_Blender.write_iff(
+
+        from backends import XMFExporter
+
+        status = XMFExporter.write_iff(
             self.filepath, self.texnum, self.apply_modifiers,
-            self.active_as_lod0 #, pretransform_matrix
+            self.active_as_lod0  # , pretransform_matrix
         )
         for message in status:
             self.report(*message)

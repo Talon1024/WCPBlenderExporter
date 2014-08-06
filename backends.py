@@ -529,7 +529,7 @@ class IFFExporter(ExportBackend):
         return warnings
 
 
-class PASExporter(ExportBackend):
+class XMFExporter(ExportBackend):
 
     def write_iff(self,
                   filepath,
