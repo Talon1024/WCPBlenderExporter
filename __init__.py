@@ -133,7 +133,7 @@ class ExportIFF(Operator, ExportHelper):
         except FileExistsError:
             self.report({"INFO"}, "File already exists!")
 
-        from backends import IFFExporter
+        from . import backends.IFFExporter
 
         status = IFFExporter.write_iff(
             self.filepath, self.texnum, self.apply_modifiers,
@@ -228,7 +228,7 @@ class ExportXMF(Operator, ExportHelper):
         except FileExistsError:
             self.report({"INFO"}, "File already exists!")
 
-        from backends import XMFExporter
+        from . import backends.XMFExporter
 
         status = XMFExporter.write_iff(
             self.filepath, self.texnum, self.apply_modifiers,
