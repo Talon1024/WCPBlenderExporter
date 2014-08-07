@@ -18,8 +18,8 @@
 #
 # <pep8-80 compliant>
 
-import iff_mesh
 import bpy
+from . import iff_mesh
 from math import sin, cos
 from collections import OrderedDict
 
@@ -332,6 +332,12 @@ class IFFExporter(ExportBackend):
         The model is exported as a .pas file that can be compiled
         by WCPPascal into a WCP/SO format mesh.
         """
+        print("filepath: {0} ({1})".format(filepath, type(filepath)))
+        print("start_texnum: {0} ({1})".format(start_texnum, type(start_texnum)))
+        print("apply_modifiers: {0} ({1})".format(apply_modifiers, type(apply_modifiers)))
+        print("active_obj_as_lod0: {0} ({1})".format(active_obj_as_lod0, type(active_obj_as_lod0)))
+        print("generate_bsp: {0} ({1})".format(generate_bsp, type(generate_bsp)))
+
         # Aliases to long function names
         # Filename without extension
         get_fname = bpy.path.display_name_from_filepath
@@ -485,7 +491,7 @@ class IFFExporter(ExportBackend):
                 face_nrm = cur_face.normal
                 dplane = self.calc_dplane(first_vert, face_nrm)
 
-                imeshl.add_face(vtnm_idx, dplane, texnum, fvrt_idx
+                imeshl.add_face(vtnm_idx, dplane, texnum, fvrt_idx,
                                 num_verts, light_flags)
 
                 fvrt_idx += num_verts
@@ -531,17 +537,23 @@ class IFFExporter(ExportBackend):
 
 class XMFExporter(ExportBackend):
 
-    def write_iff(self,
-                  filepath,
-                  start_texnum=22000,
-                  apply_modifiers=True,
-                  active_obj_as_lod0=True,
-                  generate_bsp=False):
+    def export(self,
+               filepath,
+               start_texnum=22000,
+               apply_modifiers=True,
+               active_obj_as_lod0=True,
+               generate_bsp=False):
         """
         Export a .pas file from the Blender scene.
         The model is exported as a .pas file that can be compiled
         by WCPPascal into a WCP/SO format mesh.
         """
+        print("filepath: {0} ({1})".format(filepath, type(filepath)))
+        print("start_texnum: {0} ({1})".format(start_texnum, type(start_texnum)))
+        print("apply_modifiers: {0} ({1})".format(apply_modifiers, type(apply_modifiers)))
+        print("active_obj_as_lod0: {0} ({1})".format(active_obj_as_lod0, type(active_obj_as_lod0)))
+        print("generate_bsp: {0} ({1})".format(generate_bsp, type(generate_bsp)))
+
         # Aliases to long function names
         get_bname = bpy.path.basename  # Filename with extension
 
@@ -570,7 +582,7 @@ class XMFExporter(ExportBackend):
         print('IFF "', filename, '.iff"', '\n',
               sep="", file=outfile)
 
-        print(self.get_txinfo(mtl_texnums), file=outfile)
+        print(self.get_txinfo(mtl_texnums, True), file=outfile)
 
         print('{', '\n',
               ' '*2, 'FORM "DETA"', '\n',
@@ -585,23 +597,23 @@ class XMFExporter(ExportBackend):
               ' '*4, '{', '\n',
               sep='', end='', file=outfile)
         for lod in range(num_lods):
-            mesh = lod_data["LOD-" + str(lod)].to_mesh(
+            bl_mesh = lod_data["LOD-" + str(lod)].to_mesh(
                 bpy.context.scene, apply_modifiers, "PREVIEW")
             # Required for using tesselated faces (squares and triangles).
             # I decided to use tessfaces for now to keep it simple,
             # but later I may change my mind, since WCSO supports n-gons.
-            mesh.calc_tessface()
+            bl_mesh.calc_tessface()
 
-            mesh.calc_normals()
+            bl_mesh.calc_normals()
 
             # Get unique normals
             unique_normals = set()
 
-            for f in mesh.tessfaces:
+            for f in bl_mesh.tessfaces:
                 if f.use_smooth:
                     for v in f.vertices:
                         # If smoothing is enabled, add the vertex normals
-                        nx, ny, nz = mesh.vertices[v].normal
+                        nx, ny, nz = bl_mesh.vertices[v].normal
                         unique_normals.add((nx, ny, nz))
                 # Add the face normal
                 nx, ny, nz = f.normal
@@ -614,12 +626,12 @@ class XMFExporter(ExportBackend):
             vnrmrefs = list()
 
             # Face normal indices
-            for f in mesh.tessfaces:
+            for f in bl_mesh.tessfaces:
                 nx, ny, nz = f.normal
                 fnrmrefs.append(unique_normals.index((nx, ny, nz)))
 
             # Vertex normal indices
-            for v in mesh.vertices:
+            for v in bl_mesh.vertices:
                 nx, ny, nz = v.normal
                 try:
                     vnrmrefs.append(unique_normals.index((nx, ny, nz)))
@@ -653,7 +665,7 @@ class XMFExporter(ExportBackend):
                   ' '*12, '{',
                   sep='', file=outfile)
 
-            for v in verts:
+            for v in bl_mesh.vertices:
                 vx, vy, vz = v.co[:]
                 print(' '*14, ffmt(vx),  # Vertex X
                       ' '*14, ffmt(-vy),  # Vertex Y
@@ -680,8 +692,8 @@ class XMFExporter(ExportBackend):
                   sep='', file=outfile)
 
             fnrm_idx = 0
-            uv_map = mesh.tessface_uv_textures.active.data
-            for f, u in zip(mesh.tessfaces, uv_map):
+            uv_map = bl_mesh.tessface_uv_textures.active.data
+            for f, u in zip(bl_mesh.tessfaces, uv_map):
                 for v, uv in zip(f.vertices, u.uv):
                     if f.use_smooth:
                         # If smoothing is enabled, use the vertex normal
@@ -708,12 +720,12 @@ class XMFExporter(ExportBackend):
 
             fvrt_idx = 0
             cur_face_idx = 0
-            for f in range(len(mesh.tessfaces)):
-                cur_face = mesh.tessfaces[f]  # Alias to current face
+            for f in range(len(bl_mesh.tessfaces)):
+                cur_face = bl_mesh.tessfaces[f]  # Alias to current face
 
                 # If the face has a material with an image texture,
                 # get the corresponding texture number
-                facemtl = mesh.materials[cur_face.material_index]
+                facemtl = bl_mesh.materials[cur_face.material_index]
                 facetex = facemtl.active_texture
                 if facetex.type == "IMAGE":
                     matfilename = get_bname(facetex.image.filepath)
@@ -729,9 +741,9 @@ class XMFExporter(ExportBackend):
                 if facemtl.use_shadeless:
                     light_flags |= LFLAG_FULLBRIGHT
                 if "light_flags" in facemtl:
-                    # If the user has defined a custom value to use
-                    # for the lighting bitflag, override the calculated
-                    # value with the custom value.
+                    # If the user has defined a custom value to
+                    # use for the lighting bitflag, override the
+                    # calculated value with the custom value.
                     try:
                         light_flags = int(facemtl["light_flags"])
                     except ValueError:
@@ -745,7 +757,7 @@ class XMFExporter(ExportBackend):
 
                 # Vertex coordinates and normals are needed
                 # in order to calculate the D-Plane.
-                first_vert = mesh.vertices[cur_face.vertices[0]].co
+                first_vert = bl_mesh.vertices[cur_face.vertices[0]].co
                 face_nrm = cur_face.normal
                 dplane = self.calc_dplane(first_vert, face_nrm)
 

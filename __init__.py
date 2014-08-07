@@ -32,6 +32,7 @@ bl_info = {
 }
 
 import bpy
+from . import backends
 
 # ExportHelper is a helper class, defines filename and
 # invoke() function which calls the file selector.
@@ -120,6 +121,8 @@ class ExportIFF(Operator, ExportHelper):
     #         default='Binary',
     #         )
 
+    exportbackend = backends.IFFExporter()
+
     def execute(self, context):
         # Get the matrix to transform the model to "WCP/SO" orientation
         pretransform_matrix = axis_conversion(
@@ -133,9 +136,7 @@ class ExportIFF(Operator, ExportHelper):
         except FileExistsError:
             self.report({"INFO"}, "File already exists!")
 
-        from . import backends.IFFExporter
-
-        status = IFFExporter.write_iff(
+        status = self.exportbackend.export(
             self.filepath, self.texnum, self.apply_modifiers,
             self.active_as_lod0  # , pretransform_matrix
         )
@@ -215,6 +216,8 @@ class ExportXMF(Operator, ExportHelper):
         default='Z',
     )
 
+    exportbackend = backends.XMFExporter()
+
     def execute(self, context):
         # Get the matrix to transform the model to "WCP/SO" orientation
         pretransform_matrix = axis_conversion(
@@ -228,9 +231,7 @@ class ExportXMF(Operator, ExportHelper):
         except FileExistsError:
             self.report({"INFO"}, "File already exists!")
 
-        from . import backends.XMFExporter
-
-        status = XMFExporter.write_iff(
+        status = self.exportbackend.export(
             self.filepath, self.texnum, self.apply_modifiers,
             self.active_as_lod0  # , pretransform_matrix
         )
@@ -246,7 +247,7 @@ def menu_func_export_iff(self, context):
 
 
 def menu_func_export_xmf(self, context):
-    self.layout.operator(ExportIFF.bl_idname,
+    self.layout.operator(ExportXMF.bl_idname,
                          text="WCP/SO IFF Mesh XMF source (.pas)")
 
 
