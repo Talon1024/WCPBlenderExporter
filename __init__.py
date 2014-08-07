@@ -253,15 +253,15 @@ def menu_func_export_xmf(self, context):
 def register():
     bpy.utils.register_class(ExportIFF)
     bpy.types.INFO_MT_file_export.append(menu_func_export_iff)
-    bpy.utils.register_class(ExportPAS)
-    bpy.types.INFO_MT_file_export.append(menu_func_export_pas)
+    bpy.utils.register_class(ExportXMF)
+    bpy.types.INFO_MT_file_export.append(menu_func_export_xmf)
 
 
 def unregister():
     bpy.utils.unregister_class(ExportIFF)
     bpy.types.INFO_MT_file_export.remove(menu_func_export_iff)
-    bpy.utils.unregister_class(ExportPAS)
-    bpy.types.INFO_MT_file_export.remove(menu_func_export_pas)
+    bpy.utils.unregister_class(ExportXMF)
+    bpy.types.INFO_MT_file_export.remove(menu_func_export_xmf)
 
 
 if __name__ == "__main__":
