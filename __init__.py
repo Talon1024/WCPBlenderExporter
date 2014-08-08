@@ -127,6 +127,8 @@ class ExportIFF(Operator, ExportHelper):
     #         default='Binary',
     #         )
 
+    backend_class_name = "IFFExporter"
+
     def execute(self, context):
         # Get the matrix to transform the model to "WCP/SO" orientation
         wc_orientation_matrix = axis_conversion(
@@ -140,7 +142,7 @@ class ExportIFF(Operator, ExportHelper):
         except FileExistsError:
             self.report({"INFO"}, "File already exists!")
 
-        exportbackend = backends.IFFExporter(
+        exportbackend = getattr(backends, self.backend_class_name)(
             self.filepath, self.texnum, self.apply_modifiers,
             self.active_as_lod0, self.use_facetex, wc_orientation_matrix
             # , self.generate_bsp
@@ -229,6 +231,8 @@ class ExportXMF(Operator, ExportHelper):
         default=False
     )
 
+    backend_class_name = "XMFExporter"
+
     def execute(self, context):
         # Get the matrix to transform the model to "WCP/SO" orientation
         wc_orientation_matrix = axis_conversion(
@@ -242,7 +246,7 @@ class ExportXMF(Operator, ExportHelper):
         except FileExistsError:
             self.report({"INFO"}, "File already exists!")
 
-        exportbackend = backends.XMFExporter(
+        exportbackend = getattr(backends, self.backend_class_name)(
             self.filepath, self.texnum, self.apply_modifiers,
             self.active_as_lod0, self.use_facetex, wc_orientation_matrix
             # , self.generate_bsp

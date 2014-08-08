@@ -669,8 +669,8 @@ class XMFExporter(ExportBackend):
 
             for v in bl_mesh.vertices:
                 vx, vy, vz = v.co[:]
-                print(' '*14, ffmt(vx),  # Vertex X
-                      ' '*14, ffmt(-vy),  # Vertex Y
+                print(' '*14, ffmt(-vx),  # Vertex X
+                      ' '*14, ffmt(vy),  # Vertex Y
                       ' '*14, ffmt(vz),  # Vertex Z
                       sep='', file=outfile)
 
@@ -682,8 +682,8 @@ class XMFExporter(ExportBackend):
 
             for n in unique_normals:
                 vx, vy, vz = n[:]
-                print(' '*14, ffmt(vx),  # Normal X
-                      ' '*14, ffmt(-vy),  # Normal Y
+                print(' '*14, ffmt(-vx),  # Normal X
+                      ' '*14, ffmt(vy),  # Normal Y
                       ' '*14, ffmt(vz),  # Normal Z
                       sep='', file=outfile)
 
@@ -814,11 +814,11 @@ class XMFExporter(ExportBackend):
                   ' '*8, ffmt(h["rot_matrix"][1][0]),
                   ' '*8, ffmt(h["rot_matrix"][1][1]),
                   ' '*8, ffmt(h["rot_matrix"][1][2]),
-                  ' '*8, ffmt(h["z"]),     # Hardpoint Z
+                  ' '*8, ffmt(h["y"]),     # Hardpoint Y
                   ' '*8, ffmt(h["rot_matrix"][2][0]),
                   ' '*8, ffmt(h["rot_matrix"][2][1]),
                   ' '*8, ffmt(h["rot_matrix"][2][2]),
-                  ' '*8, ffmt(h["y"]),     # Hardpoint Y
+                  ' '*8, ffmt(h["z"]),     # Hardpoint Z
                   ' '*8, 'cstring "', h["name"], '"', '\n',    # Hardpoint name
                   ' '*6, '}',
                   sep='', file=outfile)
