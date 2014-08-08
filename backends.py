@@ -431,12 +431,12 @@ class IFFExporter(ExportBackend):
             # Vertices
             for v in bl_mesh.vertices:
                 vx, vy, vz = v.co[:]
-                imeshl.add_vertex(float(vx), float(-vy), float(vz))
+                imeshl.add_vertex(float(-vx), float(vy), float(vz))
 
             # Normals
             for n in unique_normals:
                 nx, ny, nz = n[:]
-                imeshl.add_normal(float(nx), float(-ny), float(nz))
+                imeshl.add_normal(float(-nx), float(ny), float(nz))
 
             # Vertices on each face
             fnrm_idx = 0
