@@ -1,9 +1,13 @@
+# -*- coding: utf8 -*-
+# Classes for WCP/SO IFF Meshes
 from . import iff
 import warnings
 
 
 class MeshLODForm(iff.IffForm):
     def __init__(self, LOD, version=12):
+        # No call to superclass constructor because we set the same values
+        # in this constructor
         self._name = "{!s:0>4}".format(LOD)
         self._mesh_form = iff.IffForm("MESH")
         self._geom_form = iff.IffForm("{!s:0>4}".format(version))
@@ -25,6 +29,7 @@ class MeshLODForm(iff.IffForm):
         self._members = [self._mesh_form]
 
     def set_name(self, name):
+        # Check data types before adding to respective chunks
         if self.name_chunk.has_members():
             self.name_chunk.clear_members()
         if isinstance(name, str):
@@ -33,7 +38,6 @@ class MeshLODForm(iff.IffForm):
             raise TypeError("Name of this mesh LOD must be a string!")
 
     def add_vertex(self, vx, vy, vz):
-        # Check data types before adding to respective chunks
         if (isinstance(vx, float) and
                 isinstance(vy, float) and
                 isinstance(vz, float)):
@@ -45,7 +49,6 @@ class MeshLODForm(iff.IffForm):
                             " values!")
 
     def add_normal(self, nx, ny, nz):
-        # Check data types before adding to respective chunks
         if (isinstance(nx, float) and
                 isinstance(ny, float) and
                 isinstance(nz, float)):
@@ -114,7 +117,6 @@ class MeshLODForm(iff.IffForm):
             self.radi_chunk.add_member(radius)
         else:
             raise TypeError("Radius must be a floating point value!")
-
 
     # Do not use! These methods are only here for backwards compatibility
     def get_name_chunk(self):

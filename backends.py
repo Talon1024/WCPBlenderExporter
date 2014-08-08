@@ -33,6 +33,22 @@ warnings = []
 
 class ExportBackend:
 
+    def __init__(self,
+                 filepath,
+                 start_texnum=22000,
+                 apply_modifiers=True,
+                 active_obj_as_lod0=True,
+                 use_facetex=False,
+                 wc_orientation_matrix=None,
+                 generate_bsp=False):
+        self.filepath = filepath
+        self.start_texnum = start_texnum
+        self.apply_modifiers = apply_modifiers
+        self.active_obj_as_lod0 = active_obj_as_lod0
+        self.use_facetex = use_facetex
+        self.wc_orientation_matrix = wc_orientation_matrix
+        self.generate_bsp = generate_bsp
+
     def calc_rot_matrix(self, rx, ry, rz):
         """
         Calculate a rotation matrix from a set of rotations
@@ -125,7 +141,7 @@ class ExportBackend:
         ]
         return result_matrix
 
-    def get_lod_data(self, ACTIVE_OBJ_AS_LOD0):
+    def get_lod_data(self):
         """Get the level of detail data pertinent to the game engine"""
         num_lods = 0
 
@@ -137,7 +153,7 @@ class ExportBackend:
             if lod == 0:    # LOD 0 can either be the active object or detail-0
                 # If the user wants to use the active object...
                 ob = bpy.context.active_object
-                if (ACTIVE_OBJ_AS_LOD0 and
+                if (self.active_obj_as_lod0 and
                         ob.name != lod_ob_name):
                     if ob.type == "MESH":
                         ob = bpy.context.active_object
@@ -232,7 +248,7 @@ class ExportBackend:
         else:
             return None
 
-    def get_materials(self, lod_data, start_texnum, apply_modifiers):
+    def get_materials(self, lod_data):
         """Convert all of the named material textures to
         texture indices.
 
@@ -254,7 +270,7 @@ class ExportBackend:
         # Get all of the material names used in each LOD mesh.
         for lod in range(num_lods):
             mesh = lod_data["LOD-" + str(lod)].to_mesh(
-                bpy.context.scene, apply_modifiers, "PREVIEW")
+                bpy.context.scene, self.apply_modifiers, "PREVIEW")
             for f in mesh.tessfaces:
                 cur_mtl = mesh.materials[f.material_index].name
                 if cur_mtl not in used_mtls:
@@ -266,7 +282,7 @@ class ExportBackend:
         for mtl_name in used_mtls:
             curr_mtl = bpy.data.materials[mtl_name]
             curr_tx = self.get_first_texture_slot(curr_mtl).texture
-            curr_txnum = start_texnum + num_textures
+            curr_txnum = self.start_texnum + num_textures
 
             if curr_tx.type == "IMAGE":
                 img_bname = get_bname(curr_tx.image.filepath)
@@ -321,22 +337,12 @@ class ExportBackend:
 
 class IFFExporter(ExportBackend):
 
-    def export(self,
-               filepath,
-               start_texnum=22000,
-               apply_modifiers=True,
-               active_obj_as_lod0=True,
-               generate_bsp=False):
+    def export(self):
         """
         Export a .pas file from the Blender scene.
         The model is exported as a .pas file that can be compiled
         by WCPPascal into a WCP/SO format mesh.
         """
-        print("filepath: {0} ({1})".format(filepath, type(filepath)))
-        print("start_texnum: {0} ({1})".format(start_texnum, type(start_texnum)))
-        print("apply_modifiers: {0} ({1})".format(apply_modifiers, type(apply_modifiers)))
-        print("active_obj_as_lod0: {0} ({1})".format(active_obj_as_lod0, type(active_obj_as_lod0)))
-        print("generate_bsp: {0} ({1})".format(generate_bsp, type(generate_bsp)))
 
         # Aliases to long function names
         # Filename without extension
@@ -345,14 +351,14 @@ class IFFExporter(ExportBackend):
         get_bname = bpy.path.basename
 
         # Get directory path of output file, plus filename without extension
-        filename = filepath[:filepath.rfind(".")]
-        modelname = get_fname(filepath)
+        filename = self.filepath[:self.filepath.rfind(".")]
+        modelname = get_fname(self.filepath)
 
         # Create an IFF mesh object
         imesh = iff_mesh.MeshIff(filename)
 
         # Get LOD data and number of LODs
-        lod_data = self.get_lod_data(active_obj_as_lod0)
+        lod_data = self.get_lod_data()
         if type(lod_data) == tuple:  # tuple means error
             return lod_data
         num_lods = lod_data["num_lods"]
@@ -361,9 +367,7 @@ class IFFExporter(ExportBackend):
         hardpoints = self.get_hardpoints()
 
         # Get texture indices for each material
-        mtl_texnums = self.get_materials(
-            lod_data, start_texnum, apply_modifiers
-        )
+        mtl_texnums = self.get_materials(lod_data)
         if type(mtl_texnums) == tuple:  # tuple means error
             return mtl_texnums
 
@@ -373,7 +377,12 @@ class IFFExporter(ExportBackend):
 
         for lod in range(num_lods):
             bl_mesh = lod_data["LOD-" + str(lod)].to_mesh(
-                bpy.context.scene, apply_modifiers, "PREVIEW")
+                bpy.context.scene, self.apply_modifiers, "PREVIEW")
+
+            bl_mesh.transform(lod_data["LOD-" + str(lod)].matrix_local)
+            if self.wc_orientation_matrix is not None:
+                bl_mesh.transform(self.wc_orientation_matrix)
+
             # Required for using tesselated faces (squares and triangles).
             # I decided to use tessfaces for now to keep it simple,
             # but later I may change my mind, since WCSO supports n-gons.
@@ -537,28 +546,18 @@ class IFFExporter(ExportBackend):
 
 class XMFExporter(ExportBackend):
 
-    def export(self,
-               filepath,
-               start_texnum=22000,
-               apply_modifiers=True,
-               active_obj_as_lod0=True,
-               generate_bsp=False):
+    def export(self):
         """
         Export a .pas file from the Blender scene.
         The model is exported as a .pas file that can be compiled
         by WCPPascal into a WCP/SO format mesh.
         """
-        print("filepath: {0} ({1})".format(filepath, type(filepath)))
-        print("start_texnum: {0} ({1})".format(start_texnum, type(start_texnum)))
-        print("apply_modifiers: {0} ({1})".format(apply_modifiers, type(apply_modifiers)))
-        print("active_obj_as_lod0: {0} ({1})".format(active_obj_as_lod0, type(active_obj_as_lod0)))
-        print("generate_bsp: {0} ({1})".format(generate_bsp, type(generate_bsp)))
 
         # Aliases to long function names
         get_bname = bpy.path.basename  # Filename with extension
 
         # Get LOD data and number of LODs
-        lod_data = self.get_lod_data(active_obj_as_lod0)
+        lod_data = self.get_lod_data()
         if type(lod_data) == tuple:  # tuple means error
             return lod_data
         num_lods = lod_data["num_lods"]
@@ -567,16 +566,14 @@ class XMFExporter(ExportBackend):
         hardpoints = self.get_hardpoints()
 
         # Get filename w/o extension
-        filename = bpy.path.display_name_from_filepath(filepath)
+        filename = bpy.path.display_name_from_filepath(self.filepath)
 
         # Get texture indices for each material
-        mtl_texnums = self.get_materials(
-            lod_data, start_texnum, apply_modifiers
-        )
+        mtl_texnums = self.get_materials(lod_data)
         if type(mtl_texnums) == tuple:  # tuple means error
             return mtl_texnums
 
-        outfile = open(filepath, 'w', encoding='utf-8')
+        outfile = open(self.filepath, 'w', encoding='utf-8')
         # IFF source file header. If this is not the first line,
         # the file will not compile.
         print('IFF "', filename, '.iff"', '\n',
@@ -598,7 +595,12 @@ class XMFExporter(ExportBackend):
               sep='', end='', file=outfile)
         for lod in range(num_lods):
             bl_mesh = lod_data["LOD-" + str(lod)].to_mesh(
-                bpy.context.scene, apply_modifiers, "PREVIEW")
+                bpy.context.scene, self.apply_modifiers, "PREVIEW")
+
+            bl_mesh.transform(lod_data["LOD-" + str(lod)].matrix_local)
+            if self.wc_orientation_matrix is not None:
+                bl_mesh.transform(self.wc_orientation_matrix)
+
             # Required for using tesselated faces (squares and triangles).
             # I decided to use tessfaces for now to keep it simple,
             # but later I may change my mind, since WCSO supports n-gons.

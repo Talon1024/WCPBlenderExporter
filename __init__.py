@@ -112,6 +112,12 @@ class ExportIFF(Operator, ExportHelper):
         default='Z',
     )
 
+    use_facetex = BoolProperty(
+        name="Use Face Textures",
+        description="Use face textures instead of materials for texturing",
+        default=False
+    )
+
     # Useless. Other exporters for Blender use separate classes.
     # output_format = EnumProperty(
     #         name="Output Format",
@@ -121,11 +127,9 @@ class ExportIFF(Operator, ExportHelper):
     #         default='Binary',
     #         )
 
-    exportbackend = backends.IFFExporter()
-
     def execute(self, context):
         # Get the matrix to transform the model to "WCP/SO" orientation
-        pretransform_matrix = axis_conversion(
+        wc_orientation_matrix = axis_conversion(
             self.axis_forward, self.axis_up, "Z", "Y"
         ).to_4x4()
 
@@ -136,10 +140,13 @@ class ExportIFF(Operator, ExportHelper):
         except FileExistsError:
             self.report({"INFO"}, "File already exists!")
 
-        status = self.exportbackend.export(
+        exportbackend = backends.IFFExporter(
             self.filepath, self.texnum, self.apply_modifiers,
-            self.active_as_lod0  # , pretransform_matrix
+            self.active_as_lod0, self.use_facetex, wc_orientation_matrix
+            # , self.generate_bsp
         )
+
+        status = exportbackend.export()
         for message in status:
             self.report(*message)
         return {"FINISHED"}
@@ -216,11 +223,15 @@ class ExportXMF(Operator, ExportHelper):
         default='Z',
     )
 
-    exportbackend = backends.XMFExporter()
+    use_facetex = BoolProperty(
+        name="Use Face Textures",
+        description="Use face textures instead of materials for texturing",
+        default=False
+    )
 
     def execute(self, context):
         # Get the matrix to transform the model to "WCP/SO" orientation
-        pretransform_matrix = axis_conversion(
+        wc_orientation_matrix = axis_conversion(
             self.axis_forward, self.axis_up, "Z", "Y"
         ).to_4x4()
 
@@ -231,10 +242,13 @@ class ExportXMF(Operator, ExportHelper):
         except FileExistsError:
             self.report({"INFO"}, "File already exists!")
 
-        status = self.exportbackend.export(
+        exportbackend = backends.XMFExporter(
             self.filepath, self.texnum, self.apply_modifiers,
-            self.active_as_lod0  # , pretransform_matrix
+            self.active_as_lod0, self.use_facetex, wc_orientation_matrix
+            # , self.generate_bsp
         )
+
+        status = exportbackend.export()
         for message in status:
             self.report(*message)
         return {"FINISHED"}
