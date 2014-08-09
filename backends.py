@@ -760,37 +760,46 @@ class XMFExporter(ExportBackend):
                   sep='', file=outfile)
 
             fvrt_idx = 0
-            cur_face_idx = 0
-            for f in range(len(bl_mesh.tessfaces)):
-                cur_face = bl_mesh.tessfaces[f]  # Alias to current face
+            for cur_face_idx, cur_face in enumerate(bl_mesh.tessfaces):
+                light_flags = 0
 
-                # If the face has a material with an image texture,
-                # get the corresponding texture number
-                facemtl = bl_mesh.materials[cur_face.material_index]
-                facetex = facemtl.active_texture
-                if facetex.type == "IMAGE":
+                if self.use_facetex:
+                    active_idx = None
+                    mesh_uvtex = bl_mesh.tessface_uv_textures
+                    for idx, texmap in enumerate(mesh_uvtex):
+                        if texmap.active:
+                            active_idx = idx
+                            break
+                    facetex = mesh_uvtex[active_idx].data[cur_face_idx]
                     matfilename = get_bname(facetex.image.filepath)
                     texnum = mtl_texnums[matfilename]
                 else:
-                    # Otherwise, use the default texture number
-                    texnum = start_texnum
+                    # If the face has a material with an image texture,
+                    # get the corresponding texture number
+                    facemtl = bl_mesh.materials[cur_face.material_index]
+                    facetex = facemtl.active_texture
+                    if facetex.type == "IMAGE":
+                        matfilename = get_bname(facetex.image.filepath)
+                        texnum = mtl_texnums[matfilename]
+                    else:
+                        # Otherwise, use the default texture number
+                        texnum = start_texnum
 
-                # If the material on the face is shadeless,
-                # set the corresponding lighting bitflag.
-                # More bitflags will be added as they are discovered.
-                light_flags = 0
-                if facemtl.use_shadeless:
-                    light_flags |= LFLAG_FULLBRIGHT
-                if "light_flags" in facemtl:
-                    # If the user has defined a custom value to
-                    # use for the lighting bitflag, override the
-                    # calculated value with the custom value.
-                    try:
-                        light_flags = int(facemtl["light_flags"])
-                    except ValueError:
-                        light_flags = 0
-                        print("Cannot convert", facemtl["light_flags"],
-                              "to an integer value!")
+                    # If the material on the face is shadeless,
+                    # set the corresponding lighting bitflag.
+                    # More bitflags will be added as they are discovered.
+                    if facemtl.use_shadeless:
+                        light_flags |= LFLAG_FULLBRIGHT
+                    if "light_flags" in facemtl:
+                        # If the user has defined a custom value to
+                        # use for the lighting bitflag, override the
+                        # calculated value with the custom value.
+                        try:
+                            light_flags = int(facemtl["light_flags"])
+                        except ValueError:
+                            light_flags = 0
+                            print("Cannot convert", facemtl["light_flags"],
+                                  "to an integer value!")
 
                 num_verts = len(cur_face.vertices)
 
@@ -813,7 +822,6 @@ class XMFExporter(ExportBackend):
                     sep='', file=outfile
                 )
                 fvrt_idx += num_verts
-                cur_face_idx += 1
 
             # Location, radius metadata for this LOD
             loc = lod_data["LOD-" + str(lod)].location
