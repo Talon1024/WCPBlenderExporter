@@ -271,51 +271,84 @@ class ExportBackend:
         for lod in range(num_lods):
             mesh = lod_data["LOD-" + str(lod)].to_mesh(
                 bpy.context.scene, self.apply_modifiers, "PREVIEW")
-            for f in mesh.tessfaces:
-                cur_mtl = mesh.materials[f.material_index].name
-                if cur_mtl not in used_mtls:
-                    used_mtls.append(cur_mtl)
+            if self.use_facetex:
+                active_idx = None
+                for idx, texmap in enumerate(mesh.tessface_uv_textures):
+                    if texmap.active:
+                        active_idx = idx
+                        break
+                for f in mesh.tessface_uv_textures[active_idx].data:
+                    used_mtls.append(get_bname(f.image.filepath))
+            else:
+                for f in mesh.tessfaces:
+                    cur_mtl = mesh.materials[f.material_index].name
+                    if cur_mtl not in used_mtls:
+                        used_mtls.append(cur_mtl)
 
         # Get the textures and associate each texture with a material number,
         # beginning at the user's specified starting texture number.
         num_textures = 0
         for mtl_name in used_mtls:
-            curr_mtl = bpy.data.materials[mtl_name]
-            curr_tx = self.get_first_texture_slot(curr_mtl).texture
             curr_txnum = self.start_texnum + num_textures
-
-            if curr_tx.type == "IMAGE":
-                img_bname = get_bname(curr_tx.image.filepath)
-                img_fname = get_fname(curr_tx.image.filepath)
+            if self.use_facetex:
+                img_bname = get_bname(mtl_name)
+                img_fname = get_fname(mtl_name)
+                print(img_fname)
                 if img_fname.isnumeric():
-                    # If the filename is numeric, use it as the texture index.
+                    # If the filename is numeric, use it as the
+                    # texture index.
                     img_num = int(img_fname)
                     if img_num >= 0 and img_num <= 99999990:
-                        # What if the user has two numeric image filenames that
-                        # are the same number? i.e. 424242.jpg and 424242.png
-                        if img_num not in mtl_texnums.values():
+                        if img_num != curr_txnum:
                             mtl_texnums[img_bname] = img_num
                         else:
                             mtl_texnums[img_bname] = curr_txnum
                             print(img_fname, "is already in use! Using",
                                   curr_txnum, "instead.")
                             num_textures += 1
-                    else:
-                        # If the number is too big, use the "default" value.
-                        mtl_texnums[img_bname] = curr_txnum
-                        print(img_fname, "is too big a number",
-                              "to be used as a texture number! Using",
-                              curr_txnum, "instead.")
-                        num_textures += 1
-                # If the image filename is not numeric,
-                # refer to the user's starting texture number.
                 else:
                     if img_bname not in mtl_texnums.keys():
                         mtl_texnums[img_bname] = curr_txnum
                         num_textures += 1
             else:
-                error_msg = curr_tx.name + " is not an image texture."
-                raise TypeError(error_msg)
+                curr_mtl = bpy.data.materials[mtl_name]
+                curr_tx = self.get_first_texture_slot(curr_mtl).texture
+
+                if curr_tx.type == "IMAGE":
+                    img_bname = get_bname(curr_tx.image.filepath)
+                    img_fname = get_fname(curr_tx.image.filepath)
+                    if img_fname.isnumeric():
+                        # If the filename is numeric, use it as the
+                        # texture index.
+                        img_num = int(img_fname)
+                        if img_num >= 0 and img_num <= 99999990:
+                            # What if the user has two numeric image
+                            # filenames that are the same number?
+                            # i.e. 424242.jpg and 424242.png
+                            if img_num not in mtl_texnums.values():
+                                mtl_texnums[img_bname] = img_num
+                            else:
+                                mtl_texnums[img_bname] = curr_txnum
+                                print(img_fname, "is already in use! Using",
+                                      curr_txnum, "instead.")
+                                num_textures += 1
+                        else:
+                            # If the number is too big,
+                            # use the "default" value.
+                            mtl_texnums[img_bname] = curr_txnum
+                            print(img_fname, "is too big a number",
+                                  "to be used as a texture number! Using",
+                                  curr_txnum, "instead.")
+                            num_textures += 1
+                    # If the image filename is not numeric,
+                    # refer to the user's starting texture number.
+                    else:
+                        if img_bname not in mtl_texnums.keys():
+                            mtl_texnums[img_bname] = curr_txnum
+                            num_textures += 1
+                else:
+                    error_msg = curr_tx.name + " is not an image texture."
+                    raise TypeError(error_msg)
         return mtl_texnums
 
     def get_txinfo(self, mtl_texnums, as_comment=False):
@@ -368,8 +401,6 @@ class IFFExporter(ExportBackend):
 
         # Get texture indices for each material
         mtl_texnums = self.get_materials(lod_data)
-        if type(mtl_texnums) == tuple:  # tuple means error
-            return mtl_texnums
 
         mtl_info_file = open(filename + ".txt", 'w', encoding='utf-8')
 
@@ -464,31 +495,46 @@ class IFFExporter(ExportBackend):
 
                 # If the face has a material with an image texture,
                 # get the corresponding texture number
-                facemtl = bl_mesh.materials[cur_face.material_index]
-                facetex = facemtl.active_texture
-                if facetex.type == "IMAGE":
-                    matfilename = get_bname(facetex.image.filepath)
+                if self.use_facetex:
+                    active_idx = None
+                    mesh_uvtex = bl_mesh.tessface_uv_textures
+                    for idx, texmap in enumerate(mesh_uvtex):
+                        if texmap.active:
+                            active_idx = idx
+                            break
+                    cur_facetex = mesh_uvtex[active_idx].data[f]
+                    matfilename = get_bname(cur_facetex.image.filepath)
                     texnum = mtl_texnums[matfilename]
                 else:
-                    # Otherwise, use the default texture number
-                    texnum = start_texnum
+                    facemtl = bl_mesh.materials[cur_face.material_index]
+                    facetex = facemtl.active_texture
+                    if facetex.type == "IMAGE":
+                        matfilename = get_bname(facetex.image.filepath)
+                        texnum = mtl_texnums[matfilename]
+                    else:
+                        # Otherwise, use the default texture number
+                        texnum = start_texnum
 
-                # If the material on the face is shadeless,
-                # set the corresponding lighting bitflag.
-                # More bitflags will be added as they are discovered.
-                light_flags = 0
-                if facemtl.use_shadeless:
-                    light_flags |= LFLAG_FULLBRIGHT
-                if "light_flags" in facemtl:
-                    # If the user has defined a custom value to
-                    # use for the lighting bitflag, override the
-                    # calculated value with the custom value.
-                    try:
-                        light_flags = int(facemtl["light_flags"])
-                    except ValueError:
-                        light_flags = 0
-                        print("Cannot convert", facemtl["light_flags"],
-                              "to an integer value!")
+                    # If the material on the face is shadeless,
+                    # set the corresponding lighting bitflag.
+                    # More bitflags will be added as they are discovered.
+                    # This will not work if you are using facetex, as special
+                    # lighting can only be done using materials.
+                    if facemtl.use_shadeless:
+                        light_flags |= LFLAG_FULLBRIGHT
+                    if "light_flags" in facemtl:
+                        # If the user has defined a custom value to
+                        # use for the lighting bitflag, override the
+                        # calculated value with the custom value.
+                        try:
+                            light_flags = int(facemtl["light_flags"])
+                        except ValueError:
+                            light_flags = 0
+                            print("Cannot convert", facemtl["light_flags"],
+                                  "to an integer value!")
+
+                if "light_flags" not in locals():
+                    light_flags = 0
 
                 num_verts = len(cur_face.vertices)
 
@@ -570,8 +616,6 @@ class XMFExporter(ExportBackend):
 
         # Get texture indices for each material
         mtl_texnums = self.get_materials(lod_data)
-        if type(mtl_texnums) == tuple:  # tuple means error
-            return mtl_texnums
 
         outfile = open(self.filepath, 'w', encoding='utf-8')
         # IFF source file header. If this is not the first line,
