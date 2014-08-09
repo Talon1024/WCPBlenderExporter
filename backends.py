@@ -489,10 +489,9 @@ class IFFExporter(ExportBackend):
 
             # Faces
             fvrt_idx = 0
-            cur_face_idx = 0
-            for f in range(len(bl_mesh.tessfaces)):
-                cur_face = bl_mesh.tessfaces[f]  # Alias to current face
+            for cur_face_idx, cur_face in enumerate(bl_mesh.tessfaces):
 
+                light_flags = 0
                 # If the face has a material with an image texture,
                 # get the corresponding texture number
                 if self.use_facetex:
@@ -502,8 +501,8 @@ class IFFExporter(ExportBackend):
                         if texmap.active:
                             active_idx = idx
                             break
-                    cur_facetex = mesh_uvtex[active_idx].data[f]
-                    matfilename = get_bname(cur_facetex.image.filepath)
+                    facetex = mesh_uvtex[active_idx].data[cur_face_idx]
+                    matfilename = get_bname(facetex.image.filepath)
                     texnum = mtl_texnums[matfilename]
                 else:
                     facemtl = bl_mesh.materials[cur_face.material_index]
@@ -533,9 +532,6 @@ class IFFExporter(ExportBackend):
                             print("Cannot convert", facemtl["light_flags"],
                                   "to an integer value!")
 
-                if "light_flags" not in locals():
-                    light_flags = 0
-
                 num_verts = len(cur_face.vertices)
 
                 vtnm_idx = fnrmrefs[cur_face_idx]
@@ -550,7 +546,6 @@ class IFFExporter(ExportBackend):
                                 num_verts, light_flags)
 
                 fvrt_idx += num_verts
-                cur_face_idx += 1
 
             # Location, radius metadata for this LOD
             loc = lod_data["LOD-" + str(lod)].location
