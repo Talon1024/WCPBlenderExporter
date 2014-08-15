@@ -32,6 +32,7 @@ bl_info = {
 }
 
 import bpy
+import warnings
 from . import backends
 
 # ExportHelper is a helper class, defines filename and
@@ -144,13 +145,14 @@ class ExportIFF(Operator, ExportHelper):
 
         exportbackend = getattr(backends, self.backend_class_name)(
             self.filepath, self.texnum, self.apply_modifiers,
-            self.active_as_lod0, self.use_facetex, wc_orientation_matrix
-            # , self.generate_bsp
+            self.active_as_lod0, self.use_facetex, wc_orientation_matrix,
+            self.generate_bsp  # NOTE: BSP Tree generation is not implemented!
         )
 
-        status = exportbackend.export()
-        for message in status:
-            self.report(*message)
+        exportbackend.export()
+        with warnings.catch_warnings(record=True) as wlist:
+            for warning in wlist:
+                self.report({"WARNING"}, warning.message)
         return {"FINISHED"}
 
 
@@ -248,13 +250,14 @@ class ExportXMF(Operator, ExportHelper):
 
         exportbackend = getattr(backends, self.backend_class_name)(
             self.filepath, self.texnum, self.apply_modifiers,
-            self.active_as_lod0, self.use_facetex, wc_orientation_matrix
-            # , self.generate_bsp
+            self.active_as_lod0, self.use_facetex, wc_orientation_matrix,
+            self.generate_bsp  # NOTE: BSP Tree generation is not implemented!
         )
 
-        status = exportbackend.export()
-        for message in status:
-            self.report(*message)
+        exportbackend.export()
+        with warnings.catch_warnings(record=True) as wlist:
+            for warning in wlist:
+                self.report({"WARNING"}, warning.message)
         return {"FINISHED"}
 
 

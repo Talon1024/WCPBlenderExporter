@@ -19,6 +19,7 @@
 # <pep8-80 compliant>
 
 import bpy
+import warnings
 from . import iff_mesh
 from math import sin, cos
 from collections import OrderedDict
@@ -26,9 +27,17 @@ from collections import OrderedDict
 MAX_NUM_LODS = 3
 LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
 LFLAG_FULLBRIGHT = 2
+
 # Non-critical warnings will be reported to Blender. Critical errors will be
 # exceptions.
-warnings = []
+
+
+class KeyWarning(Warning):
+    pass
+
+
+class TypeWarning(Warning):
+    pass
 
 
 class ExportBackend:
@@ -161,7 +170,7 @@ class ExportBackend:
                         num_lods += 1
                     else:
                         error_msg = "Object " + ob.name + " is not a mesh!"
-                        warnings.append(({"INFO"}, error_msg))
+                        warnings.warn(error_msg, TypeWarning)
                         ob = bpy.data.objects[lod_ob_name]
                         try:
                             lod_data["LOD-" + str(lod)] = ob
@@ -192,7 +201,7 @@ class ExportBackend:
                     num_lods += 1
                 except KeyError:
                     error_msg = "Unable to find a mesh for LOD " + str(lod)
-                    warnings.append(({"INFO"}, error_msg))
+                    warnings.warn(error_msg, KeyWarning)
         lod_data["num_lods"] = num_lods
         return lod_data
 
@@ -582,7 +591,6 @@ class IFFExporter(ExportBackend):
             radius = self.calc_radius(lod_data["LOD-0"].dimensions)
         imesh.make_coll_sphr(loc[0], loc[1], loc[2], radius)
         imesh.write_file_bin()
-        return warnings
 
 
 class XMFExporter(ExportBackend):
@@ -907,4 +915,3 @@ class XMFExporter(ExportBackend):
               '}', '\n',
               sep='', file=outfile)
         outfile.close()
-        return warnings

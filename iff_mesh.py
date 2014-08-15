@@ -11,29 +11,29 @@ class MeshLODForm(iff.IffForm):
         self._name = "{!s:0>4}".format(LOD)
         self._mesh_form = iff.IffForm("MESH")
         self._geom_form = iff.IffForm("{!s:0>4}".format(version))
-        self.name_chunk = iff.IffChunk("NAME")
-        self.vert_chunk = iff.IffChunk("VERT")
-        self.vtnm_chunk = iff.IffChunk("VTNM")
-        self.fvrt_chunk = iff.IffChunk("FVRT")
-        self.face_chunk = iff.IffChunk("FACE")
-        self.cntr_chunk = iff.IffChunk("CNTR")
-        self.radi_chunk = iff.IffChunk("RADI")
-        self._geom_form.add_member(self.name_chunk)
-        self._geom_form.add_member(self.vert_chunk)
-        self._geom_form.add_member(self.vtnm_chunk)
-        self._geom_form.add_member(self.fvrt_chunk)
-        self._geom_form.add_member(self.face_chunk)
-        self._geom_form.add_member(self.cntr_chunk)
-        self._geom_form.add_member(self.radi_chunk)
+        self._name_chunk = iff.IffChunk("NAME")
+        self._vert_chunk = iff.IffChunk("VERT")
+        self._vtnm_chunk = iff.IffChunk("VTNM")
+        self._fvrt_chunk = iff.IffChunk("FVRT")
+        self._face_chunk = iff.IffChunk("FACE")
+        self._cntr_chunk = iff.IffChunk("CNTR")
+        self._radi_chunk = iff.IffChunk("RADI")
+        self._geom_form.add_member(self._name_chunk)
+        self._geom_form.add_member(self._vert_chunk)
+        self._geom_form.add_member(self._vtnm_chunk)
+        self._geom_form.add_member(self._fvrt_chunk)
+        self._geom_form.add_member(self._face_chunk)
+        self._geom_form.add_member(self._cntr_chunk)
+        self._geom_form.add_member(self._radi_chunk)
         self._mesh_form.add_member(self._geom_form)
         self._members = [self._mesh_form]
 
     def set_name(self, name):
         # Check data types before adding to respective chunks
-        if self.name_chunk.has_members():
-            self.name_chunk.clear_members()
+        if self._name_chunk.has_members():
+            self._name_chunk.clear_members()
         if isinstance(name, str):
-            self.name_chunk.add_member(name)
+            self._name_chunk.add_member(name)
         else:
             raise TypeError("Name of this mesh LOD must be a string!")
 
@@ -41,9 +41,9 @@ class MeshLODForm(iff.IffForm):
         if (isinstance(vx, float) and
                 isinstance(vy, float) and
                 isinstance(vz, float)):
-            self.vert_chunk.add_member(vx)
-            self.vert_chunk.add_member(vy)
-            self.vert_chunk.add_member(vz)
+            self._vert_chunk.add_member(vx)
+            self._vert_chunk.add_member(vy)
+            self._vert_chunk.add_member(vz)
         else:
             raise TypeError("The vertex coordinates must be floating point"
                             " values!")
@@ -52,9 +52,9 @@ class MeshLODForm(iff.IffForm):
         if (isinstance(nx, float) and
                 isinstance(ny, float) and
                 isinstance(nz, float)):
-            self.vtnm_chunk.add_member(nx)
-            self.vtnm_chunk.add_member(ny)
-            self.vtnm_chunk.add_member(nz)
+            self._vtnm_chunk.add_member(nx)
+            self._vtnm_chunk.add_member(ny)
+            self._vtnm_chunk.add_member(nz)
         else:
             raise TypeError("The normal vector must be floating point"
                             " values!")
@@ -70,10 +70,10 @@ class MeshLODForm(iff.IffForm):
                             " values!")
         # Both data types have been checked, so
         # we know we can safely add them to the chunk
-        self.fvrt_chunk.add_member(vert_idx)
-        self.fvrt_chunk.add_member(vtnm_idx)
-        self.fvrt_chunk.add_member(uv_x)
-        self.fvrt_chunk.add_member(uv_y)
+        self._fvrt_chunk.add_member(vert_idx)
+        self._fvrt_chunk.add_member(vtnm_idx)
+        self._fvrt_chunk.add_member(uv_x)
+        self._fvrt_chunk.add_member(uv_y)
 
     def add_face(self, vtnm_idx, dplane, texnum,
                  fvrt_idx, num_verts, light_flags):
@@ -89,63 +89,63 @@ class MeshLODForm(iff.IffForm):
             raise TypeError("Number of vertices must be an integer!")
         if not isinstance(light_flags, int):
             raise TypeError("Lighting wordflag must be an integer!")
-        self.face_chunk.add_member(vtnm_idx)  # Face normal
-        self.face_chunk.add_member(dplane)  # D-Plane
-        self.face_chunk.add_member(texnum)  # Texture number
-        self.face_chunk.add_member(fvrt_idx)  # Index of face's first FVRT
-        self.face_chunk.add_member(num_verts)  # Number of vertices
-        self.face_chunk.add_member(light_flags)  # Lighting flags
-        self.face_chunk.add_member(0x7F0096FF)  # Unknown
+        self._face_chunk.add_member(vtnm_idx)  # Face normal
+        self._face_chunk.add_member(dplane)  # D-Plane
+        self._face_chunk.add_member(texnum)  # Texture number
+        self._face_chunk.add_member(fvrt_idx)  # Index of face's first FVRT
+        self._face_chunk.add_member(num_verts)  # Number of vertices
+        self._face_chunk.add_member(light_flags)  # Lighting flags
+        self._face_chunk.add_member(0x7F0096FF)  # Unknown
 
     def set_center(self, cx, cy, cz):
-        if self.cntr_chunk.has_members():
-            self.cntr_chunk.clear_members()
+        if self._cntr_chunk.has_members():
+            self._cntr_chunk.clear_members()
         if (isinstance(cx, float) and
                 isinstance(cy, float) and
                 isinstance(cz, float)):
-            self.cntr_chunk.add_member(cx)
-            self.cntr_chunk.add_member(cy)
-            self.cntr_chunk.add_member(cz)
+            self._cntr_chunk.add_member(cx)
+            self._cntr_chunk.add_member(cy)
+            self._cntr_chunk.add_member(cz)
         else:
             raise TypeError("Center coordinates must be floating point"
                             " values!")
 
     def set_radius(self, radius):
-        if self.radi_chunk.has_members():
-            self.radi_chunk.clear_members()
+        if self._radi_chunk.has_members():
+            self._radi_chunk.clear_members()
         if isinstance(radius, float):
-            self.radi_chunk.add_member(radius)
+            self._radi_chunk.add_member(radius)
         else:
             raise TypeError("Radius must be a floating point value!")
 
     # Do not use! These methods are only here for backwards compatibility
     def get_name_chunk(self):
         warnings.warn("get_name_chunk is deprecated!", DeprecationWarning)
-        return self.name_chunk
+        return self._name_chunk
 
     def get_vert_chunk(self):
         warnings.warn("get_vert_chunk is deprecated!", DeprecationWarning)
-        return self.vert_chunk
+        return self._vert_chunk
 
     def get_vtnm_chunk(self):
         warnings.warn("get_vtnm_chunk is deprecated!", DeprecationWarning)
-        return self.vtnm_chunk
+        return self._vtnm_chunk
 
     def get_fvrt_chunk(self):
         warnings.warn("get_fvrt_chunk is deprecated!", DeprecationWarning)
-        return self.fvrt_chunk
+        return self._fvrt_chunk
 
     def get_face_chunk(self):
         warnings.warn("get_face_chunk is deprecated!", DeprecationWarning)
-        return self.face_chunk
+        return self._face_chunk
 
     def get_cntr_chunk(self):
         warnings.warn("get_cntr_chunk is deprecated!", DeprecationWarning)
-        return self.cntr_chunk
+        return self._cntr_chunk
 
     def get_radi_chunk(self):
         warnings.warn("get_radi_chunk is deprecated!", DeprecationWarning)
-        return self.radi_chunk
+        return self._radi_chunk
 
 
 class MeshIff(iff.IffFile):
@@ -156,8 +156,8 @@ class MeshIff(iff.IffFile):
         self._mrang = iff.IffChunk("RANG", [float(0), float(400), float(800)])
         self.root_form.add_member(self._mrang)
 
-        self.mmeshes = iff.IffForm("MESH")
-        self.root_form.add_member(self.mmeshes)
+        self._mmeshes = iff.IffForm("MESH")
+        self.root_form.add_member(self._mmeshes)
 
         self._mhard = iff.IffForm("HARD")
         self.root_form.add_member(self._mhard)
@@ -204,13 +204,12 @@ class MeshIff(iff.IffFile):
         self._mhard.remove_member(hp_idx)
 
     def remove_hardpts(self):
-        for mem in range(self.root_form.get_num_members()):
-            self._mhard.remove_member(mem)
+        self._mhard.clear_members(mem)
 
     def add_lod(self, lod):
         if isinstance(lod, MeshLODForm):
-            self.mmeshes.add_member(lod)
+            self._mmeshes.add_member(lod)
 
     def get_meshes_form(self):
         warnings.warn("get_meshes_form is deprecated!", DeprecationWarning)
-        return self.mmeshes
+        return self._mmeshes
