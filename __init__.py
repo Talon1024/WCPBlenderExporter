@@ -143,10 +143,14 @@ class ExportIFF(Operator, ExportHelper):
         except FileExistsError:
             self.report({"INFO"}, "File already exists!")
 
+        # NOTE: BSP Tree generation is not implemented!
+        # As a fallback measure, I'm hard-coding this attribute
+        self.generate_bsp = False
+
         exportbackend = getattr(backends, self.backend_class_name)(
             self.filepath, self.texnum, self.apply_modifiers,
             self.active_as_lod0, self.use_facetex, wc_orientation_matrix,
-            self.generate_bsp  # NOTE: BSP Tree generation is not implemented!
+            self.generate_bsp
         )
 
         exportbackend.export()
@@ -248,10 +252,14 @@ class ExportXMF(Operator, ExportHelper):
         except FileExistsError:
             self.report({"INFO"}, "File already exists!")
 
+        # NOTE: BSP Tree generation is not implemented!
+        # As a fallback measure, I'm hard-coding this attribute
+        self.generate_bsp = False
+
         exportbackend = getattr(backends, self.backend_class_name)(
             self.filepath, self.texnum, self.apply_modifiers,
             self.active_as_lod0, self.use_facetex, wc_orientation_matrix,
-            self.generate_bsp  # NOTE: BSP Tree generation is not implemented!
+            self.generate_bsp
         )
 
         exportbackend.export()

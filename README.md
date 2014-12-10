@@ -23,10 +23,15 @@ Installation
 2. Create a custom folder on your hard drive for Blender scripts.
 3. Create an `addons` folder within the folder you created in step 2.
 4. Create an `io_scene_wcp` folder within the `addons` folder.
-5. Unzip/extract the exporter scripts in the `io_scene_wcp` folder.
-6. In Blender, go to User Preferences -> Addons -> Import-Export.
-7. You should see "WCP/SO Mesh File" if you scroll down.
-8. Check off the checkbox at the far right to enable the exporter script.
+5. Unzip, extract, or copy all of the `.py` files into the `io_scene_wcp`
+   folder you created in the previous step.
+6. If you haven't set up a custom path for Blender scripts already, open Blender,
+   go to File -> User Preferences, click on the File tab, and set the "Scripts" folder
+   to the folder you created in step 2. Then, save your settings and quit Blender.
+7. In Blender, go to File -> User Preferences, click on the Addons tab, and select the Import-Export category.
+8. You should see "Import-Export: WCP/SO Mesh File" if you scroll down.
+9. Check off the checkbox at the far right to enable the exporter script.
+10. Save your settings if you want to permanently enable the exporter script.
 
 For more information, see [this guide](http://wiki.blender.org/index.php/Doc:2.6/Manual/Extensions/Python/Add-Ons) on the Blender wiki.
 
