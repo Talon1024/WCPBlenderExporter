@@ -1,7 +1,7 @@
 Blender Commander
 =================
 
-Blender Commander is an exporter script for Blender 2.65+ that allows you to export a VISION engine ([Wing Commander: Prophecy](http://www.wcnews.com/wcpedia/Wing_Commander:_Prophecy), [Wing Commander: Secret Ops](http://www.wcnews.com/wcpedia/Wing_Commander:_Secret_Ops)) IFF mesh, or XMF source code that can be compiled into a VISION engine IFF mesh via WCPPascal.
+Blender Commander is an import/export script for Blender 2.65+ that allows you to export a VISION engine ([Wing Commander: Prophecy](http://www.wcnews.com/wcpedia/Wing_Commander:_Prophecy), [Wing Commander: Secret Ops](http://www.wcnews.com/wcpedia/Wing_Commander:_Secret_Ops)) IFF mesh, XMF source code that can be compiled into a VISION engine IFF mesh via WCPPascal, or import a VISION engine IFF mesh into Blender.
 
 This means you'll be able to do most of your work in Blender, and then simply export it to the game without having to pass the model through multiple conversion programs (3D Exploration, `peoview`, `ModelC`, etc.).
 
@@ -35,8 +35,13 @@ Installation
 
 For more information, see [this guide](http://wiki.blender.org/index.php/Doc:2.6/Manual/Extensions/Python/Add-Ons) on the Blender wiki.
 
-Usage
-------
+IFF Import Tutorial
+-------------------
+
+1. Choose a name for the object you are importing.
+
+IFF Export Tutorial
+-------------------
 
 1. LOD (Level of Detail) models must be named as such:  
 `detail-0`  
@@ -46,15 +51,13 @@ Usage
 2. You can make the converter use the active object as the LOD 0 mesh. If you don't turn this option on, or if the active object is not a mesh, the converter will try to use the object in the scene named `detail-0` as the LOD 0 mesh if it exists. Otherwise, nothing is exported.
 3. Each face must have a material assigned to it, and each material used by the model must have at least one image texture.
 4. If the image referenced by an image texture has a numeric filename (ex. 245292.png), the exporter script will force the faces to use the image's number as the texture number.
-5. At the top of the mesh file source code, you will see the texture filenames of the materials that your model uses and their associated texture numbers. Use this as a guide to convert the textures for WCSO.
+5. In the text file accompanying the mesh file, you will see the texture filenames of the materials that your model uses and their associated texture numbers. Use this as a guide to convert the textures for WCSO.
 
    For example:
 
-        IFF "Duhiky.iff"
-        
-        // Duhiky.png     --> 00022000.mat
-        // Basicmetal.tga --> 00022001.mat
-        // 424242.jpg     --> 00424242.mat
+        Duhiky.png --> 00022000.mat
+        Basicmetal.tga --> 00022001.mat
+        424242.jpg --> 00424242.mat
 
    This indicates that `Duhiky.png` should be converted to `00022000.mat`, `Basicmetal.tga` should be converted to `00022001.mat`, `424242.jpg` should be converted to `00424242.mat`, etc.
 
@@ -67,7 +70,7 @@ If you are using the .IFF exporter, you will need to do the following after expo
 1. Go to where you exported the .IFF file. There should be a text file in that folder that has the same name as your IFF file, but with a different extension.
 2. Read the text file mentioned in step 1 to see which images should be converted, and what they should be named.
 3. Convert the textures to WCP/SO .mat format, and place them in the `mat` folder under your WC Secret Ops root directory.
- 
+
 If you are using the .PAS exporter, you will need to do the following after exporting the mesh:
 
 1. Compile the mesh using WCPPascal.

@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
-# Blender WCP IFF source exporter script by Kevin Caccamo
-# Copyright © 2013 Kevin Caccamo
+# Blender WCP IFF exporter script by Kevin Caccamo
+# Copyright © 2013-2015 Kevin Caccamo
 # E-mail: kevin@ciinet.org
 #
 # This program is free software; you can redistribute it and/or
@@ -18,6 +18,17 @@
 #
 # <pep8-80 compliant>
 
+import bpy
+import warnings
+from . import import_iff
+from . import export_iff
+
+# ExportHelper is a helper class, defines filename and
+# invoke() function which calls the file selector.
+from bpy_extras.io_utils import ImportHelper, ExportHelper, axis_conversion
+from bpy.props import StringProperty, IntProperty, BoolProperty, EnumProperty
+from bpy.types import Operator
+
 bl_info = {
     "name": "WCP/SO Mesh File",
     "author": "Kevin Caccamo",
@@ -31,15 +42,62 @@ bl_info = {
     "category": "Import-Export"
 }
 
-import bpy
-import warnings
-from . import backends
 
-# ExportHelper is a helper class, defines filename and
-# invoke() function which calls the file selector.
-from bpy_extras.io_utils import ExportHelper, axis_conversion
-from bpy.props import StringProperty, IntProperty, BoolProperty, EnumProperty
-from bpy.types import Operator
+class ImportIFF(Operator, ImportHelper):
+    """Import a WCP/WCSO mesh file"""
+    # important since its how bpy.ops.import_test.some_data is constructed
+    bl_idname = "import_scene.iff"
+
+    bl_label = "Import WCP/SO IFF mesh file"
+
+    # ExportHelper mixin class uses this
+    filename_ext = ".iff"
+
+    filter_glob = StringProperty(
+        default="*.iff"
+        options={'HIDDEN'}
+    )
+
+    texname = StringProperty(
+        name="Image filename"
+        description="The VISION engine stores texture references as numbers"
+        "(ex. 22000, 22001). This is how textures should be named after they"
+        "are converted from VISION's \"number\" format (ex. If you type \""
+        "Duhiky\", the textures will be named Duhiky1.png, Duhiky2.png, etc.)."
+    )
+
+    import_all_lods = BoolProperty(
+        name="Import all LODs"
+        description="Import all LOD meshes as separate models"
+        default=False
+    )
+
+    use_facetex = BoolProperty(
+        name="Use Face Textures",
+        description="Use face textures instead of materials for texturing",
+        default=False
+    )
+
+    backend_class_name = "IFFImporter"
+
+    def execute(self, context):
+        # WIP
+        wc_orientation_matrix = axis_conversion(
+            self.axis_forward, self.axis_up, "Z", "Y"
+        ).to_4x4()
+
+        self.import_bsp = False
+
+        importer = getattr(import_iff, self.backend_class_name)(
+            self.filepath, self.texname, self.import_all_lods,
+            self.use_facetex, self.import_bsp
+        )
+
+        importer.load()
+        with warnings.catch_warnings(record=True) as wlist:
+            for warning in wlist:
+                self.report({"WARNING"}, warning.message)
+        return {"FINISHED"}
 
 
 class ExportIFF(Operator, ExportHelper):
@@ -61,8 +119,7 @@ class ExportIFF(Operator, ExportHelper):
     # to the class instance from the operator settings before calling.
     texnum = IntProperty(
         name="MAT number",
-        description="The number that the MAT texture indices"
-        " will start at",
+        description="The number that the MAT texture indices will start at",
         default=22000,
         subtype="UNSIGNED",
         min=0,
@@ -147,13 +204,13 @@ class ExportIFF(Operator, ExportHelper):
         # As a fallback measure, I'm hard-coding this attribute
         self.generate_bsp = False
 
-        exportbackend = getattr(backends, self.backend_class_name)(
+        exporter = getattr(export_iff, self.backend_class_name)(
             self.filepath, self.texnum, self.apply_modifiers,
             self.active_as_lod0, self.use_facetex, wc_orientation_matrix,
             self.generate_bsp
         )
 
-        exportbackend.export()
+        exporter.export()
         with warnings.catch_warnings(record=True) as wlist:
             for warning in wlist:
                 self.report({"WARNING"}, warning.message)
@@ -256,13 +313,13 @@ class ExportXMF(Operator, ExportHelper):
         # As a fallback measure, I'm hard-coding this attribute
         self.generate_bsp = False
 
-        exportbackend = getattr(backends, self.backend_class_name)(
+        exporter = getattr(export_iff, self.backend_class_name)(
             self.filepath, self.texnum, self.apply_modifiers,
             self.active_as_lod0, self.use_facetex, wc_orientation_matrix,
             self.generate_bsp
         )
 
-        exportbackend.export()
+        exporter.export()
         with warnings.catch_warnings(record=True) as wlist:
             for warning in wlist:
                 self.report({"WARNING"}, warning.message)
@@ -271,8 +328,11 @@ class ExportXMF(Operator, ExportHelper):
 
 # Only needed if you want to add into a dynamic menu
 def menu_func_export_iff(self, context):
-    self.layout.operator(ExportIFF.bl_idname,
-                         text="WCP/SO IFF Mesh (.iff)")
+    self.layout.operator(ExportIFF.bl_idname, text="WCP/SO IFF Mesh (.iff)")
+
+
+def menu_func_import_iff(self, context):
+    self.layout.operator(ImportIFF.bl_idname, text="WCP/SO IFF Mesh (.iff)")
 
 
 def menu_func_export_xmf(self, context):
@@ -281,6 +341,8 @@ def menu_func_export_xmf(self, context):
 
 
 def register():
+    bpy.utils.register_class(ImportIFF)
+    bpy.types.INFO_MT_file_import.append(menu_func_import_iff)
     bpy.utils.register_class(ExportIFF)
     bpy.types.INFO_MT_file_export.append(menu_func_export_iff)
     bpy.utils.register_class(ExportXMF)
@@ -288,6 +350,8 @@ def register():
 
 
 def unregister():
+    bpy.utils.unregister_class(ImportIFF)
+    bpy.types.INFO_MT_file_import.append(menu_func_import_iff)
     bpy.utils.unregister_class(ExportIFF)
     bpy.types.INFO_MT_file_export.remove(menu_func_export_iff)
     bpy.utils.unregister_class(ExportXMF)
