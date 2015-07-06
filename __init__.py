@@ -33,7 +33,7 @@ bl_info = {
     "name": "WCP/SO Mesh File",
     "author": "Kevin Caccamo",
     "description": "Export to a WCP/SO mesh file.",
-    "version": (1, 0),
+    "version": (1, 4),
     "blender": (2, 65, 0),
     "location": "File > Export",
     "warning": "",
@@ -54,12 +54,12 @@ class ImportIFF(Operator, ImportHelper):
     filename_ext = ".iff"
 
     filter_glob = StringProperty(
-        default="*.iff"
+        default="*.iff",
         options={'HIDDEN'}
     )
 
     texname = StringProperty(
-        name="Image filename"
+        name="Image filename",
         description="The VISION engine stores texture references as numbers"
         "(ex. 22000, 22001). This is how textures should be named after they"
         "are converted from VISION's \"number\" format (ex. If you type \""
@@ -67,8 +67,8 @@ class ImportIFF(Operator, ImportHelper):
     )
 
     import_all_lods = BoolProperty(
-        name="Import all LODs"
-        description="Import all LOD meshes as separate models"
+        name="Import all LODs",
+        description="Import all LOD meshes as separate models",
         default=False
     )
 
@@ -77,6 +77,9 @@ class ImportIFF(Operator, ImportHelper):
         description="Use face textures instead of materials for texturing",
         default=False
     )
+
+    axis_forward = "Z"
+    axis_up = "-Y"
 
     backend_class_name = "IFFImporter"
 

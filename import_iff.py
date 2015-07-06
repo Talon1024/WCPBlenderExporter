@@ -21,11 +21,14 @@
 import bpy
 import warnings
 import struct
-from mathutils import Vector
+from mathutils import Vector, Matrix
 from itertools import starmap
 from collections import OrderedDict
+from os.path import exists as fexists
 
+MAX_NUM_LODS = 3
 LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
+textures = dict()
 
 
 class ImportBackend:
@@ -37,13 +40,15 @@ class ImportBackend:
                  use_facetex=False,
                  import_bsp=False):
         self.filepath = filepath
-        self.texname = texname
         self.import_all_lods = import_all_lods
         self.use_facetex = use_facetex
         self.import_bsp = import_bsp
 
-        if self.texname.isspace():
-            self.texname = "Untitled"
+        if texname.isspace():
+            texname = "Untitled"
+
+        # I ought to come up with a better solution for this...
+        global texname = texname + "{}"
 
 
 class LODMesh:
@@ -78,19 +83,19 @@ class LODMesh:
                 return isinstance(fvrt_el, float)
 
         if len(fvrt) == 4 and all(starmap(validate_fvrt, enumerate(fvrt))):
-            self._fvrts.append(vert)
+            self._fvrts.append(fvrt)
         else:
             raise TypeError("{0!r} ain't no FVRT!".format(fvrt))
 
     def add_face(self, face):
         """Add FACE data to this mesh."""
         def validate_face(idx, face_el):
-            if idx != 1:
-                return isinstance(face_el, int)
-            else:
+            if idx == 1:
                 return isinstance(face_el, float)
+            else:
+                return isinstance(face_el, int)
 
-        if len(face) == 7 and all(starmap(validate_face, enumerate(face))):
+        if len(face) == 6 and all(starmap(validate_face, enumerate(face))):
             self._faces.append(face)
         else:
             raise TypeError("{0!r} ain't no FACE!".format(face))
@@ -101,12 +106,12 @@ class LODMesh:
 
     def set_cntr(self, cntr):
         """Set the center point for this mesh."""
-        if len(cntr) == 3 and all(map(lambda e: type(e) == float)):
+        if len(cntr) == 3 and all(map(lambda e: isinstance(e, float), cntr)):
             self._cntr = cntr
         else:
             raise TypeError("{0!r} ain't no CNTR!".format(cntr))
 
-    def make_loops(self, verts, edges):
+    def make_loops(self, edges):
         """Generates loops for vertices and edges in order to make faces."""
         used_verts = []
         used_edges = []
@@ -145,7 +150,6 @@ class LODMesh:
                 len(self._fvrts) > 0 and
                 len(self._faces) > 0 and
                 self._name != ""):
-            textures = dict()
             bl_mesh = bpy.data.meshes.new(self._name)
             bl_mesh.vertices.add(len(self._verts))
             for idx, v in enumerate(self._verts):
@@ -169,6 +173,25 @@ class LODMesh:
                     else:
                         eidx = face_edges.index(ed)
                     edge_refs[fidx].append(eidx)
+                if f[2] not in textures.keys():
+                    mat_name = texname.format(len(textures) + 1)
+                    textures[f[2]] = mat_name
+                    if bpy.data.materials[mat_name]:
+                        pass
+                    else:
+                        tex_dir = self.filepath
+
+                        if fexists()
+                        bl_image = bpy.data.images
+
+                        bl_tex = bpy.data.textures.new(mat_name, "IMAGE")
+                        # Assign image to image texture
+
+                        bl_mat = bpy.data.materials.new(mat_name)
+                        bl_mat.texture_slots.add(1)
+                        bl_mat.texture_slots[0].mapping = "FLAT"
+                        bl_mat.texture_slots[0].use = True
+                        bl_mat.texture_slots[0].texture = bl_tex
             bl_mesh.edges.add(len(face_edges))
             for eidx, ed in enumerate(face_edges):
                 bl_mesh.edges[eidx].vertices = ed
@@ -176,42 +199,66 @@ class LODMesh:
             num_loop_verts = 0
             for fidx, f in enumerate(self._faces):
                 bl_mesh.polygons[fidx].normal = self._vtnms[f[0]]
-                f_verts = (fvrt[0] for fvrt in self._fvrts[f[3]:f[3] + f[4]])
+                f_verts = [fvrt[0] for fvrt in self._fvrts[f[3]:f[3] + f[4]]]
                 f_edges = edge_refs[fidx]
                 print("f_verts: {!r}, f_edges: {!r}".format(f_verts, f_edges))
                 bl_mesh.polygons[fidx].vertices = f_verts
-                for lp in self.make_loops(f_verts, f_edges):
+                for lp in self.make_loops(f_edges):
                     bl_mesh.loops.add(1)
-                    bl_mesh.loops.edge_index = lp[0]
-                    bl_mesh.loops.vertex_index = lp[1]
+                    bl_mesh.loops.edge_index, bl_mesh.loops.vertex_index = lp
                 bl_mesh.polygons[fidx].loop_start = num_loop_verts
                 bl_mesh.polygons[fidx].loop_total = f[4]
                 num_loop_verts += f[4]
         return bl_mesh
 
 
+class Hardpoint:
+
+    def __init__(self, pos_data, name):
+        self._rot_matrix[0][0] = pos_data[0]
+        self._rot_matrix[0][1] = pos_data[1]
+        self._rot_matrix[0][2] = pos_data[2]
+        self._x = pos_data[3]
+        self._rot_matrix[1][0] = pos_data[4]
+        self._rot_matrix[1][1] = pos_data[5]
+        self._rot_matrix[1][2] = pos_data[6]
+        self._y = pos_data[7]
+        self._rot_matrix[2][0] = pos_data[8]
+        self._rot_matrix[2][1] = pos_data[9]
+        self._rot_matrix[2][2] = pos_data[10]
+        self._z = pos_data[11]
+        self._name = name
+
+    def to_bl_obj(self):
+        bl_obj = bpy.data.objects.new("hp-" + self._name, None)
+        bl_obj.empty_draw_type = "ARROWS"
+        bl_obj.location = self._x, self._y, self._z
+
+
 class IFFImporter(ImportBackend):
 
     iff_heads = [b"FORM", b"CAT ", b"LIST"]
 
-    def skip_data(self, file):
-        orig_pos = file.tell()
-        head = file.read(4)
+    def skip_data(self):
+        orig_pos = self.iff_file.tell()
+        head = self.iff_file.read(4)
         if head in self.iff_heads:
-            file.read(8)
+            self.iff_file.read(8)
         elif head.isalnum() or head == b"FAR ":
-            length = struct.unpack(">i", file.read(4))[0]
-            file.read(length)
+            length = struct.unpack(">i", self.iff_file.read(4))[0]
+            self.iff_file.read(length)
         else:
             raise TypeError("This file is not a valid IFF file!")
+        del orig_pos
+        del head
         return None
 
-    def read_data(self, file):
-        orig_pos = file.tell()
-        head = file.read(4)
+    def read_data(self):
+        orig_pos = self.iff_file.tell()
+        head = self.iff_file.read(4)
         if head in self.iff_heads:
-            length = struct.unpack(">i", file.read(4))[0] - 4
-            name = file.read(4)
+            length = (struct.unpack(">i", self.iff_file.read(4))[0]) - 4
+            name = self.iff_file.read(4)
             return {
                 "type": "form",
                 "length": length,
@@ -219,9 +266,9 @@ class IFFImporter(ImportBackend):
                 "offset": orig_pos
             }
         elif head.isalnum() or head == b"FAR ":
-            name = file.read(4)
-            length = struct.unpack(">i", file.read(4))[0]
-            data = file.read(length)
+            name = head
+            length = struct.unpack(">i", self.iff_file.read(4))[0]
+            data = self.iff_file.read(length)
             return {
                 "type": "chunk",
                 "length": length,
@@ -234,30 +281,26 @@ class IFFImporter(ImportBackend):
         return None  # Shouldn't be reachable
 
     def load(self):
-        lods = {}
-        textures = dict()
-
-        iff_file = open(self.filepath, "r")
-        root_form = self.read_iff_data(iff_file)
+        self.iff_file = open(self.filepath, "rb")
+        root_form = self.read_data()
         if root_form["type"] == "form" and root_form["name"] == b"DETA":
-            self.skip_data(iff_file)
-            lods_form = self.read_data(iff_file)
-            lods_bytes_read = 0
-            if lods_form["name"] == b"MESH":
+            major_form = self.read_data()
+            mjrf_bytes_read = 0
+            if major_form["name"] == b"MESH":
                 # Read all LODs
-                while lods_bytes_read < lods_form["length"]:
-                    lod_form = self.read_data(iff_file)
-                    lods_bytes_read += 12
+                while mjrf_bytes_read < major_form["length"]:
+                    lod_form = self.read_data()
+                    mjrf_bytes_read += 12
                     lod_lev = lod_form["name"].decode("iso-8859-1").lstrip("0")
                     if lod_lev == "": self.cur_lod = 0
                     else: self.cur_lod = int(lod_lev)
 
                     lodm = LODMesh()
 
-                    self.skip_data(iff_file)  # Skip a MESH form
-                    lods_bytes_read += 12
-                    geom = self.read_data(iff_file)
-                    lods_bytes_read += 12
+                    self.skip_data()  # Skip a MESH form
+                    mjrf_bytes_read += 12
+                    geom = self.read_data()
+                    mjrf_bytes_read += 12
 
                     # Mesh version. In most cases, it will be 12
                     mvers = geom["name"].decode("iso-8859-1").lstrip("0")
@@ -272,17 +315,23 @@ class IFFImporter(ImportBackend):
                     geom_chunks_read = 0
 
                     while geom_chunks_read < len(geom_chunks):
-                        geom_data = self.read_data(iff_file)
-                        lods_bytes_read += geom_data["length"]
+                        geom_data = self.read_data()
+                        mjrf_bytes_read += 8 + geom_data["length"]
                         # Ignore RADI
                         if geom_data["name"] == geom_chunks[0]:  # NAME
                             name_str = bytearray()
                             the_byte = 1
+                            cur_pos = 0
                             while the_byte != 0:
-                                the_byte = iff_file.read(1)
+                                the_byte = geom_data["data"][cur_pos]
                                 name_str.append(the_byte)
+                                cur_pos += 1
                             del name_str[-1]
                             lodm.set_name(name_str.decode("iso-8859-1"))
+                            # if len(name_str) % 2 == 0: cur_pos += 1
+                            del cur_pos
+                            del name_str
+                            del the_byte
                         elif geom_data["name"] == geom_chunks[1]:  # VERT
                             vert_idx = 0
                             while vert_idx * 12 < geom_data["length"]:
@@ -319,5 +368,28 @@ class IFFImporter(ImportBackend):
                                 "<fff", geom_data["data"]
                             ))
                         geom_chunks_read += 1
+                    bl_ob = bpy.data.objects.new(
+                        LOD_NAMES[self.cur_lod],
+                        lodm.to_bl_mesh())
+                    bpy.context.scene.objects.link(bl_ob)
+            elif major_form["name"] == b"HARD":
+                while mjrf_bytes_read < major_form["length"]:
+                    hardpt = self.read_data()
+                    mjrf_bytes_read += hardpt["length"]
+                    hardpt_data = struct.unpack(
+                        "<ffffffffffff",
+                        hardpt["data"]
+                    )
+                    hardpt_name_ofs = 48
+                    hardpt_name_len = 0
+                    hardpt_name = bytearray()
+                    the_byte = 1
+                    while the_byte != 0:
+                        the_byte = hardpt["data"][
+                            hardpt_name_ofs + hardpt_name_len]
+                        hardpt_name.append(the_byte)
+                        hardpt_name_len += 1
+                    del hardpt_name[-1]
+                    hardpt_name = hardpt_name.decode("iso-8859-1")
         else:
             raise TypeError("This file isn't a mesh!")
