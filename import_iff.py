@@ -248,6 +248,8 @@ class Hardpoint:
         bl_obj = bpy.data.objects.new("hp-" + self._name, None)
         bl_obj.empty_draw_type = "ARROWS"
         bl_obj.location = self._x, self._y, self._z
+        # TODO: Set rotation of object
+        return bl_obj
 
 
 class IFFImporter(ImportBackend):
@@ -295,134 +297,133 @@ class IFFImporter(ImportBackend):
             raise TypeError("Tried to read an invalid IFF file!")
         return None  # Shouldn't be reachable
 
-    def load(self):
+    def read_mesh_data(self, mesh_form):
         texdict = {}
 
+        mjrf_bytes_read = 0
+        # Read all LODs
+        while mjrf_bytes_read < mesh_form["length"]:
+            lod_form = self.read_data()
+            mjrf_bytes_read += 12
+            lod_lev = lod_form["name"].decode("iso-8859-1").lstrip("0")
+            if lod_lev == "": self.cur_lod = 0
+            else: self.cur_lod = int(lod_lev)
+
+            lodm = LODMesh(self.texname, texdict)
+
+            self.skip_data()  # Skip a MESH form
+            mjrf_bytes_read += 12
+            geom = self.read_data()
+            mjrf_bytes_read += 12
+
+            # Mesh version. In most cases, it will be 12
+            mvers = geom["name"].decode("iso-8859-1").lstrip("0")
+            if mvers == "": mvers = 0
+            else: mvers = int(mvers)
+
+            geom_chunks = [
+                b"NAME",
+                b"VERT", b"VTNM", b"FVRT", b"FACE",
+                b"CNTR", b"RADI"
+            ]
+            geom_chunks_read = 0
+
+            while geom_chunks_read < len(geom_chunks):
+                geom_data = self.read_data()
+                mjrf_bytes_read += 8 + geom_data["length"]
+                # Ignore RADI
+                if geom_data["name"] == geom_chunks[0]:  # NAME
+                    name_str = self.read_cstring(geom_data, 0)
+                elif geom_data["name"] == geom_chunks[1]:  # VERT
+                    vert_idx = 0
+                    while vert_idx * 12 < geom_data["length"]:
+                        lodm.add_vert(struct.unpack_from(
+                            "<fff", geom_data["data"], vert_idx * 12))
+                        vert_idx += 1
+                elif geom_data["name"] == geom_chunks[2]:  # VTNM
+                    vtnm_idx = 0
+                    while vtnm_idx * 12 < geom_data["length"]:
+                        lodm.add_norm(struct.unpack_from(
+                            "<fff", geom_data["data"], vtnm_idx * 12))
+                        vtnm_idx += 1
+                elif geom_data["name"] == geom_chunks[3]:  # FVRT
+                    fvrt_idx = 0
+                    while fvrt_idx * 16 < geom_data["length"]:
+                        lodm.add_fvrt(struct.unpack_from(
+                            "<iiff", geom_data["data"], fvrt_idx * 16))
+                        fvrt_idx += 1
+                elif geom_data["name"] == geom_chunks[4]:  # FACE
+                    face_idx = 0
+                    while face_idx * 28 < geom_data["length"]:
+                        # Multiply by 28 to skip "unknown2" value
+                        lodm.add_face(struct.unpack_from(
+                            "<ifiiii", geom_data["data"], face_idx * 28))
+                        face_idx += 1
+                elif geom_data["name"] == geom_chunks[5]:  # CNTR
+                    lodm.set_cntr(struct.unpack("<fff", geom_data["data"]))
+                geom_chunks_read += 1
+                print(
+                    "mjr form length:", mesh_form["length"],
+                    "mjr form read:", mjrf_bytes_read
+                )
+            bl_ob = bpy.data.objects.new(
+                LOD_NAMES[self.cur_lod],
+                lodm.to_bl_mesh())
+            bpy.context.scene.objects.link(bl_ob)
+
+    def read_hard_data(self):
+        mjrf_bytes_read = 0
+        while mjrf_bytes_read < major_form["length"]:
+            hardpt_chunk = self.read_data()
+            mjrf_bytes_read += hardpt_chunk["length"]
+            hardpt_data = struct.unpack(
+                "<ffffffffffff",
+                hardpt_chunk["data"]
+            )
+            hardpt_name_ofs = 48
+            hardpt_name = self.read_cstring(hardpt_chunk, hardpt_name_ofs)
+            hardpt = Hardpoint(hardpt_data, hardpt_name)
+            bl_ob = hardpt.to_bl_obj()
+            bpy.context.scene.objects.link(bl_ob)
+
+    def read_coll_data(self):
+        coll_data = self.read_data()
+        if coll_data["name"] == b"SPHR":
+            bl_obj = bpy.data.objects.new("collsphr", None)
+            bl_obj.empty_draw_type = "SPHERE"
+            x, y, z, r = struct.unpack("<ffff", coll_data["data"])
+            bl_obj.scale = r, r, r
+            bl_obj.location = x, y, z
+            bpy.context.scene.objects.link(bl_obj)
+
+    def read_cstring(self, data, ofs):
+        cstring = bytearray()
+        the_byte = 1
+        while the_byte != 0:
+            the_byte = data[ofs]
+            cstring.append(the_byte)
+            ofs += 1
+        del cstring[-1]
+        return cstring.decode("iso-8859-1")
+
+    def load(self):
         self.iff_file = open(self.filepath, "rb")
         root_form = self.read_data()
         if root_form["type"] == "form" and root_form["name"] == b"DETA":
-            major_form = self.read_data()
-            mjrf_bytes_read = 0
-            print("Reading major form: {0}".format(major_form["name"]))
-            if major_form["name"] == b"RANG":
-                self.skip_data()  # RANG data is useless.
-            elif major_form["name"] == b"MESH":
-                # Read all LODs
-                while mjrf_bytes_read < major_form["length"]:
-                    lod_form = self.read_data()
-                    mjrf_bytes_read += 12
-                    lod_lev = lod_form["name"].decode("iso-8859-1").lstrip("0")
-                    if lod_lev == "": self.cur_lod = 0
-                    else: self.cur_lod = int(lod_lev)
-
-                    lodm = LODMesh(self.texname, texdict)
-
-                    self.skip_data()  # Skip a MESH form
-                    mjrf_bytes_read += 12
-                    geom = self.read_data()
-                    mjrf_bytes_read += 12
-
-                    # Mesh version. In most cases, it will be 12
-                    mvers = geom["name"].decode("iso-8859-1").lstrip("0")
-                    if mvers == "": mvers = 0
-                    else: mvers = int(mvers)
-
-                    geom_chunks = [
-                        b"NAME",
-                        b"VERT", b"VTNM", b"FVRT", b"FACE",
-                        b"CNTR", b"RADI"
-                    ]
-                    geom_chunks_read = 0
-
-                    while geom_chunks_read < len(geom_chunks):
-                        geom_data = self.read_data()
-                        mjrf_bytes_read += 8 + geom_data["length"]
-                        # Ignore RADI
-                        if geom_data["name"] == geom_chunks[0]:  # NAME
-                            name_str = bytearray()
-                            the_byte = 1
-                            cur_pos = 0
-                            while the_byte != 0:
-                                the_byte = geom_data["data"][cur_pos]
-                                name_str.append(the_byte)
-                                cur_pos += 1
-                            del name_str[-1]
-                            lodm.set_name(name_str.decode("iso-8859-1"))
-                            # if len(name_str) % 2 == 0: cur_pos += 1
-                            del cur_pos
-                            del name_str
-                            del the_byte
-                        elif geom_data["name"] == geom_chunks[1]:  # VERT
-                            vert_idx = 0
-                            while vert_idx * 12 < geom_data["length"]:
-                                lodm.add_vert(struct.unpack_from(
-                                    "<fff", geom_data["data"], vert_idx * 12))
-                                vert_idx += 1
-                        elif geom_data["name"] == geom_chunks[2]:  # VTNM
-                            vtnm_idx = 0
-                            while vtnm_idx * 12 < geom_data["length"]:
-                                lodm.add_norm(struct.unpack_from(
-                                    "<fff", geom_data["data"], vtnm_idx * 12))
-                                vtnm_idx += 1
-                        elif geom_data["name"] == geom_chunks[3]:  # FVRT
-                            fvrt_idx = 0
-                            while fvrt_idx * 16 < geom_data["length"]:
-                                lodm.add_fvrt(struct.unpack_from(
-                                    "<iiff",
-                                    geom_data["data"],
-                                    fvrt_idx * 16
-                                ))
-                                fvrt_idx += 1
-                        elif geom_data["name"] == geom_chunks[4]:  # FACE
-                            face_idx = 0
-                            while face_idx * 28 < geom_data["length"]:
-                                # Multiply by 28 to skip "unknown2" value
-                                lodm.add_face(struct.unpack_from(
-                                    "<ifiiii",
-                                    geom_data["data"],
-                                    face_idx * 28
-                                ))
-                                face_idx += 1
-                        elif geom_data["name"] == geom_chunks[5]:  # CNTR
-                            lodm.set_cntr(struct.unpack(
-                                "<fff", geom_data["data"]
-                            ))
-                        geom_chunks_read += 1
-                    print("mjr form length:", major_form["length"],
-                          "mjr form read:", mjrf_bytes_read)
-                    bl_ob = bpy.data.objects.new(
-                        LOD_NAMES[self.cur_lod],
-                        lodm.to_bl_mesh())
-                    bpy.context.scene.objects.link(bl_ob)
-            elif major_form["name"] == b"HARD":
-                while mjrf_bytes_read < major_form["length"]:
-                    hardpt = self.read_data()
-                    mjrf_bytes_read += hardpt["length"]
-                    hardpt_data = struct.unpack(
-                        "<ffffffffffff",
-                        hardpt["data"]
-                    )
-                    hardpt_name_ofs = 48
-                    hardpt_name_len = 0
-                    hardpt_name = bytearray()
-                    the_byte = 1
-                    while the_byte != 0:
-                        the_byte = hardpt["data"][
-                            hardpt_name_ofs + hardpt_name_len]
-                        hardpt_name.append(the_byte)
-                        hardpt_name_len += 1
-                    del hardpt_name[-1]
-                    hardpt_name = hardpt_name.decode("iso-8859-1")
-            elif major_form["name"] == b"COLL":
-                coll_data = self.read_data()
-                if coll_data["name"] == b"SPHR":
-                    bl_obj = bpy.data.objects.new("collsphr", None)
-                    bl_obj.empty_draw_type = "SPHERE"
-                    x, y, z, r = struct.unpack("<ffff", coll_data["data"])
-                    bl_obj.scale = r, r, r
-                    bl_obj.location = x, y, z
-                    bpy.context.scene.objects.link(bl_obj)
-            elif major_form["name"] == b"FAR ":
-                pass
+            mjrfs_read = 0
+            while mjrfs_read < root_form["length"]:
+                major_form = self.read_data()
+                mjrfs_read += major_form["length"]
+                print("Reading major form:", major_form["name"])
+                if major_form["name"] == b"RANG":
+                    pass  # RANG data is useless to Blender.
+                elif major_form["name"] == b"MESH":
+                    self.read_mesh_data()
+                elif major_form["name"] == b"HARD":
+                    self.read_hard_data()
+                elif major_form["name"] == b"COLL":
+                    self.read_coll_data()
+                elif major_form["name"] == b"FAR ":
+                    pass  # FAR data is useless to Blender.
         else:
             raise TypeError("This file isn't a mesh!")
