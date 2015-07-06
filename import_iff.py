@@ -28,7 +28,6 @@ from os.path import exists as fexists
 
 MAX_NUM_LODS = 3
 LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
-textures = dict()
 
 
 class ImportBackend:
@@ -45,20 +44,21 @@ class ImportBackend:
         self.import_bsp = import_bsp
 
         if texname.isspace():
-            texname = "Untitled"
-
-        # I ought to come up with a better solution for this...
-        global texname = texname + "{}"
+            self.texname = "Untitled"
+        else:
+            self.texname = texname
 
 
 class LODMesh:
 
-    def __init__(self):
+    def __init__(self, texname, texdict):
         self._verts = []
         self._norms = []
         self._fvrts = []
         self._faces = []
         self._name = ""
+        self.texname = texname
+        self.texdict = texdict
 
     def add_vert(self, vert):
         """Add VERT data to this mesh."""
@@ -173,31 +173,46 @@ class LODMesh:
                     else:
                         eidx = face_edges.index(ed)
                     edge_refs[fidx].append(eidx)
-                if f[2] not in textures.keys():
-                    mat_name = texname.format(len(textures) + 1)
-                    textures[f[2]] = mat_name
-                    if bpy.data.materials[mat_name]:
-                        pass
+                if f[2] not in self.texdict.keys():
+                    mat_name = self.texname.format(len(self.texdict) + 1)
+                    self.texdict[f[2]] = (len(bl_mesh.materials), mat_name)
+                    texture_available = False
+
+                    if fexists("../mat/{0:0>8d}.mat".format(f[2])):
+                        # Read MAT file
+                        # TODO: implement reading and parsing of MAT files.
+                        raise NotImplementedError("Cannot read MAT files.")
+                        texture_available = False
                     else:
-                        tex_dir = self.filepath
+                        img_exts = ["png", "jpg", "bmp", "jpeg", "tga"]
+                        for ext in img_exts:
+                            img_fname = "{}.{}".format(mat_name, ext)
+                            if fexists(img_fname):
+                                bl_img = bpy.data.images.load(img_fname)
+                                texture_available = True
+                                break
+                        else:
+                            texture_available = False
 
-                        if fexists()
-                        bl_image = bpy.data.images
+                    bl_mat = bpy.data.materials.new(mat_name)
+                    bl_mesh.materials.append(bl_mat)
 
+                    if texture_available:
                         bl_tex = bpy.data.textures.new(mat_name, "IMAGE")
+                        bl_tex.image = bl_img
                         # Assign image to image texture
-
-                        bl_mat = bpy.data.materials.new(mat_name)
                         bl_mat.texture_slots.add(1)
                         bl_mat.texture_slots[0].mapping = "FLAT"
+                        bl_mat.texture_slots[0].texture_coords = "UV"
                         bl_mat.texture_slots[0].use = True
                         bl_mat.texture_slots[0].texture = bl_tex
             bl_mesh.edges.add(len(face_edges))
             for eidx, ed in enumerate(face_edges):
                 bl_mesh.edges[eidx].vertices = ed
             bl_mesh.polygons.add(len(self._faces))
-            num_loop_verts = 0
+            cur_loop_vert = 0
             for fidx, f in enumerate(self._faces):
+                bl_mesh.polygons[fidx].material_index = self.texdict[f[2]][0]
                 bl_mesh.polygons[fidx].normal = self._vtnms[f[0]]
                 f_verts = [fvrt[0] for fvrt in self._fvrts[f[3]:f[3] + f[4]]]
                 f_edges = edge_refs[fidx]
@@ -206,9 +221,9 @@ class LODMesh:
                 for lp in self.make_loops(f_edges):
                     bl_mesh.loops.add(1)
                     bl_mesh.loops.edge_index, bl_mesh.loops.vertex_index = lp
-                bl_mesh.polygons[fidx].loop_start = num_loop_verts
+                bl_mesh.polygons[fidx].loop_start = cur_loop_vert
                 bl_mesh.polygons[fidx].loop_total = f[4]
-                num_loop_verts += f[4]
+                cur_loop_vert += f[4]
         return bl_mesh
 
 
@@ -281,12 +296,17 @@ class IFFImporter(ImportBackend):
         return None  # Shouldn't be reachable
 
     def load(self):
+        texdict = {}
+
         self.iff_file = open(self.filepath, "rb")
         root_form = self.read_data()
         if root_form["type"] == "form" and root_form["name"] == b"DETA":
             major_form = self.read_data()
             mjrf_bytes_read = 0
-            if major_form["name"] == b"MESH":
+            print("Reading major form: {0}".format(major_form["name"]))
+            if major_form["name"] == b"RANG":
+                self.skip_data()  # RANG data is useless.
+            elif major_form["name"] == b"MESH":
                 # Read all LODs
                 while mjrf_bytes_read < major_form["length"]:
                     lod_form = self.read_data()
@@ -295,7 +315,7 @@ class IFFImporter(ImportBackend):
                     if lod_lev == "": self.cur_lod = 0
                     else: self.cur_lod = int(lod_lev)
 
-                    lodm = LODMesh()
+                    lodm = LODMesh(self.texname, texdict)
 
                     self.skip_data()  # Skip a MESH form
                     mjrf_bytes_read += 12
@@ -368,6 +388,8 @@ class IFFImporter(ImportBackend):
                                 "<fff", geom_data["data"]
                             ))
                         geom_chunks_read += 1
+                    print("mjr form length:", major_form["length"],
+                          "mjr form read:", mjrf_bytes_read)
                     bl_ob = bpy.data.objects.new(
                         LOD_NAMES[self.cur_lod],
                         lodm.to_bl_mesh())
@@ -391,5 +413,16 @@ class IFFImporter(ImportBackend):
                         hardpt_name_len += 1
                     del hardpt_name[-1]
                     hardpt_name = hardpt_name.decode("iso-8859-1")
+            elif major_form["name"] == b"COLL":
+                coll_data = self.read_data()
+                if coll_data["name"] == b"SPHR":
+                    bl_obj = bpy.data.objects.new("collsphr", None)
+                    bl_obj.empty_draw_type = "SPHERE"
+                    x, y, z, r = struct.unpack("<ffff", coll_data["data"])
+                    bl_obj.scale = r, r, r
+                    bl_obj.location = x, y, z
+                    bpy.context.scene.objects.link(bl_obj)
+            elif major_form["name"] == b"FAR ":
+                pass
         else:
             raise TypeError("This file isn't a mesh!")
