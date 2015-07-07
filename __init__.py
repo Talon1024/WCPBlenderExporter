@@ -78,22 +78,17 @@ class ImportIFF(Operator, ImportHelper):
         default=False
     )
 
-    axis_forward = "Z"
-    axis_up = "-Y"
-
     backend_class_name = "IFFImporter"
 
     def execute(self, context):
         # WIP
-        wc_orientation_matrix = axis_conversion(
-            self.axis_forward, self.axis_up, "Z", "Y"
-        ).to_4x4()
+        wc_orientation_matrix = axis_conversion("Z", "Y").to_4x4()
 
         self.import_bsp = False
 
         importer = getattr(import_iff, self.backend_class_name)(
-            self.filepath, self.texname, self.import_all_lods,
-            self.use_facetex, self.import_bsp
+            self.filepath, self.texname, wc_orientation_matrix,
+            self.import_all_lods, self.use_facetex, self.import_bsp
         )
 
         importer.load()

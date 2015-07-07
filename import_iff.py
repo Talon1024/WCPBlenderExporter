@@ -35,10 +35,12 @@ class ImportBackend:
     def __init__(self,
                  filepath,
                  texname,
+                 reorient_matrix,
                  import_all_lods=False,
                  use_facetex=False,
                  import_bsp=False):
         self.filepath = filepath
+        self.reorient_matrix = reorient_matrix
         self.import_all_lods = import_all_lods
         self.use_facetex = use_facetex
         self.import_bsp = import_bsp
@@ -111,25 +113,33 @@ class LODMesh:
         else:
             raise TypeError("{0!r} ain't no CNTR!".format(cntr))
 
-    def make_loops(self, edges):
+    def make_loops(self, edges, edgeidxs):
         """Generates loops for vertices and edges in order to make faces."""
+        assert(len(edges) == len(edgeidxs))
+        # print(repr(edges), repr(edgeidxs))
+        my_edges = [sorted(e) for e in edges]
+        my_edges = sorted(my_edges, key=lambda e: e[0])
         used_verts = []
         used_edges = []
-        for e in edges:
-            if e.index not in used_edges:
-                if e.vertices[0] not in used_verts:
-                    used_edges.append(e.index)
-                    used_verts.append(e.vertices[0])
-                    yield (e.index, e.vertices[0])
-                elif e.vertices[1] not in used_verts:
-                    used_edges.append(e.index)
-                    used_verts.append(e.vertices[1])
-                    yield (e.index, e.vertices[1])
+        for e, eidx in zip(my_edges, edgeidxs):
+            if eidx not in used_edges:
+                # used_edges.append(eidx)
+                # yield (eidx, e[0])
+                if e[0] not in used_verts:
+                    used_edges.append(eidx)
+                    used_verts.append(e[0])
+                    yield (eidx, e[0])
+                elif e[1] not in used_verts:
+                    used_edges.append(eidx)
+                    used_verts.append(e[1])
+                    yield (eidx, e[1])
                 else:
-                    print("Potential problem encountered!!",
-                          "used_verts: {!r}, used_edges: {!r}".format(
-                              used_verts, used_edges
-                          ))
+                    print(
+                        "Potential problem encountered!!",
+                        "edges: {!r}, edgeidxs: {!r}".format(edges, edgeidxs),
+                        "e: {!r}, eidx: {!r}".format(e, eidx),
+                        "used_verts: {!r}, used_edges: {!r}".format(
+                            used_verts, used_edges), sep="\n")
                     raise StopIteration()
 
     def edges_from_verts(self, verts):
@@ -137,99 +147,116 @@ class LODMesh:
         if all(map(lambda e: isinstance(e, int), verts)):
             for idx in range(len(verts)):
                 first_idx = verts[idx]
-                next_idx = verts[idx + 1]
-                if next_idx >= len(verts): next_idx = 0
-                yield {first_idx, next_idx}
+                if (idx + 1) >= len(verts): next_idx = verts[0]
+                else: next_idx = verts[idx + 1]
+                yield (first_idx, next_idx)
         else:
             raise TypeError("{0!r} ain't vertex references!")
 
     def to_bl_mesh(self):
         """Take the data and convert it to Blender mesh data."""
-        if (len(self._verts) > 0 and
-                len(self._norms) > 0 and
-                len(self._fvrts) > 0 and
-                len(self._faces) > 0 and
-                self._name != ""):
-            bl_mesh = bpy.data.meshes.new(self._name)
-            bl_mesh.vertices.add(len(self._verts))
-            for idx, v in enumerate(self._verts):
-                bl_mesh.vertices[idx].co = v
-            face_edges = []
-            edge_refs = []
-            for fidx, f in enumerate(self._faces):
-                # used_fvrts = []
-                cur_edge_verts = []
-                for fvrt_ofs in range(f[4]):  # Number of vertices on the face
-                    cur_fvrt = f[3] + fvrt_ofs  # f[3] is index of first FVRT
-                    cur_edge_verts.append(self._fvrts[cur_fvrt][0])
-                    bl_mesh.vertices[self._fvrts[cur_fvrt][0]].normal = (
-                        self._vtnms[self._fvrts[cur_fvrt][1]])
-                    # used_fvrts.append(f[3] + fvrt_ofs)
-                edge_refs.append([])
-                for ed in self.edges_from_verts(cur_edge_verts):
-                    if ed not in face_edges:
-                        eidx = len(face_edges)
-                        face_edges.append(tuple(ed))
-                    else:
-                        eidx = face_edges.index(ed)
-                    edge_refs[fidx].append(eidx)
-                if f[2] not in self.texdict.keys():
-                    mat_name = self.texname.format(len(self.texdict) + 1)
-                    self.texdict[f[2]] = (len(bl_mesh.materials), mat_name)
+        assert(
+            len(self._verts) > 0 and len(self._norms) > 0 and
+            len(self._fvrts) > 0 and len(self._faces) > 0 and
+            self._name != "")
+        bl_mesh = bpy.data.meshes.new(self._name)
+        bl_mesh.vertices.add(len(self._verts))
+        for idx, v in enumerate(self._verts):
+            bl_mesh.vertices[idx].co = v
+        face_edges = []
+        edge_refs = []
+        for fidx, f in enumerate(self._faces):
+            # used_fvrts = []
+            cur_edge_verts = []
+            for fvrt_ofs in range(f[4]):  # Number of vertices on the face
+                cur_fvrt = f[3] + fvrt_ofs  # f[3] is index of first FVRT
+                cur_edge_verts.append(self._fvrts[cur_fvrt][0])
+                bl_mesh.vertices[self._fvrts[cur_fvrt][0]].normal = (
+                    self._norms[self._fvrts[cur_fvrt][1]])
+                # used_fvrts.append(f[3] + fvrt_ofs)
+            edge_refs.append([])
+            for ed in self.edges_from_verts(cur_edge_verts):
+                if ed not in face_edges:
+                    eidx = len(face_edges)
+                    # Sorting the edge vertex indices prevents errors when we
+                    # try and create the edge loops
+                    face_edges.append(ed)
+                else:
+                    eidx = face_edges.index(ed)
+                edge_refs[fidx].append(eidx)
+            if f[2] not in self.texdict.keys():
+                mat_name = self.texname.format(len(self.texdict) + 1)
+                self.texdict[f[2]] = (len(bl_mesh.materials), mat_name)
+                texture_available = False
+
+                if fexists("../mat/{0:0>8d}.mat".format(f[2])):
+                    # Read MAT file
+                    # TODO: implement reading and parsing of MAT files.
+                    raise NotImplementedError("Cannot read MAT files.")
                     texture_available = False
-
-                    if fexists("../mat/{0:0>8d}.mat".format(f[2])):
-                        # Read MAT file
-                        # TODO: implement reading and parsing of MAT files.
-                        raise NotImplementedError("Cannot read MAT files.")
-                        texture_available = False
+                else:
+                    img_exts = ["png", "jpg", "bmp", "jpeg", "tga"]
+                    for ext in img_exts:
+                        img_fname = "{}.{}".format(mat_name, ext)
+                        if fexists(img_fname):
+                            bl_img = bpy.data.images.load(img_fname)
+                            texture_available = True
+                            break
                     else:
-                        img_exts = ["png", "jpg", "bmp", "jpeg", "tga"]
-                        for ext in img_exts:
-                            img_fname = "{}.{}".format(mat_name, ext)
-                            if fexists(img_fname):
-                                bl_img = bpy.data.images.load(img_fname)
-                                texture_available = True
-                                break
-                        else:
-                            texture_available = False
+                        texture_available = False
 
-                    bl_mat = bpy.data.materials.new(mat_name)
-                    bl_mesh.materials.append(bl_mat)
+                bl_mat = bpy.data.materials.new(mat_name)
+                bl_mesh.materials.append(bl_mat)
 
-                    if texture_available:
-                        bl_tex = bpy.data.textures.new(mat_name, "IMAGE")
-                        bl_tex.image = bl_img
-                        # Assign image to image texture
-                        bl_mat.texture_slots.add(1)
-                        bl_mat.texture_slots[0].mapping = "FLAT"
-                        bl_mat.texture_slots[0].texture_coords = "UV"
-                        bl_mat.texture_slots[0].use = True
-                        bl_mat.texture_slots[0].texture = bl_tex
-            bl_mesh.edges.add(len(face_edges))
-            for eidx, ed in enumerate(face_edges):
-                bl_mesh.edges[eidx].vertices = ed
-            bl_mesh.polygons.add(len(self._faces))
-            cur_loop_vert = 0
-            for fidx, f in enumerate(self._faces):
-                bl_mesh.polygons[fidx].material_index = self.texdict[f[2]][0]
-                bl_mesh.polygons[fidx].normal = self._vtnms[f[0]]
-                f_verts = [fvrt[0] for fvrt in self._fvrts[f[3]:f[3] + f[4]]]
-                f_edges = edge_refs[fidx]
-                print("f_verts: {!r}, f_edges: {!r}".format(f_verts, f_edges))
-                bl_mesh.polygons[fidx].vertices = f_verts
-                for lp in self.make_loops(f_edges):
-                    bl_mesh.loops.add(1)
-                    bl_mesh.loops.edge_index, bl_mesh.loops.vertex_index = lp
-                bl_mesh.polygons[fidx].loop_start = cur_loop_vert
-                bl_mesh.polygons[fidx].loop_total = f[4]
-                cur_loop_vert += f[4]
+                if texture_available:
+                    bl_tex = bpy.data.textures.new(mat_name, "IMAGE")
+                    bl_tex.image = bl_img
+                    # Assign image to image texture
+                    bl_mat.texture_slots.add(1)
+                    bl_mat.texture_slots[0].mapping = "FLAT"
+                    bl_mat.texture_slots[0].texture_coords = "UV"
+                    bl_mat.texture_slots[0].use = True
+                    bl_mat.texture_slots[0].texture = bl_tex
+        bl_mesh.edges.add(len(face_edges))
+        for eidx, ed in enumerate(face_edges):
+            bl_mesh.edges[eidx].vertices = ed
+        bl_mesh.polygons.add(len(self._faces))
+        cur_loop_vert = 0
+        for fidx, f in enumerate(self._faces):
+            bl_mesh.polygons[fidx].material_index = self.texdict[f[2]][0]
+            f_verts = [fvrt[0] for fvrt in self._fvrts[f[3]:f[3] + f[4]]]
+            f_edges = [face_edges[eidx] for eidx in edge_refs[fidx]]
+            f_edgerefs = edge_refs[fidx]
+            # print("f_verts: {!r}, f_edges: {!r}".format(f_verts, f_edges))
+            bl_mesh.polygons[fidx].vertices = f_verts
+            for lp in self.make_loops(f_edges, f_edgerefs):
+                # print(repr(lp))
+                loop_idx = len(bl_mesh.loops)
+                # bl_mesh.loops.add(1)
+            #     (bl_mesh.loops[loop_idx].edge_index,
+            #      bl_mesh.loops[loop_idx].vertex_index) = lp
+            # bl_mesh.polygons[fidx].loop_start = cur_loop_vert
+            # bl_mesh.polygons[fidx].loop_total = f[4]
+            cur_loop_vert += f[4]
         return bl_mesh
+
+    def debug_info(self):
+        for data in [self._verts, self._norms, self._fvrts, self._faces,
+                     self._name]:
+            pass
+            # print("length of data:", len(data))
 
 
 class Hardpoint:
 
     def __init__(self, pos_data, name):
+        # Initialize rotation matrix data structure
+        # so we don't get access violations.
+        self._rot_matrix = [
+            [None, None, None],
+            [None, None, None],
+            [None, None, None]
+        ]
         self._rot_matrix[0][0] = pos_data[0]
         self._rot_matrix[0][1] = pos_data[1]
         self._rot_matrix[0][2] = pos_data[2]
@@ -248,7 +275,7 @@ class Hardpoint:
         bl_obj = bpy.data.objects.new("hp-" + self._name, None)
         bl_obj.empty_draw_type = "ARROWS"
         bl_obj.location = self._x, self._y, self._z
-        # TODO: Set rotation of object
+        bl_obj.rotation_euler = Matrix(self._rot_matrix).to_euler("XYZ")
         return bl_obj
 
 
@@ -274,7 +301,7 @@ class IFFImporter(ImportBackend):
         orig_pos = self.iff_file.tell()
         head = self.iff_file.read(4)
         if head in self.iff_heads:
-            length = (struct.unpack(">i", self.iff_file.read(4))[0]) - 4
+            length = (struct.unpack(">i", self.iff_file.read(4))[0])
             name = self.iff_file.read(4)
             return {
                 "type": "form",
@@ -297,12 +324,12 @@ class IFFImporter(ImportBackend):
             raise TypeError("Tried to read an invalid IFF file!")
         return None  # Shouldn't be reachable
 
-    def read_mesh_data(self, mesh_form):
+    def read_mesh_data(self, major_form):
         texdict = {}
 
-        mjrf_bytes_read = 0
+        mjrf_bytes_read = 4
         # Read all LODs
-        while mjrf_bytes_read < mesh_form["length"]:
+        while mjrf_bytes_read < major_form["length"]:
             lod_form = self.read_data()
             mjrf_bytes_read += 12
             lod_lev = lod_form["name"].decode("iso-8859-1").lstrip("0")
@@ -330,10 +357,11 @@ class IFFImporter(ImportBackend):
 
             while geom_chunks_read < len(geom_chunks):
                 geom_data = self.read_data()
-                mjrf_bytes_read += 8 + geom_data["length"]
+                mjrf_bytes_read += geom_data["length"] + 8
                 # Ignore RADI
                 if geom_data["name"] == geom_chunks[0]:  # NAME
-                    name_str = self.read_cstring(geom_data, 0)
+                    name_str = self.read_cstring(geom_data["data"], 0)
+                    lodm.set_name(name_str)
                 elif geom_data["name"] == geom_chunks[1]:  # VERT
                     vert_idx = 0
                     while vert_idx * 12 < geom_data["length"]:
@@ -363,25 +391,30 @@ class IFFImporter(ImportBackend):
                     lodm.set_cntr(struct.unpack("<fff", geom_data["data"]))
                 geom_chunks_read += 1
                 print(
-                    "mjr form length:", mesh_form["length"],
+                    "mjr form length:", major_form["length"],
                     "mjr form read:", mjrf_bytes_read
                 )
-            bl_ob = bpy.data.objects.new(
-                LOD_NAMES[self.cur_lod],
-                lodm.to_bl_mesh())
-            bpy.context.scene.objects.link(bl_ob)
+            try:
+                bl_mesh = lodm.to_bl_mesh()
+                if isinstance(self.reorient_matrix, Matrix):
+                    bl_mesh.transform(self.reorient_matrix)
+                bl_ob = bpy.data.objects.new(LOD_NAMES[self.cur_lod], bl_mesh)
+                bpy.context.scene.objects.link(bl_ob)
+            except AssertionError:
+                lodm.debug_info()
 
-    def read_hard_data(self):
-        mjrf_bytes_read = 0
+    def read_hard_data(self, major_form):
+        mjrf_bytes_read = 4
         while mjrf_bytes_read < major_form["length"]:
             hardpt_chunk = self.read_data()
-            mjrf_bytes_read += hardpt_chunk["length"]
-            hardpt_data = struct.unpack(
-                "<ffffffffffff",
-                hardpt_chunk["data"]
-            )
+            # ALWAYS add 8 when you read a chunk (because the chunk header is
+            # 8 bytes long)
+            mjrf_bytes_read += hardpt_chunk["length"] + 8
+            hardpt_data = struct.unpack_from(
+                "<ffffffffffff", hardpt_chunk["data"], 0)
             hardpt_name_ofs = 48
-            hardpt_name = self.read_cstring(hardpt_chunk, hardpt_name_ofs)
+            hardpt_name = self.read_cstring(
+                hardpt_chunk["data"], hardpt_name_ofs)
             hardpt = Hardpoint(hardpt_data, hardpt_name)
             bl_ob = hardpt.to_bl_obj()
             bpy.context.scene.objects.link(bl_ob)
@@ -401,29 +434,36 @@ class IFFImporter(ImportBackend):
         the_byte = 1
         while the_byte != 0:
             the_byte = data[ofs]
+            if the_byte == 0: break
             cstring.append(the_byte)
             ofs += 1
-        del cstring[-1]
         return cstring.decode("iso-8859-1")
 
     def load(self):
         self.iff_file = open(self.filepath, "rb")
         root_form = self.read_data()
         if root_form["type"] == "form" and root_form["name"] == b"DETA":
-            mjrfs_read = 0
+            mjrfs_read = 4
             while mjrfs_read < root_form["length"]:
                 major_form = self.read_data()
-                mjrfs_read += major_form["length"]
+                mjrfs_read += major_form["length"] + 8
                 print("Reading major form:", major_form["name"])
                 if major_form["name"] == b"RANG":
                     pass  # RANG data is useless to Blender.
                 elif major_form["name"] == b"MESH":
-                    self.read_mesh_data()
+                    self.read_mesh_data(major_form)
                 elif major_form["name"] == b"HARD":
-                    self.read_hard_data()
+                    self.read_hard_data(major_form)
                 elif major_form["name"] == b"COLL":
                     self.read_coll_data()
                 elif major_form["name"] == b"FAR ":
                     pass  # FAR data is useless to Blender.
+                else:
+                    print("Unknown major form:", major_form["name"])
+
+                # print(
+                #     "root form length:", root_form["length"],
+                #     "root form bytes read:", mjrfs_read
+                # )
         else:
             raise TypeError("This file isn't a mesh!")
