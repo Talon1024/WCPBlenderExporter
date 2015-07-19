@@ -1,7 +1,7 @@
 Blender Commander
 =================
 
-Blender Commander is an import/export script for Blender 2.65+ that allows you to export a VISION engine ([Wing Commander: Prophecy](http://www.wcnews.com/wcpedia/Wing_Commander:_Prophecy), [Wing Commander: Secret Ops](http://www.wcnews.com/wcpedia/Wing_Commander:_Secret_Ops)) IFF mesh, XMF source code that can be compiled into a VISION engine IFF mesh via WCPPascal, or import a VISION engine IFF mesh into Blender.
+Blender Commander is an import/export script for Blender 2.65+ that allows you to export a VISION engine ([Wing Commander: Prophecy](http://www.wcnews.com/wcpedia/Wing_Commander:_Prophecy), [Wing Commander: Secret Ops](http://www.wcnews.com/wcpedia/Wing_Commander:_Secret_Ops)) IFF mesh, or XMF source code that can be compiled into a VISION engine IFF mesh via WCPPascal.
 
 This means you'll be able to do most of your work in Blender, and then simply export it to the game without having to pass the model through multiple conversion programs (3D Exploration, `peoview`, `ModelC`, etc.).
 
@@ -34,11 +34,6 @@ Installation
 10. Save your settings if you want to permanently enable the exporter script.
 
 For more information, see [this guide](http://wiki.blender.org/index.php/Doc:2.6/Manual/Extensions/Python/Add-Ons) on the Blender wiki.
-
-IFF Import Tutorial
--------------------
-
-1. Choose a name for the object you are importing.
 
 IFF Export Tutorial
 -------------------
