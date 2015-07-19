@@ -373,7 +373,10 @@ class ExportBackend:
                 key=lambda mattex: mattex[1]):
             if as_comment:
                 tx_info += "// "
-            tx_info += "{} --> {!s:0>8}.mat\n".format(img_fname, texnum)
+            maxlen = max(map(len, mtl_texnums.keys()))
+            tx_info += (
+                "{:" + str(maxlen) +
+                "} --> {!s:0>8}.mat\n").format(img_fname, texnum)
         return tx_info
 
 

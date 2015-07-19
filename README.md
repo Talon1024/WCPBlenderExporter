@@ -50,9 +50,9 @@ IFF Export Tutorial
 
    For example:
 
-        Duhiky.png --> 00022000.mat
+        Duhiky.png     --> 00022000.mat
         Basicmetal.tga --> 00022001.mat
-        424242.jpg --> 00424242.mat
+        424242.jpg     --> 00424242.mat
 
    This indicates that `Duhiky.png` should be converted to `00022000.mat`, `Basicmetal.tga` should be converted to `00022001.mat`, `424242.jpg` should be converted to `00424242.mat`, etc.
 
