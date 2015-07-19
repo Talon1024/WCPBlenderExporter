@@ -20,7 +20,6 @@
 
 import bpy
 import warnings
-from . import import_iff
 from . import export_iff
 
 # ExportHelper is a helper class, defines filename and
@@ -274,18 +273,12 @@ def menu_func_export_iff(self, context):
     self.layout.operator(ExportIFF.bl_idname, text="WCP/SO IFF Mesh (.iff)")
 
 
-def menu_func_import_iff(self, context):
-    self.layout.operator(ImportIFF.bl_idname, text="WCP/SO IFF Mesh (.iff)")
-
-
 def menu_func_export_xmf(self, context):
     self.layout.operator(ExportXMF.bl_idname,
                          text="WCP/SO IFF Mesh XMF source (.pas)")
 
 
 def register():
-    bpy.utils.register_class(ImportIFF)
-    bpy.types.INFO_MT_file_import.append(menu_func_import_iff)
     bpy.utils.register_class(ExportIFF)
     bpy.types.INFO_MT_file_export.append(menu_func_export_iff)
     bpy.utils.register_class(ExportXMF)
@@ -293,8 +286,6 @@ def register():
 
 
 def unregister():
-    bpy.utils.unregister_class(ImportIFF)
-    bpy.types.INFO_MT_file_import.append(menu_func_import_iff)
     bpy.utils.unregister_class(ExportIFF)
     bpy.types.INFO_MT_file_export.remove(menu_func_export_iff)
     bpy.utils.unregister_class(ExportXMF)
