@@ -231,16 +231,14 @@ class LODMesh:
             f_edgerefs = edge_refs[fidx]
             bl_mesh.polygons[fidx].vertices = f_verts
             f_startloop = num_loops
-            f_numloops = 0
             assert(len(f_verts) == len(f_edgerefs))
             for vrt, edg in zip(f_verts, f_edgerefs):
                 bl_mesh.loops.add(1)
                 bl_mesh.loops[num_loops].edge_index = edg
                 bl_mesh.loops[num_loops].vertex_index = vrt
                 num_loops += 1
-                f_numloops += 1
             bl_mesh.polygons[fidx].loop_start = f_startloop
-            bl_mesh.polygons[fidx].loop_total = f_numloops
+            bl_mesh.polygons[fidx].loop_total = f[4]
         return bl_mesh
 
     def debug_info(self):
@@ -316,6 +314,10 @@ class IFFImporter(ImportBackend):
             name = head
             length = struct.unpack(">i", self.iff_file.read(4))[0]
             data = self.iff_file.read(length)
+
+            # IFF Chunks and FORMs are aligned at even offsets
+            if self.iff_file.tell() % 2 == 1: self.iff_file.read(1)
+
             return {
                 "type": "chunk",
                 "length": length,
