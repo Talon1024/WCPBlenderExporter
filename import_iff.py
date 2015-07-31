@@ -21,13 +21,17 @@
 import bpy
 import warnings
 import struct
-from mathutils import Vector, Matrix
-from itertools import starmap
-from collections import OrderedDict
+from mathutils import Matrix
+from itertools import starmap, count
 from os.path import exists as fexists
 
 MAX_NUM_LODS = 3
 LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
+
+
+def approx_equal(num1, num2, error):
+    if abs(num2 - num1) <= abs(error): return True
+    else: return False
 
 
 class ImportBackend:
@@ -154,45 +158,43 @@ class LODMesh:
             raise TypeError("{0!r} ain't vertex references!")
 
     def to_bl_mesh(self):
-        """Take the data and convert it to Blender mesh data."""
+        """Take the WC mesh data and convert it to Blender mesh data."""
         assert(
             len(self._verts) > 0 and len(self._norms) > 0 and
             len(self._fvrts) > 0 and len(self._faces) > 0 and
             self._name != "")
         bl_mesh = bpy.data.meshes.new(self._name)
         bl_mesh.vertices.add(len(self._verts))
-        for idx, v in enumerate(self._verts):
-            bl_mesh.vertices[idx].co = v
-        face_edges = []
-        edge_refs = []
+        for vidx, v in enumerate(self._verts):
+            bl_mesh.vertices[vidx].co = v
+        face_edges = []  # The edges (tuples of indices of two verts)
+        edge_refs = []  # indices of edges of faces, as lists per face
         for fidx, f in enumerate(self._faces):
             # used_fvrts = []
-            cur_edge_verts = []
-            for fvrt_ofs in range(f[4]):  # Number of vertices on the face
+            cur_face_verts = []
+            for fvrt_ofs in range(f[4]):  # f[4] is number of FVRTS of the face
                 cur_fvrt = f[3] + fvrt_ofs  # f[3] is index of first FVRT
-                cur_edge_verts.append(self._fvrts[cur_fvrt][0])
+                cur_face_verts.append(self._fvrts[cur_fvrt][0])
                 bl_mesh.vertices[self._fvrts[cur_fvrt][0]].normal = (
                     self._norms[self._fvrts[cur_fvrt][1]])
                 # used_fvrts.append(f[3] + fvrt_ofs)
             edge_refs.append([])
-            for ed in self.edges_from_verts(cur_edge_verts):
+            for ed in self.edges_from_verts(cur_face_verts):
                 if ed not in face_edges:
                     eidx = len(face_edges)
-                    # Sorting the edge vertex indices prevents errors when we
-                    # try and create the edge loops
                     face_edges.append(ed)
                 else:
                     eidx = face_edges.index(ed)
                 edge_refs[fidx].append(eidx)
             if f[2] not in self.texdict.keys():
-                mat_name = self.texname.format(len(self.texdict) + 1)
+                mat_name = self.texname + str(len(self.texdict) + 1)
                 self.texdict[f[2]] = (len(bl_mesh.materials), mat_name)
                 texture_available = False
 
                 if fexists("../mat/{0:0>8d}.mat".format(f[2])):
                     # Read MAT file
-                    # TODO: implement reading and parsing of MAT files.
-                    raise NotImplementedError("Cannot read MAT files.")
+                    # TODO: implement reading of MAT files.
+                    print("Cannot read MAT files.")
                     texture_available = False
                 else:
                     img_exts = ["png", "jpg", "bmp", "jpeg", "tga"]
@@ -221,23 +223,24 @@ class LODMesh:
         for eidx, ed in enumerate(face_edges):
             bl_mesh.edges[eidx].vertices = ed
         bl_mesh.polygons.add(len(self._faces))
-        cur_loop_vert = 0
+        num_loops = 0
         for fidx, f in enumerate(self._faces):
             bl_mesh.polygons[fidx].material_index = self.texdict[f[2]][0]
             f_verts = [fvrt[0] for fvrt in self._fvrts[f[3]:f[3] + f[4]]]
-            f_edges = [face_edges[eidx] for eidx in edge_refs[fidx]]
+            # f_edges = [face_edges[eidx] for eidx in edge_refs[fidx]]
             f_edgerefs = edge_refs[fidx]
-            # print("f_verts: {!r}, f_edges: {!r}".format(f_verts, f_edges))
             bl_mesh.polygons[fidx].vertices = f_verts
-            for lp in self.make_loops(f_edges, f_edgerefs):
-                # print(repr(lp))
-                loop_idx = len(bl_mesh.loops)
-                # bl_mesh.loops.add(1)
-            #     (bl_mesh.loops[loop_idx].edge_index,
-            #      bl_mesh.loops[loop_idx].vertex_index) = lp
-            # bl_mesh.polygons[fidx].loop_start = cur_loop_vert
-            # bl_mesh.polygons[fidx].loop_total = f[4]
-            cur_loop_vert += f[4]
+            f_startloop = num_loops
+            f_numloops = 0
+            assert(len(f_verts) == len(f_edgerefs))
+            for vrt, edg in zip(f_verts, f_edgerefs):
+                bl_mesh.loops.add(1)
+                bl_mesh.loops[num_loops].edge_index = edg
+                bl_mesh.loops[num_loops].vertex_index = vrt
+                num_loops += 1
+                f_numloops += 1
+            bl_mesh.polygons[fidx].loop_start = f_startloop
+            bl_mesh.polygons[fidx].loop_total = f_numloops
         return bl_mesh
 
     def debug_info(self):
