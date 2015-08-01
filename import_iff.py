@@ -167,6 +167,7 @@ class LODMesh:
         bl_mesh.vertices.add(len(self._verts))
         for vidx, v in enumerate(self._verts):
             bl_mesh.vertices[vidx].co = v
+            bl_mesh.vertices[vidx].co[0] *= -1
         face_edges = []  # The edges (tuples of indices of two verts)
         edge_refs = []  # indices of edges of faces, as lists per face
         for fidx, f in enumerate(self._faces):
@@ -177,6 +178,7 @@ class LODMesh:
                 cur_face_verts.append(self._fvrts[cur_fvrt][0])
                 bl_mesh.vertices[self._fvrts[cur_fvrt][0]].normal = (
                     self._norms[self._fvrts[cur_fvrt][1]])
+                bl_mesh.vertices[self._fvrts[cur_fvrt][0]].normal[0] *= -1
                 # used_fvrts.append(f[3] + fvrt_ofs)
             edge_refs.append([])
             for ed in self.edges_from_verts(cur_face_verts):
