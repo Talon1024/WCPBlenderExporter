@@ -231,7 +231,7 @@ class LODMesh:
             f_edgerefs = edge_refs[fidx]
             bl_mesh.polygons[fidx].vertices = f_verts
             f_startloop = num_loops
-            assert(len(f_verts) == len(f_edgerefs))
+            assert(len(f_verts) == len(f_edgerefs) == f[4])
             for vrt, edg in zip(f_verts, f_edgerefs):
                 bl_mesh.loops.add(1)
                 bl_mesh.loops[num_loops].edge_index = edg
@@ -316,7 +316,9 @@ class IFFImporter(ImportBackend):
             data = self.iff_file.read(length)
 
             # IFF Chunks and FORMs are aligned at even offsets
-            if self.iff_file.tell() % 2 == 1: self.iff_file.read(1)
+            if self.iff_file.tell() % 2 == 1:
+                self.iff_file.read(1)
+                length += 1
 
             return {
                 "type": "chunk",
@@ -397,7 +399,8 @@ class IFFImporter(ImportBackend):
                 geom_chunks_read += 1
                 print(
                     "mjr form length:", major_form["length"],
-                    "mjr form read:", mjrf_bytes_read
+                    "mjr form read:", mjrf_bytes_read,
+                    "current position:", self.iff_file.tell()
                 )
             try:
                 bl_mesh = lodm.to_bl_mesh()
