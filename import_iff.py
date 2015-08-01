@@ -49,8 +49,10 @@ class ImportBackend:
         self.use_facetex = use_facetex
         self.import_bsp = import_bsp
 
-        if texname.isspace():
-            self.texname = "Untitled"
+        if texname.isspace() or texname == "":
+            # Get material/texture name from file name
+            self.texname = bpy.path.basename(filepath)
+            self.texname = self.texname[:self.texname.rfind(".")]
         else:
             self.texname = texname
 
@@ -225,22 +227,33 @@ class LODMesh:
         for eidx, ed in enumerate(face_edges):
             bl_mesh.edges[eidx].vertices = ed
         bl_mesh.polygons.add(len(self._faces))
+        bl_mesh.uv_textures.add("UVMap")
         num_loops = 0
+
         for fidx, f in enumerate(self._faces):
-            bl_mesh.polygons[fidx].material_index = self.texdict[f[2]][0]
-            f_verts = [fvrt[0] for fvrt in self._fvrts[f[3]:f[3] + f[4]]]
-            # f_edges = [face_edges[eidx] for eidx in edge_refs[fidx]]
+
+            cur_face_fvrts = self._fvrts[f[3]:f[3] + f[4]]
+            f_verts = [fvrt[0] for fvrt in cur_face_fvrts]
+            f_uvs = [(fvrt[2], 1 - fvrt[3]) for fvrt in cur_face_fvrts]
             f_edgerefs = edge_refs[fidx]
-            bl_mesh.polygons[fidx].vertices = f_verts
             f_startloop = num_loops
+
+            bl_mesh.polygons[fidx].vertices = f_verts
+            bl_mesh.polygons[fidx].material_index = self.texdict[f[2]][0]
+
             assert(len(f_verts) == len(f_edgerefs) == f[4])
-            for vrt, edg in zip(f_verts, f_edgerefs):
+
+            for fvidx, vrt, edg in zip(count(), f_verts, f_edgerefs):
                 bl_mesh.loops.add(1)
                 bl_mesh.loops[num_loops].edge_index = edg
                 bl_mesh.loops[num_loops].vertex_index = vrt
+
+                bl_mesh.uv_layers["UVMap"].data[num_loops].uv = f_uvs[fvidx]
                 num_loops += 1
+
             bl_mesh.polygons[fidx].loop_start = f_startloop
             bl_mesh.polygons[fidx].loop_total = f[4]
+
         return bl_mesh
 
     def debug_info(self):
