@@ -494,9 +494,9 @@ class IFFExporter(ExportBackend):
                         vtnm_idx = fnrmrefs[fnrm_idx]
                     vert_idx = v
                     uv_x, uv_y = uv
-                    # -uv_y allows textures to be converted without the
+                    # 1 - uv_y allows textures to be converted without the
                     # modder having to vertically flip them.
-                    imeshl.add_fvrt(vert_idx, vtnm_idx, uv_x, -uv_y)
+                    imeshl.add_fvrt(vert_idx, vtnm_idx, uv_x, 1 - uv_y)
                 fnrm_idx += 1
 
             # Faces
@@ -758,9 +758,9 @@ class XMFExporter(ExportBackend):
                     print(' ' * 14, lfmt(vert_idx),  # Reference to VERT
                           ' ' * 14, lfmt(vtnm_idx),  # Reference to VTNM
                           ' ' * 14, ffmt(uvX),
-                          # -uvY allows textures to be converted without
+                          # 1 - uvY allows textures to be converted without
                           # the modder having to vertically flip them.
-                          ' ' * 14, ffmt(-uvY),
+                          ' ' * 14, ffmt(1 - uvY),
                           sep='', file=outfile)
                 fnrm_idx += 1
 
