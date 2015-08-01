@@ -227,7 +227,7 @@ class LODMesh:
         for eidx, ed in enumerate(face_edges):
             bl_mesh.edges[eidx].vertices = ed
         bl_mesh.polygons.add(len(self._faces))
-        bl_mesh.uv_textures.add("UVMap")
+        bl_mesh.uv_textures.new("UVMap")
         num_loops = 0
 
         for fidx, f in enumerate(self._faces):
