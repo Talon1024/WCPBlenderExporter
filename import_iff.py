@@ -119,35 +119,6 @@ class LODMesh:
         else:
             raise TypeError("{0!r} ain't no CNTR!".format(cntr))
 
-    def make_loops(self, edges, edgeidxs):
-        """Generates loops for vertices and edges in order to make faces."""
-        assert(len(edges) == len(edgeidxs))
-        # print(repr(edges), repr(edgeidxs))
-        my_edges = [sorted(e) for e in edges]
-        my_edges = sorted(my_edges, key=lambda e: e[0])
-        used_verts = []
-        used_edges = []
-        for e, eidx in zip(my_edges, edgeidxs):
-            if eidx not in used_edges:
-                # used_edges.append(eidx)
-                # yield (eidx, e[0])
-                if e[0] not in used_verts:
-                    used_edges.append(eidx)
-                    used_verts.append(e[0])
-                    yield (eidx, e[0])
-                elif e[1] not in used_verts:
-                    used_edges.append(eidx)
-                    used_verts.append(e[1])
-                    yield (eidx, e[1])
-                else:
-                    print(
-                        "Potential problem encountered!!",
-                        "edges: {!r}, edgeidxs: {!r}".format(edges, edgeidxs),
-                        "e: {!r}, eidx: {!r}".format(e, eidx),
-                        "used_verts: {!r}, used_edges: {!r}".format(
-                            used_verts, used_edges), sep="\n")
-                    raise StopIteration()
-
     def edges_from_verts(self, verts):
         """Generates vertex reference tuples for edges."""
         if all(map(lambda e: isinstance(e, int), verts)):
@@ -234,7 +205,7 @@ class LODMesh:
 
             cur_face_fvrts = self._fvrts[f[3]:f[3] + f[4]]
             f_verts = [fvrt[0] for fvrt in cur_face_fvrts]
-            f_uvs = [(fvrt[2], 1 - fvrt[3]) for fvrt in cur_face_fvrts]
+            f_uvs = [(fvrt[2], 1 - fvrt[3]) for fvrt in reversed(cur_face_fvrts)]
             f_edgerefs = edge_refs[fidx]
             f_startloop = num_loops
 
@@ -243,7 +214,8 @@ class LODMesh:
 
             assert(len(f_verts) == len(f_edgerefs) == f[4])
 
-            for fvidx, vrt, edg in zip(count(), f_verts, f_edgerefs):
+            for fvidx, vrt, edg in zip(
+                    count(), reversed(f_verts), reversed(f_edgerefs)):
                 bl_mesh.loops.add(1)
                 bl_mesh.loops[num_loops].edge_index = edg
                 bl_mesh.loops[num_loops].vertex_index = vrt

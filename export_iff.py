@@ -746,7 +746,7 @@ class XMFExporter(ExportBackend):
             fnrm_idx = 0
             uv_map = bl_mesh.tessface_uv_textures.active.data
             for f, u in zip(bl_mesh.tessfaces, uv_map):
-                for v, uv in zip(f.vertices, u.uv):
+                for v, uv in zip(reversed(f.vertices), reversed(u.uv)):
                     if f.use_smooth:
                         # If smoothing is enabled, use the vertex normal
                         vtnm_idx = vnrmrefs[v]
