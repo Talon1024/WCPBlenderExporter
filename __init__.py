@@ -20,6 +20,7 @@
 
 import bpy
 import warnings
+from . import import_iff
 from . import export_iff
 
 # ExportHelper is a helper class, defines filename and
@@ -40,6 +41,61 @@ bl_info = {
     "bl_wcp_exporter/bl_wcp_export_manual.html",
     "category": "Import-Export"
 }
+
+
+class ImportIFF(Operator, ImportHelper):
+    """Import a WCP/WCSO mesh file"""
+    # important since its how bpy.ops.import_test.some_data is constructed
+    bl_idname = "import_scene.iff"
+
+    bl_label = "Import WCP/SO IFF mesh file"
+
+    # ExportHelper mixin class uses this
+    filename_ext = ".iff"
+
+    filter_glob = StringProperty(
+        default="*.iff",
+        options={'HIDDEN'}
+    )
+
+    texname = StringProperty(
+        name="Image filename",
+        description="The VISION engine stores texture references as numbers"
+        "(ex. 22000, 22001). This is how textures should be named after they"
+        "are converted from VISION's \"number\" format (ex. If you type \""
+        "Duhiky\", the textures will be named Duhiky1.png, Duhiky2.png, etc.)."
+    )
+
+    import_all_lods = BoolProperty(
+        name="Import all LODs",
+        description="Import all LOD meshes as separate models",
+        default=False
+    )
+
+    use_facetex = BoolProperty(
+        name="Use Face Textures",
+        description="Use face textures instead of materials for texturing",
+        default=False
+    )
+
+    backend_class_name = "IFFImporter"
+
+    def execute(self, context):
+        # WIP
+        wc_orientation_matrix = axis_conversion("Z", "Y").to_4x4()
+
+        self.import_bsp = False
+
+        importer = getattr(import_iff, self.backend_class_name)(
+            self.filepath, self.texname, wc_orientation_matrix,
+            self.import_all_lods, self.use_facetex, self.import_bsp
+        )
+
+        importer.load()
+        with warnings.catch_warnings(record=True) as wlist:
+            for warning in wlist:
+                self.report({"WARNING"}, warning.message)
+        return {"FINISHED"}
 
 
 class ExportIFF(Operator, ExportHelper):
@@ -273,12 +329,18 @@ def menu_func_export_iff(self, context):
     self.layout.operator(ExportIFF.bl_idname, text="WCP/SO IFF Mesh (.iff)")
 
 
+def menu_func_import_iff(self, context):
+    self.layout.operator(ImportIFF.bl_idname, text="WCP/SO IFF Mesh (.iff)")
+
+
 def menu_func_export_xmf(self, context):
     self.layout.operator(ExportXMF.bl_idname,
                          text="WCP/SO IFF Mesh XMF source (.pas)")
 
 
 def register():
+    bpy.utils.register_class(ImportIFF)
+    bpy.types.INFO_MT_file_import.append(menu_func_import_iff)
     bpy.utils.register_class(ExportIFF)
     bpy.types.INFO_MT_file_export.append(menu_func_export_iff)
     bpy.utils.register_class(ExportXMF)
@@ -286,6 +348,8 @@ def register():
 
 
 def unregister():
+    bpy.utils.unregister_class(ImportIFF)
+    bpy.types.INFO_MT_file_import.append(menu_func_import_iff)
     bpy.utils.unregister_class(ExportIFF)
     bpy.types.INFO_MT_file_export.remove(menu_func_export_iff)
     bpy.utils.unregister_class(ExportXMF)
