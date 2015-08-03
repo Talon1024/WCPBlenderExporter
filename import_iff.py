@@ -28,6 +28,15 @@ from os.path import exists as fexists
 MAX_NUM_LODS = 3
 LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
 
+texmats = {}
+
+
+def register_texture(texnum, mat_name):
+    if texnum not in texmats.keys():
+        mat = bpy.data.materials.new(mat_name)
+        mtex = bpy.data.materials[mat_name].texture_slots.add()
+        texmats[texnum] = mat
+
 
 def approx_equal(num1, num2, error):
     if abs(num2 - num1) <= abs(error): return True
@@ -59,14 +68,14 @@ class ImportBackend:
 
 class LODMesh:
 
-    def __init__(self, texname, texdict):
+    def __init__(self, texname, mfilepath):
         self._verts = []
         self._norms = []
         self._fvrts = []
         self._faces = []
         self._name = ""
         self.texname = texname
-        self.texdict = texdict
+        self.mfpath = mfilepath
 
     def add_vert(self, vert):
         """Add VERT data to this mesh."""
@@ -161,10 +170,15 @@ class LODMesh:
                 else:
                     eidx = face_edges.index(ed)
                 edge_refs[fidx].append(eidx)
-            if f[2] not in self.texdict.keys():
-                mat_name = self.texname + str(len(self.texdict) + 1)
-                self.texdict[f[2]] = (len(bl_mesh.materials), mat_name)
+            if f[2] not in texmats.keys():
+                mat_name = self.texname + str(len(texmats) + 1)
+                texmats[f[2]] = (len(bl_mesh.materials), mat_name)
                 texture_available = False
+
+                mat_path = bpy.path.relpath(
+                    "../mat/{0:0>8d}.mat".format(f[2]),
+                    start=self.filepath)
+                print(mat_path)
 
                 if fexists("../mat/{0:0>8d}.mat".format(f[2])):
                     # Read MAT file
@@ -205,12 +219,13 @@ class LODMesh:
 
             cur_face_fvrts = self._fvrts[f[3]:f[3] + f[4]]
             f_verts = [fvrt[0] for fvrt in cur_face_fvrts]
-            f_uvs = [(fvrt[2], 1 - fvrt[3]) for fvrt in reversed(cur_face_fvrts)]
+            f_uvs = [
+                (fvrt[2], 1 - fvrt[3]) for fvrt in reversed(cur_face_fvrts)]
             f_edgerefs = edge_refs[fidx]
             f_startloop = num_loops
 
             bl_mesh.polygons[fidx].vertices = f_verts
-            bl_mesh.polygons[fidx].material_index = self.texdict[f[2]][0]
+            bl_mesh.polygons[fidx].material_index = texmats[f[2]][0]
 
             assert(len(f_verts) == len(f_edgerefs) == f[4])
 
@@ -319,8 +334,6 @@ class IFFImporter(ImportBackend):
         return None  # Shouldn't be reachable
 
     def read_mesh_data(self, major_form):
-        texdict = {}
-
         mjrf_bytes_read = 4
         # Read all LODs
         while mjrf_bytes_read < major_form["length"]:
@@ -330,7 +343,7 @@ class IFFImporter(ImportBackend):
             if lod_lev == "": self.cur_lod = 0
             else: self.cur_lod = int(lod_lev)
 
-            lodm = LODMesh(self.texname, texdict)
+            lodm = LODMesh(self.texname, self.filepath)
 
             self.skip_data()  # Skip a MESH form
             mjrf_bytes_read += 12
@@ -380,6 +393,7 @@ class IFFImporter(ImportBackend):
                         # Multiply by 28 to skip "unknown2" value
                         lodm.add_face(struct.unpack_from(
                             "<ifiiii", geom_data["data"], face_idx * 28))
+
                         face_idx += 1
                 elif geom_data["name"] == geom_chunks[5]:  # CNTR
                     lodm.set_cntr(struct.unpack("<fff", geom_data["data"]))

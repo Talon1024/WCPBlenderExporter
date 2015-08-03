@@ -59,22 +59,20 @@ class ImportIFF(Operator, ImportHelper):
     )
 
     texname = StringProperty(
-        name="Image filename",
-        description="The VISION engine stores texture references as numbers"
-        "(ex. 22000, 22001). This is how textures should be named after they"
-        "are converted from VISION's \"number\" format (ex. If you type \""
-        "Duhiky\", the textures will be named Duhiky1.png, Duhiky2.png, etc.)."
+        name="Texture name",
+        description="Name to use for the materials and textures. Uses model "
+        "filename if blank."
     )
 
     import_all_lods = BoolProperty(
         name="Import all LODs",
-        description="Import all LOD meshes as separate models",
+        description="Import all LOD meshes as separate models.",
         default=False
     )
 
     use_facetex = BoolProperty(
         name="Use Face Textures",
-        description="Use face textures instead of materials for texturing",
+        description="Use face textures instead of materials for texturing.",
         default=False
     )
 
