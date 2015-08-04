@@ -23,19 +23,66 @@ import warnings
 import struct
 from mathutils import Matrix
 from itertools import starmap, count
-from os.path import exists as fexists
+from os.path import normpath, join as joinpath, exists as fexists
 
 MAX_NUM_LODS = 3
 LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
 
+mfilepath = None
 texmats = {}
 
 
-def register_texture(texnum, mat_name):
+def register_texture(texnum, mat_name=None):
+    """Add a texture to the texture reference if it isn't already there.
+
+    Add a texture to the global texture dictionary if it isn't already in it.
+    New entries in the dictionary have the texture number as the key, and the
+    Blender material as the value. Return the Blender material associated with
+    the newly-registered texture, or the existing Blender material if said
+    texture is already in the dictionary.
+
+    @param texnum The texture number to register
+    @param mat_name The optional name of the material to use. If blank, the
+    mesh filename is used.
+    """
+
+    if mat_name is None:
+        mat_name = mfilepath[mfilepath.rfind("/"):mfilepath.rfind(".")]
+
     if texnum not in texmats.keys():
-        mat = bpy.data.materials.new(mat_name)
-        mtex = bpy.data.materials[mat_name].texture_slots.add()
-        texmats[texnum] = mat
+        bl_mat = bpy.data.materials.new(mat_name)
+        texmats[texnum] = bl_mat
+
+        img_extns = ["bmp", "png", "jpg", "jpeg", "tga", "gif", "dds"]
+
+        mfiledir = mfilepath[:mfilepath.rfind("/")]
+        mat_path = normpath(joinpath(
+            mfiledir, "../mat/{0:0>8d}.mat".format(texnum)))
+
+        # Search for and load high-quality images in the same folder first.
+        for extn in img_extns:
+            img_path = joinpath(mfiledir, mat_name + "." + extn)
+            if fexists(img_path):
+                bl_img = bpy.data.images.load(img_path)
+
+                bl_mtexslot = bl_mat.texture_slots.add()
+                bl_mtex = bpy.data.textures.new(mat_name, "IMAGE")
+                bl_mtex.texture_coords = "UV"
+                bl_mtex.uv_layer = "UVMap"
+                bl_mtex.image = bl_img
+                bl_mtexslot.texture = bl_mtex
+                break
+        else:
+            print("High-quality texture image not found!",
+                  "Searching for MAT texture...")
+
+        if fexists(mat_path):
+            print("Found MAT file!")
+            # TODO: Implement reading of MAT files.
+            print("Cannot read MAT files as of now.")
+    else:
+        bl_mat = bpy.data.materials[mat_name]
+    return bl_mat
 
 
 def approx_equal(num1, num2, error):
@@ -52,7 +99,8 @@ class ImportBackend:
                  import_all_lods=False,
                  use_facetex=False,
                  import_bsp=False):
-        self.filepath = filepath
+        global mfilepath
+        mfilepath = filepath
         self.reorient_matrix = reorient_matrix
         self.import_all_lods = import_all_lods
         self.use_facetex = use_facetex
@@ -68,14 +116,13 @@ class ImportBackend:
 
 class LODMesh:
 
-    def __init__(self, texname, mfilepath):
+    def __init__(self, texname):
         self._verts = []
         self._norms = []
         self._fvrts = []
         self._faces = []
         self._name = ""
         self.texname = texname
-        self.mfpath = mfilepath
 
     def add_vert(self, vert):
         """Add VERT data to this mesh."""
@@ -177,7 +224,7 @@ class LODMesh:
 
                 mat_path = bpy.path.relpath(
                     "../mat/{0:0>8d}.mat".format(f[2]),
-                    start=self.filepath)
+                    start=mfilepath)
                 print(mat_path)
 
                 if fexists("../mat/{0:0>8d}.mat".format(f[2])):
@@ -343,7 +390,7 @@ class IFFImporter(ImportBackend):
             if lod_lev == "": self.cur_lod = 0
             else: self.cur_lod = int(lod_lev)
 
-            lodm = LODMesh(self.texname, self.filepath)
+            lodm = LODMesh(self.texname)
 
             self.skip_data()  # Skip a MESH form
             mjrf_bytes_read += 12
@@ -449,7 +496,7 @@ class IFFImporter(ImportBackend):
         return cstring.decode("iso-8859-1")
 
     def load(self):
-        self.iff_file = open(self.filepath, "rb")
+        self.iff_file = open(mfilepath, "rb")
         root_form = self.read_data()
         if root_form["type"] == "form" and root_form["name"] == b"DETA":
             mjrfs_read = 4
