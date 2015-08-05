@@ -233,11 +233,15 @@ class LODMesh:
             edge_refs.append([])
 
             for ed in self.edges_from_verts(cur_face_verts):
-                if ed not in face_edges:
+                if (ed not in face_edges and
+                        tuple(reversed(ed)) not in face_edges):
                     eidx = len(face_edges)
                     face_edges.append(ed)
                 else:
-                    eidx = face_edges.index(ed)
+                    if face_edges.count(ed) == 1:
+                        eidx = face_edges.index(ed)
+                    else:
+                        eidx = face_edges.index(tuple(reversed(ed)))
                 edge_refs[fidx].append(eidx)
 
             if f[2] in texmats.keys():
@@ -262,7 +266,7 @@ class LODMesh:
             f_edgerefs = edge_refs[fidx]
             f_startloop = num_loops
 
-            bl_mesh.polygons[fidx].vertices = f_verts
+            bl_mesh.polygons[fidx].vertices = tuple(reversed(f_verts))
 
             # Assign corresponding material to polygon
             bl_mesh.polygons[fidx].material_index = self.mtlrefs[f[2]]
