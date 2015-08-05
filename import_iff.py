@@ -123,6 +123,7 @@ class LODMesh:
         self._faces = []
         self._name = ""
         self.texname = texname
+        self.mtlrefs = {}
 
     def add_vert(self, vert):
         """Add VERT data to this mesh."""
@@ -192,24 +193,34 @@ class LODMesh:
             len(self._verts) > 0 and len(self._norms) > 0 and
             len(self._fvrts) > 0 and len(self._faces) > 0 and
             self._name != "")
+
         bl_mesh = bpy.data.meshes.new(self._name)
         bl_mesh.vertices.add(len(self._verts))
+
         for vidx, v in enumerate(self._verts):
             bl_mesh.vertices[vidx].co = v
             bl_mesh.vertices[vidx].co[0] *= -1
+
         face_edges = []  # The edges (tuples of indices of two verts)
         edge_refs = []  # indices of edges of faces, as lists per face
+
         for fidx, f in enumerate(self._faces):
+
             # used_fvrts = []
             cur_face_verts = []
+
             for fvrt_ofs in range(f[4]):  # f[4] is number of FVRTS of the face
+
                 cur_fvrt = f[3] + fvrt_ofs  # f[3] is index of first FVRT
                 cur_face_verts.append(self._fvrts[cur_fvrt][0])
+
                 bl_mesh.vertices[self._fvrts[cur_fvrt][0]].normal = (
                     self._norms[self._fvrts[cur_fvrt][1]])
+
                 bl_mesh.vertices[self._fvrts[cur_fvrt][0]].normal[0] *= -1
                 # used_fvrts.append(f[3] + fvrt_ofs)
             edge_refs.append([])
+
             for ed in self.edges_from_verts(cur_face_verts):
                 if ed not in face_edges:
                     eidx = len(face_edges)
@@ -217,47 +228,16 @@ class LODMesh:
                 else:
                     eidx = face_edges.index(ed)
                 edge_refs[fidx].append(eidx)
-            if f[2] not in texmats.keys():
-                mat_name = self.texname + str(len(texmats) + 1)
-                texmats[f[2]] = (len(bl_mesh.materials), mat_name)
-                texture_available = False
 
-                mat_path = bpy.path.relpath(
-                    "../mat/{0:0>8d}.mat".format(f[2]),
-                    start=mfilepath)
-                print(mat_path)
+            if f[2] in texmats.keys():
+                if f[2] not in bl_mesh.materials:
+                    self.mtlrefs[f[2]] = len(bl_mesh.materials)
+                    bl_mesh.materials.append(texmats[f[2]])
 
-                if fexists("../mat/{0:0>8d}.mat".format(f[2])):
-                    # Read MAT file
-                    # TODO: implement reading of MAT files.
-                    print("Cannot read MAT files.")
-                    texture_available = False
-                else:
-                    img_exts = ["png", "jpg", "bmp", "jpeg", "tga"]
-                    for ext in img_exts:
-                        img_fname = "{}.{}".format(mat_name, ext)
-                        if fexists(img_fname):
-                            bl_img = bpy.data.images.load(img_fname)
-                            texture_available = True
-                            break
-                    else:
-                        texture_available = False
-
-                bl_mat = bpy.data.materials.new(mat_name)
-                bl_mesh.materials.append(bl_mat)
-
-                if texture_available:
-                    bl_tex = bpy.data.textures.new(mat_name, "IMAGE")
-                    bl_tex.image = bl_img
-                    # Assign image to image texture
-                    bl_mat.texture_slots.add(1)
-                    bl_mat.texture_slots[0].mapping = "FLAT"
-                    bl_mat.texture_slots[0].texture_coords = "UV"
-                    bl_mat.texture_slots[0].use = True
-                    bl_mat.texture_slots[0].texture = bl_tex
         bl_mesh.edges.add(len(face_edges))
         for eidx, ed in enumerate(face_edges):
             bl_mesh.edges[eidx].vertices = ed
+
         bl_mesh.polygons.add(len(self._faces))
         bl_mesh.uv_textures.new("UVMap")
         num_loops = 0
@@ -272,7 +252,7 @@ class LODMesh:
             f_startloop = num_loops
 
             bl_mesh.polygons[fidx].vertices = f_verts
-            bl_mesh.polygons[fidx].material_index = texmats[f[2]][0]
+            bl_mesh.polygons[fidx].material_index = self.mtlrefs[f[2]]
 
             assert(len(f_verts) == len(f_edgerefs) == f[4])
 
@@ -438,9 +418,10 @@ class IFFImporter(ImportBackend):
                     face_idx = 0
                     while face_idx * 28 < geom_data["length"]:
                         # Multiply by 28 to skip "unknown2" value
-                        lodm.add_face(struct.unpack_from(
-                            "<ifiiii", geom_data["data"], face_idx * 28))
-
+                        face_data = struct.unpack_from(
+                            "<ifiiii", geom_data["data"], face_idx * 28)
+                        lodm.add_face(face_data)
+                        register_texture(face_data[2], self.texname)
                         face_idx += 1
                 elif geom_data["name"] == geom_chunks[5]:  # CNTR
                     lodm.set_cntr(struct.unpack("<fff", geom_data["data"]))
