@@ -47,29 +47,36 @@ def register_texture(texnum, mat_name=None):
     """
 
     if mat_name is None:
-        mat_name = mfilepath[mfilepath.rfind("/"):mfilepath.rfind(".")]
+        mat_name = mfilepath[mfilepath.rfind("/") + 1:mfilepath.rfind(".")]
 
     if texnum not in texmats.keys():
+        mat_name += str(len(texmats) + 1)
+        print("mat_name:", mat_name)
         bl_mat = bpy.data.materials.new(mat_name)
-        texmats[texnum] = bl_mat
+
+        # Last element in this list will become the image file path
+        texmats[texnum] = [mat_name, bl_mat, None]
 
         img_extns = ["bmp", "png", "jpg", "jpeg", "tga", "gif", "dds"]
 
         mfiledir = mfilepath[:mfilepath.rfind("/")]
         mat_path = normpath(joinpath(
-            mfiledir, "../mat/{0:0>8d}.mat".format(texnum)))
+            mfiledir, "mat/{0:0>8d}.mat".format(texnum)))
 
         # Search for and load high-quality images in the same folder first.
         for extn in img_extns:
             img_path = joinpath(mfiledir, mat_name + "." + extn)
             if fexists(img_path):
                 bl_img = bpy.data.images.load(img_path)
+                texmats[texnum][2] = bl_img
 
                 bl_mtexslot = bl_mat.texture_slots.add()
+                bl_mtexslot.texture_coords = "UV"
+                bl_mtexslot.uv_layer = "UVMap"
+
                 bl_mtex = bpy.data.textures.new(mat_name, "IMAGE")
-                bl_mtex.texture_coords = "UV"
-                bl_mtex.uv_layer = "UVMap"
                 bl_mtex.image = bl_img
+
                 bl_mtexslot.texture = bl_mtex
                 break
         else:
@@ -80,14 +87,18 @@ def register_texture(texnum, mat_name=None):
             print("Found MAT file!")
             # TODO: Implement reading of MAT files.
             print("Cannot read MAT files as of now.")
+        else:
+            print("MAT texture {0:0>8d}.mat not found!".format(
+                texnum))
     else:
+        mat_name += str(len(texmats))
+        print("mat_name:", mat_name)
         bl_mat = bpy.data.materials[mat_name]
     return bl_mat
 
 
 def approx_equal(num1, num2, error):
-    if abs(num2 - num1) <= abs(error): return True
-    else: return False
+    return (abs(num2 - num1) <= abs(error))
 
 
 class ImportBackend:
@@ -230,9 +241,9 @@ class LODMesh:
                 edge_refs[fidx].append(eidx)
 
             if f[2] in texmats.keys():
-                if f[2] not in bl_mesh.materials:
+                if texmats[f[2]][0] not in bl_mesh.materials:
                     self.mtlrefs[f[2]] = len(bl_mesh.materials)
-                    bl_mesh.materials.append(texmats[f[2]])
+                    bl_mesh.materials.append(texmats[f[2]][1])
 
         bl_mesh.edges.add(len(face_edges))
         for eidx, ed in enumerate(face_edges):
@@ -252,7 +263,11 @@ class LODMesh:
             f_startloop = num_loops
 
             bl_mesh.polygons[fidx].vertices = f_verts
+
+            # Assign corresponding material to polygon
             bl_mesh.polygons[fidx].material_index = self.mtlrefs[f[2]]
+            # Assign corresponding image to UV image texture (AKA facetex)
+            bl_mesh.uv_texture_stencil.data[fidx].image = texmats[f[2]][2]
 
             assert(len(f_verts) == len(f_edgerefs) == f[4])
 
@@ -421,7 +436,7 @@ class IFFImporter(ImportBackend):
                         face_data = struct.unpack_from(
                             "<ifiiii", geom_data["data"], face_idx * 28)
                         lodm.add_face(face_data)
-                        register_texture(face_data[2], self.texname)
+                        register_texture(face_data[2])
                         face_idx += 1
                 elif geom_data["name"] == geom_chunks[5]:  # CNTR
                     lodm.set_cntr(struct.unpack("<fff", geom_data["data"]))
