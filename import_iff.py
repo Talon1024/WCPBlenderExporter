@@ -51,7 +51,7 @@ def register_texture(texnum, mat_name=None):
 
     if texnum not in texmats.keys():
         mat_name += str(len(texmats) + 1)
-        print("mat_name:", mat_name)
+        # print("mat_name:", mat_name)
         bl_mat = bpy.data.materials.new(mat_name)
 
         # Last element in this list will become the image file path
@@ -84,15 +84,16 @@ def register_texture(texnum, mat_name=None):
                   "Searching for MAT texture...")
 
         if fexists(mat_path):
-            print("Found MAT file!")
+            print("Found MAT file:", mat_path)
             # TODO: Implement reading of MAT files.
-            print("Cannot read MAT files as of now.")
+            # print("Cannot read MAT files as of now.")
         else:
-            print("MAT texture {0:0>8d}.mat not found!".format(
-                texnum))
+            # print("MAT texture {0:0>8d}.mat not found!".format(
+            #     texnum))
+            pass
     else:
         mat_name += str(len(texmats))
-        print("mat_name:", mat_name)
+        # print("mat_name:", mat_name)
         bl_mat = bpy.data.materials[mat_name]
     return bl_mat
 
@@ -232,7 +233,7 @@ class LODMesh:
                 # used_fvrts.append(f[3] + fvrt_ofs)
             edge_refs.append([])
 
-            for ed in self.edges_from_verts(cur_face_verts):
+            for ed in self.edges_from_verts(tuple(reversed(cur_face_verts))):
                 if (ed not in face_edges and
                         tuple(reversed(ed)) not in face_edges):
                     eidx = len(face_edges)
@@ -266,7 +267,7 @@ class LODMesh:
             f_edgerefs = edge_refs[fidx]
             f_startloop = num_loops
 
-            bl_mesh.polygons[fidx].vertices = tuple(reversed(f_verts))
+            bl_mesh.polygons[fidx].vertices = f_verts
 
             # Assign corresponding material to polygon
             bl_mesh.polygons[fidx].material_index = self.mtlrefs[f[2]]
@@ -275,11 +276,19 @@ class LODMesh:
 
             assert(len(f_verts) == len(f_edgerefs) == f[4])
 
+            # print("Face", fidx, "loop_total:", f[4])
+
             for fvidx, vrt, edg in zip(
-                    count(), reversed(f_verts), reversed(f_edgerefs)):
+                    count(), reversed(f_verts), f_edgerefs):
                 bl_mesh.loops.add(1)
                 bl_mesh.loops[num_loops].edge_index = edg
                 bl_mesh.loops[num_loops].vertex_index = vrt
+
+                # print("Loop", num_loops, "vertex index:", vrt)
+                # print("Loop", num_loops, "edge index:", edg)
+                # print("Edge", edg, "vertices",
+                #       bl_mesh.edges[edg].vertices[0],
+                #       bl_mesh.edges[edg].vertices[1])
 
                 bl_mesh.uv_layers["UVMap"].data[num_loops].uv = f_uvs[fvidx]
                 num_loops += 1
@@ -445,11 +454,11 @@ class IFFImporter(ImportBackend):
                 elif geom_data["name"] == geom_chunks[5]:  # CNTR
                     lodm.set_cntr(struct.unpack("<fff", geom_data["data"]))
                 geom_chunks_read += 1
-                print(
-                    "mjr form length:", major_form["length"],
-                    "mjr form read:", mjrf_bytes_read,
-                    "current position:", self.iff_file.tell()
-                )
+                # print(
+                #     "mjr form length:", major_form["length"],
+                #     "mjr form read:", mjrf_bytes_read,
+                #     "current position:", self.iff_file.tell()
+                # )
             try:
                 bl_mesh = lodm.to_bl_mesh()
                 if isinstance(self.reorient_matrix, Matrix):
@@ -503,7 +512,7 @@ class IFFImporter(ImportBackend):
             while mjrfs_read < root_form["length"]:
                 major_form = self.read_data()
                 mjrfs_read += major_form["length"] + 8
-                print("Reading major form:", major_form["name"])
+                # print("Reading major form:", major_form["name"])
                 if major_form["name"] == b"RANG":
                     pass  # RANG data is useless to Blender.
                 elif major_form["name"] == b"MESH":
@@ -515,7 +524,8 @@ class IFFImporter(ImportBackend):
                 elif major_form["name"] == b"FAR ":
                     pass  # FAR data is useless to Blender.
                 else:
-                    print("Unknown major form:", major_form["name"])
+                    # print("Unknown major form:", major_form["name"])
+                    pass
 
                 # print(
                 #     "root form length:", root_form["length"],
