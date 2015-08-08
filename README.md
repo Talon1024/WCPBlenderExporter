@@ -38,7 +38,7 @@ For more information, see [this guide](http://wiki.blender.org/index.php/Doc:2.6
 IFF Import Tutorial
 -------------------
 
-1. Obtain a VISION engine IFF 3D model from somewhere. You can extract an IFF 3D model from the game (or your favourite WC:SO mod, such as [Standoff](http://standoff.solsector.net) or [Unknown Enemy](http://unknownenemy.solsector.net)) using HCl's [treman](http://hcl.solsector.net/archive/treman1.zip). (You'll need to run it in [DOSBox](http://www.dosbox.com/) on modern systems, however. If you get an error that says "`Get CWSDPMI*B.zip`", try increasing DOSBox's allotted memory (memsize) in dosbox.conf)
+1. Obtain a VISION engine IFF 3D model from somewhere. You can extract an IFF 3D model from the game (or your favourite WC:SO mod, such as [Standoff](http://standoff.solsector.net) or [Unknown Enemy](http://unknownenemy.solsector.net)) using HCl's [treman](http://hcl.solsector.net/archive/treman1.zip). (You'll need to run it in [DOSBox](http://www.dosbox.com/) on modern systems, however.)
 2. Extract the textures for this model. If you are using MAT files, place them in the `mat` folder, and the 3D model in the `mesh` folder. If you are using PNG, BMP, GIF, or another high-quality image format, place the images in the same folder as the 3D model, and give them the same name as the 3D model, except with numbers after them. For example, if the 3D model is named `GRIKATH.IFF`, and you want to use high-quality images as textures, name the images `GRIKATH1.PNG`, `GRIKATH2.PNG`, etc.
 3. Run the importer script to import the mesh into Blender.
 

@@ -416,7 +416,7 @@ class IFFImporter(ImportBackend):
             else: mvers = int(mvers)
 
             geom_chunks = [
-                b"NAME"
+                b"NAME",
                 b"VERT", b"NORM", b"VTNM", b"FVRT", b"FACE",
                 b"CNTR", b"RADI"
             ]
@@ -464,11 +464,11 @@ class IFFImporter(ImportBackend):
                 elif geom_data["name"] == geom_chunks[5]:  # CNTR
                     lodm.set_cntr(struct.unpack("<fff", geom_data["data"]))
                 geom_chunks_read += 1
-                # print(
-                #     "mjr form length:", major_form["length"],
-                #     "mjr form read:", mjrf_bytes_read,
-                #     "current position:", self.iff_file.tell()
-                # )
+                print(
+                    "mjr form length:", major_form["length"],
+                    "mjr form read:", mjrf_bytes_read,
+                    "current position:", self.iff_file.tell()
+                )
             try:
                 bl_mesh = lodm.to_bl_mesh()
                 if isinstance(self.reorient_matrix, Matrix):
