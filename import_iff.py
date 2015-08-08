@@ -24,6 +24,7 @@ import struct
 from mathutils import Matrix
 from itertools import starmap, count
 from os.path import normpath, join as joinpath, exists as fexists
+from math import radians
 
 MAX_NUM_LODS = 3
 LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
@@ -46,22 +47,12 @@ def register_texture(texnum, mat_name=None):
     mesh filename is used.
     """
 
-    if mat_name is None:
-        mat_name = mfilepath[mfilepath.rfind("/") + 1:mfilepath.rfind(".")]
-
-    if texnum not in texmats.keys():
-        mat_name += str(len(texmats) + 1)
-        # print("mat_name:", mat_name)
-        bl_mat = bpy.data.materials.new(mat_name)
-
-        # Last element in this list will become the image file path
-        texmats[texnum] = [mat_name, bl_mat, None]
-
+    def get_teximgs(texnum, mat_name):
         img_extns = ["bmp", "png", "jpg", "jpeg", "tga", "gif", "dds"]
 
         mfiledir = mfilepath[:mfilepath.rfind("/")]
         mat_path = normpath(joinpath(
-            mfiledir, "mat/{0:0>8d}.mat".format(texnum)))
+            mfiledir, "../mat/{0:0>8d}.mat".format(texnum)))
 
         # Search for and load high-quality images in the same folder first.
         for extn in img_extns:
@@ -93,10 +84,26 @@ def register_texture(texnum, mat_name=None):
             # print("MAT texture {0:0>8d}.mat not found!".format(
             #     texnum))
             pass
+
+    if mat_name is None:
+        mat_name = mfilepath[mfilepath.rfind("/") + 1:mfilepath.rfind(".")]
+
+    if texnum not in texmats.keys():
+        mat_name += str(len(texmats) + 1)
+        # print("mat_name:", mat_name)
+        bl_mat = bpy.data.materials.new(mat_name)
+
+        # Last element in this list will become the image file path
+        texmats[texnum] = [mat_name, bl_mat, None]
+        get_teximgs(texnum, mat_name)
     else:
         mat_name += str(len(texmats))
         # print("mat_name:", mat_name)
-        bl_mat = bpy.data.materials[mat_name]
+        bl_mat = texmats[texnum][1]
+        if bl_mat is None:
+            bl_mat = bpy.data.materials.new(mat_name)
+            texmats[texnum][1] = bl_mat
+            get_teximgs(texnum, mat_name)
     return bl_mat
 
 
@@ -337,8 +344,18 @@ class Hardpoint:
     def to_bl_obj(self):
         bl_obj = bpy.data.objects.new("hp-" + self._name, None)
         bl_obj.empty_draw_type = "ARROWS"
-        bl_obj.location = self._x, self._y, self._z
-        bl_obj.rotation_euler = Matrix(self._rot_matrix).to_euler("XYZ")
+
+        matrix_rot = Matrix(self._rot_matrix).to_4x4()
+
+        # Convert rotation from WC
+        euler_rot = matrix_rot.to_euler("XYZ")
+        euler_rot.y, euler_rot.z = -euler_rot.z, -euler_rot.y
+        euler_rot.x *= -1
+
+        matrix_rot = euler_rot.to_matrix().to_4x4()
+        matrix_loc = Matrix.Translation((self._x, self._z, self._y))
+
+        bl_obj.matrix_basis = matrix_loc * matrix_rot
         return bl_obj
 
 
@@ -393,90 +410,102 @@ class IFFImporter(ImportBackend):
             raise TypeError("Tried to read an invalid IFF file!")
         return None  # Shouldn't be reachable
 
-    def read_mesh_data(self, major_form):
+    def read_lod_data(self, major_form):
         mjrf_bytes_read = 4
         # Read all LODs
         while mjrf_bytes_read < major_form["length"]:
             lod_form = self.read_data()
             mjrf_bytes_read += 12
             lod_lev = lod_form["name"].decode("iso-8859-1").lstrip("0")
-            if lod_lev == "": self.cur_lod = 0
-            else: self.cur_lod = int(lod_lev)
+            if lod_lev == "": lod_lev = 0
+            else: lod_lev = int(lod_lev)
 
-            lodm = LODMesh(self.texname)
-
-            self.skip_data()  # Skip a MESH form
-            mjrf_bytes_read += 12
-            geom = self.read_data()
+            self.skip_data()
             mjrf_bytes_read += 12
 
-            # Mesh version. In most cases, it will be 12
-            mvers = geom["name"].decode("iso-8859-1").lstrip("0")
-            if mvers == "": mvers = 0
-            else: mvers = int(mvers)
+            mjrf_bytes_read += self.read_mesh_data(lod_lev)
 
-            geom_chunks = [
-                b"NAME",
-                b"VERT", b"NORM", b"VTNM", b"FVRT", b"FACE",
-                b"CNTR", b"RADI"
-            ]
-            # Most 3D models by fans don't have a NORM chunk, but most 3D
-            # models from the original game do.
-            num_geom_chunks = len(geom_chunks) - 1
-            geom_chunks_read = 0
+            print(
+                "mjr form length:", major_form["length"],
+                "mjr form read:", mjrf_bytes_read,
+                "current position:", self.iff_file.tell()
+            )
 
-            while geom_chunks_read < num_geom_chunks:
-                geom_data = self.read_data()
-                mjrf_bytes_read += geom_data["length"] + 8
-                # Ignore RADI
-                if geom_data["name"] == geom_chunks[0]:  # NAME
-                    name_str = self.read_cstring(geom_data["data"], 0)
-                    lodm.set_name(name_str)
-                elif geom_data["name"] == geom_chunks[1]:  # VERT
-                    vert_idx = 0
-                    while vert_idx * 12 < geom_data["length"]:
-                        lodm.add_vert(struct.unpack_from(
-                            "<fff", geom_data["data"], vert_idx * 12))
-                        vert_idx += 1
-                elif geom_data["name"] == geom_chunks[2]:  # NORM
-                    num_geom_chunks += 1
-                elif geom_data["name"] == geom_chunks[3]:  # VTNM
-                    vtnm_idx = 0
-                    while vtnm_idx * 12 < geom_data["length"]:
-                        lodm.add_norm(struct.unpack_from(
-                            "<fff", geom_data["data"], vtnm_idx * 12))
-                        vtnm_idx += 1
-                elif geom_data["name"] == geom_chunks[4]:  # FVRT
-                    fvrt_idx = 0
-                    while fvrt_idx * 16 < geom_data["length"]:
-                        lodm.add_fvrt(struct.unpack_from(
-                            "<iiff", geom_data["data"], fvrt_idx * 16))
-                        fvrt_idx += 1
-                elif geom_data["name"] == geom_chunks[5]:  # FACE
-                    face_idx = 0
-                    while face_idx * 28 < geom_data["length"]:
-                        # Multiply by 28 to skip "unknown2" value
-                        face_data = struct.unpack_from(
-                            "<ifiiii", geom_data["data"], face_idx * 28)
-                        lodm.add_face(face_data)
-                        register_texture(face_data[2])
-                        face_idx += 1
-                elif geom_data["name"] == geom_chunks[5]:  # CNTR
-                    lodm.set_cntr(struct.unpack("<fff", geom_data["data"]))
-                geom_chunks_read += 1
-                print(
-                    "mjr form length:", major_form["length"],
-                    "mjr form read:", mjrf_bytes_read,
-                    "current position:", self.iff_file.tell()
-                )
-            try:
-                bl_mesh = lodm.to_bl_mesh()
-                if isinstance(self.reorient_matrix, Matrix):
-                    bl_mesh.transform(self.reorient_matrix)
-                bl_ob = bpy.data.objects.new(LOD_NAMES[self.cur_lod], bl_mesh)
-                bpy.context.scene.objects.link(bl_ob)
-            except AssertionError:
-                lodm.debug_info()
+    def read_mesh_data(self, lod_level):
+        mjrf_bytes_read = 0
+
+        lodm = LODMesh(self.texname)
+
+        geom = self.read_data()
+        mjrf_bytes_read += 12
+        # Mesh version. In most cases, it will be 12
+        mvers = geom["name"].decode("iso-8859-1").lstrip("0")
+        if mvers == "": mvers = 0
+        else: mvers = int(mvers)
+
+        geom_chunks = [
+            b"NAME",
+            b"VERT", b"NORM", b"VTNM", b"FVRT", b"FACE",
+            b"CNTR", b"RADI"
+        ]
+        # Most 3D models by fans don't have a NORM chunk, but most 3D
+        # models from the original game do.
+        num_geom_chunks = len(geom_chunks) - 1
+        geom_chunks_read = 0
+
+        while geom_chunks_read < num_geom_chunks:
+            geom_data = self.read_data()
+            mjrf_bytes_read += geom_data["length"] + 8
+            # Ignore RADI
+            if geom_data["name"] == geom_chunks[0]:  # NAME
+                name_str = self.read_cstring(geom_data["data"], 0)
+                lodm.set_name(name_str)
+            elif geom_data["name"] == geom_chunks[1]:  # VERT
+                vert_idx = 0
+                while vert_idx * 12 < geom_data["length"]:
+                    lodm.add_vert(struct.unpack_from(
+                        "<fff", geom_data["data"], vert_idx * 12))
+                    vert_idx += 1
+            elif geom_data["name"] == geom_chunks[2]:  # NORM
+                num_geom_chunks += 1
+            elif geom_data["name"] == geom_chunks[3]:  # VTNM
+                vtnm_idx = 0
+                while vtnm_idx * 12 < geom_data["length"]:
+                    lodm.add_norm(struct.unpack_from(
+                        "<fff", geom_data["data"], vtnm_idx * 12))
+                    vtnm_idx += 1
+            elif geom_data["name"] == geom_chunks[4]:  # FVRT
+                fvrt_idx = 0
+                while fvrt_idx * 16 < geom_data["length"]:
+                    lodm.add_fvrt(struct.unpack_from(
+                        "<iiff", geom_data["data"], fvrt_idx * 16))
+                    fvrt_idx += 1
+            elif geom_data["name"] == geom_chunks[5]:  # FACE
+                face_idx = 0
+                while face_idx * 28 < geom_data["length"]:
+                    # Multiply by 28 to skip "unknown2" value
+                    face_data = struct.unpack_from(
+                        "<ifiiii", geom_data["data"], face_idx * 28)
+                    lodm.add_face(face_data)
+                    register_texture(face_data[2])
+                    face_idx += 1
+            elif geom_data["name"] == geom_chunks[5]:  # CNTR
+                lodm.set_cntr(struct.unpack("<fff", geom_data["data"]))
+            geom_chunks_read += 1
+            # print(
+            #     "mjr form length:", major_form["length"],
+            #     "mjr form read:", mjrf_bytes_read,
+            #     "current position:", self.iff_file.tell()
+            # )
+        try:
+            bl_mesh = lodm.to_bl_mesh()
+            if isinstance(self.reorient_matrix, Matrix):
+                bl_mesh.transform(self.reorient_matrix)
+            bl_ob = bpy.data.objects.new(LOD_NAMES[lod_level], bl_mesh)
+            bpy.context.scene.objects.link(bl_ob)
+        except AssertionError:
+            lodm.debug_info()
+        return mjrf_bytes_read
 
     def read_hard_data(self, major_form):
         mjrf_bytes_read = 4
@@ -485,13 +514,17 @@ class IFFImporter(ImportBackend):
             # ALWAYS add 8 when you read a chunk (because the chunk header is
             # 8 bytes long)
             mjrf_bytes_read += hardpt_chunk["length"] + 8
+
             hardpt_data = struct.unpack_from(
                 "<ffffffffffff", hardpt_chunk["data"], 0)
+
             hardpt_name_ofs = 48
             hardpt_name = self.read_cstring(
                 hardpt_chunk["data"], hardpt_name_ofs)
+
             hardpt = Hardpoint(hardpt_data, hardpt_name)
             bl_ob = hardpt.to_bl_obj()
+
             bpy.context.scene.objects.link(bl_ob)
 
     def read_coll_data(self):
@@ -517,29 +550,37 @@ class IFFImporter(ImportBackend):
     def load(self):
         self.iff_file = open(mfilepath, "rb")
         root_form = self.read_data()
-        if root_form["type"] == "form" and root_form["name"] == b"DETA":
-            mjrfs_read = 4
-            while mjrfs_read < root_form["length"]:
-                major_form = self.read_data()
-                mjrfs_read += major_form["length"] + 8
-                # print("Reading major form:", major_form["name"])
-                if major_form["name"] == b"RANG":
-                    pass  # RANG data is useless to Blender.
-                elif major_form["name"] == b"MESH":
-                    self.read_mesh_data(major_form)
-                elif major_form["name"] == b"HARD":
-                    self.read_hard_data(major_form)
-                elif major_form["name"] == b"COLL":
-                    self.read_coll_data()
-                elif major_form["name"] == b"FAR ":
-                    pass  # FAR data is useless to Blender.
-                else:
-                    # print("Unknown major form:", major_form["name"])
-                    pass
+        if root_form["type"] == "form":
+            print("Root form is:", root_form["name"])
+            if root_form["name"] == b"DETA":
+                mjrfs_read = 4
+                while mjrfs_read < root_form["length"]:
+                    major_form = self.read_data()
+                    mjrfs_read += major_form["length"] + 8
+                    # print("Reading major form:", major_form["name"])
+                    if major_form["name"] == b"RANG":
+                        pass  # RANG data is useless to Blender.
+                    elif major_form["name"] == b"MESH":
+                        self.read_lod_data(major_form)
+                    elif major_form["name"] == b"HARD":
+                        self.read_hard_data(major_form)
+                    elif major_form["name"] == b"COLL":
+                        self.read_coll_data()
+                    elif major_form["name"] == b"FAR ":
+                        pass  # FAR data is useless to Blender.
+                    else:
+                        # print("Unknown major form:", major_form["name"])
+                        pass
 
-                # print(
-                #     "root form length:", root_form["length"],
-                #     "root form bytes read:", mjrfs_read
-                # )
+                    # print(
+                    #     "root form length:", root_form["length"],
+                    #     "root form bytes read:", mjrfs_read
+                    # )
+            elif root_form["name"] == b"MESH":
+                self.read_mesh_data(0)
+            else:
+                raise TypeError(
+                    "This file isn't a mesh! (root form is {})".format(
+                        root_form["name"].decode("iso-8859-1")))
         else:
-            raise TypeError("This file isn't a mesh!")
+            raise TypeError("This file isn't a mesh! (root is not a form)")
