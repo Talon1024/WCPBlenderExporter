@@ -1,7 +1,7 @@
-Blender Commander
-=================
+Wing Blender
+============
 
-Blender Commander is an import/export script for Blender 2.65+ that allows you to export a VISION engine ([Wing Commander: Prophecy](http://www.wcnews.com/wcpedia/Wing_Commander:_Prophecy), [Wing Commander: Secret Ops](http://www.wcnews.com/wcpedia/Wing_Commander:_Secret_Ops)) IFF mesh, or XMF source code that can be compiled into a VISION engine IFF mesh via WCPPascal.
+Wing Blender is an import/export script for Blender 2.65+ that allows you to export a VISION engine ([Wing Commander: Prophecy](http://www.wcnews.com/wcpedia/Wing_Commander:_Prophecy), [Wing Commander: Secret Ops](http://www.wcnews.com/wcpedia/Wing_Commander:_Secret_Ops)) IFF 3D model, or import a VISION engine IFF 3D model into Blender.
 
 This means you'll be able to do most of your work in Blender, and then simply export it to the game without having to pass the model through multiple conversion programs (3D Exploration, `peoview`, `ModelC`, etc.).
 
@@ -35,6 +35,13 @@ Installation
 
 For more information, see [this guide](http://wiki.blender.org/index.php/Doc:2.6/Manual/Extensions/Python/Add-Ons) on the Blender wiki.
 
+IFF Import Tutorial
+-------------------
+
+1. Obtain a VISION engine IFF 3D model from somewhere. You can extract an IFF 3D model from the game (or your favourite WC:SO mod, such as [Standoff](http://standoff.solsector.net) or [Unknown Enemy](http://unknownenemy.solsector.net)) using HCl's [treman](http://hcl.solsector.net/archive/treman1.zip). (You'll need to run it in [DOSBox](http://www.dosbox.com/) on modern systems, however. If you get an error that says "`Get CWSDPMI*B.zip`", try increasing DOSBox's allotted memory (memsize) in dosbox.conf)
+2. Extract the textures for this model. If you are using MAT files, place them in the `mat` folder, and the 3D model in the `mesh` folder. If you are using PNG, BMP, GIF, or another high-quality image format, place the images in the same folder as the 3D model, and give them the same name as the 3D model, except with numbers after them. For example, if the 3D model is named `GRIKATH.IFF`, and you want to use high-quality images as textures, name the images `GRIKATH1.PNG`, `GRIKATH2.PNG`, etc.
+3. Run the importer script to import the mesh into Blender.
+
 IFF Export Tutorial
 -------------------
 
@@ -59,19 +66,9 @@ IFF Export Tutorial
 6. Hardpoints must be empties named `hp-xxxx`, where `xxxx` is the name of the hardpoint. For example. `hp-gun1` will be exported as a hardpoint named `gun1`. The rotation matrix of the hardpoint is calculated automatically.
 7. Hidden hardpoint empties (hardpoint empties that are not visible in Blender's viewport) will not be exported.
 8. Optionally, you can override the calculated collision sphere and radius by using an empty named `collsphr`.
-
-If you are using the .IFF exporter, you will need to do the following after exporting the mesh:
-
-1. Go to where you exported the .IFF file. There should be a text file in that folder that has the same name as your IFF file, but with a different extension.
-2. Read the text file mentioned in step 1 to see which images should be converted, and what they should be named.
-3. Convert the textures to WCP/SO .mat format, and place them in the `mat` folder under your WC Secret Ops root directory.
-
-If you are using the .PAS exporter, you will need to do the following after exporting the mesh:
-
-1. Compile the mesh using WCPPascal.
-2. Copy it to the `mesh` folder under your WC Secret Ops root directory.
-3. Read the first few lines of the .pas file to see which images should be converted, and what they should be named.
-4. Convert the textures to WCP/SO .mat format, and place them in the `mat` folder under your WC Secret Ops root directory.
+9. Go to where you exported the .IFF file. There should be a text file in that folder that has the same name as your IFF file, but with a different extension.
+10. Read the text file mentioned in step 1 to see which images should be converted, and what they should be named.
+11. Convert the textures to WCP/SO .mat format, and place them in the `mat` folder under your WC Secret Ops root directory.
 
 To use the mesh, you will need to reference the mesh file in a ship file.
 

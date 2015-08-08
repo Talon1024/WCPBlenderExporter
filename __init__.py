@@ -341,8 +341,8 @@ def register():
     bpy.types.INFO_MT_file_import.append(menu_func_import_iff)
     bpy.utils.register_class(ExportIFF)
     bpy.types.INFO_MT_file_export.append(menu_func_export_iff)
-    bpy.utils.register_class(ExportXMF)
-    bpy.types.INFO_MT_file_export.append(menu_func_export_xmf)
+    # bpy.utils.register_class(ExportXMF)
+    # bpy.types.INFO_MT_file_export.append(menu_func_export_xmf)
 
 
 def unregister():
@@ -350,8 +350,8 @@ def unregister():
     bpy.types.INFO_MT_file_import.append(menu_func_import_iff)
     bpy.utils.unregister_class(ExportIFF)
     bpy.types.INFO_MT_file_export.remove(menu_func_export_iff)
-    bpy.utils.unregister_class(ExportXMF)
-    bpy.types.INFO_MT_file_export.remove(menu_func_export_xmf)
+    # bpy.utils.unregister_class(ExportXMF)
+    # bpy.types.INFO_MT_file_export.remove(menu_func_export_xmf)
 
 
 if __name__ == "__main__":

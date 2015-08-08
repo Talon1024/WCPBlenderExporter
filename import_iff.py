@@ -83,6 +83,8 @@ def register_texture(texnum, mat_name=None):
             print("High-quality texture image not found!",
                   "Searching for MAT texture...")
 
+        print("Looking for MAT texture at", mat_path)
+
         if fexists(mat_path):
             print("Found MAT file:", mat_path)
             # TODO: Implement reading of MAT files.
@@ -278,6 +280,9 @@ class LODMesh:
 
             # print("Face", fidx, "loop_total:", f[4])
 
+            # The edges were generated from a set of vertices in reverse order.
+            # Since we're getting the vertices from the FVRTs in forward order,
+            # only reverse the vertices.
             for fvidx, vrt, edg in zip(
                     count(), reversed(f_verts), f_edgerefs):
                 bl_mesh.loops.add(1)
@@ -411,13 +416,16 @@ class IFFImporter(ImportBackend):
             else: mvers = int(mvers)
 
             geom_chunks = [
-                b"NAME",
-                b"VERT", b"VTNM", b"FVRT", b"FACE",
+                b"NAME"
+                b"VERT", b"NORM", b"VTNM", b"FVRT", b"FACE",
                 b"CNTR", b"RADI"
             ]
+            # Most 3D models by fans don't have a NORM chunk, but most 3D
+            # models from the original game do.
+            num_geom_chunks = len(geom_chunks) - 1
             geom_chunks_read = 0
 
-            while geom_chunks_read < len(geom_chunks):
+            while geom_chunks_read < num_geom_chunks:
                 geom_data = self.read_data()
                 mjrf_bytes_read += geom_data["length"] + 8
                 # Ignore RADI
@@ -430,19 +438,21 @@ class IFFImporter(ImportBackend):
                         lodm.add_vert(struct.unpack_from(
                             "<fff", geom_data["data"], vert_idx * 12))
                         vert_idx += 1
-                elif geom_data["name"] == geom_chunks[2]:  # VTNM
+                elif geom_data["name"] == geom_chunks[2]:  # NORM
+                    num_geom_chunks += 1
+                elif geom_data["name"] == geom_chunks[3]:  # VTNM
                     vtnm_idx = 0
                     while vtnm_idx * 12 < geom_data["length"]:
                         lodm.add_norm(struct.unpack_from(
                             "<fff", geom_data["data"], vtnm_idx * 12))
                         vtnm_idx += 1
-                elif geom_data["name"] == geom_chunks[3]:  # FVRT
+                elif geom_data["name"] == geom_chunks[4]:  # FVRT
                     fvrt_idx = 0
                     while fvrt_idx * 16 < geom_data["length"]:
                         lodm.add_fvrt(struct.unpack_from(
                             "<iiff", geom_data["data"], fvrt_idx * 16))
                         fvrt_idx += 1
-                elif geom_data["name"] == geom_chunks[4]:  # FACE
+                elif geom_data["name"] == geom_chunks[5]:  # FACE
                     face_idx = 0
                     while face_idx * 28 < geom_data["length"]:
                         # Multiply by 28 to skip "unknown2" value
