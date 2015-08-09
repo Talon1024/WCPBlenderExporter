@@ -23,6 +23,7 @@ import warnings
 import struct
 from mathutils import Matrix
 from itertools import starmap, count
+from os import sep as dirsep
 from os.path import normpath, join as joinpath, exists as fexists
 from math import radians
 
@@ -50,9 +51,9 @@ def register_texture(texnum, mat_name=None):
     def get_teximgs(texnum, mat_name):
         img_extns = ["bmp", "png", "jpg", "jpeg", "tga", "gif", "dds"]
 
-        mfiledir = mfilepath[:mfilepath.rfind("/")]
+        mfiledir = mfilepath[:mfilepath.rfind(dirsep)]
         mat_path = normpath(joinpath(
-            mfiledir, "../mat/{0:0>8d}.mat".format(texnum)))
+            mfiledir, "..{1}mat{1}{0:0>8d}.mat".format(texnum, dirsep)))
 
         # Search for and load high-quality images in the same folder first.
         for extn in img_extns:
@@ -86,7 +87,7 @@ def register_texture(texnum, mat_name=None):
             pass
 
     if mat_name is None:
-        mat_name = mfilepath[mfilepath.rfind("/") + 1:mfilepath.rfind(".")]
+        mat_name = mfilepath[mfilepath.rfind(dirsep) + 1:mfilepath.rfind(".")]
 
     if texnum not in texmats.keys():
         mat_name += str(len(texmats) + 1)
