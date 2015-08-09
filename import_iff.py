@@ -29,8 +29,8 @@ from math import radians
 MAX_NUM_LODS = 3
 LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
 
-mfilepath = None
-texmats = {}
+mfilepath = None  # These are Initialized in ImportBackend constructor
+texmats = None
 
 
 def register_texture(texnum, mat_name=None):
@@ -120,8 +120,13 @@ class ImportBackend:
                  import_all_lods=False,
                  use_facetex=False,
                  import_bsp=False):
+
         global mfilepath
+        global texmats
+
         mfilepath = filepath
+        texmats = {}
+
         self.reorient_matrix = reorient_matrix
         self.import_all_lods = import_all_lods
         self.use_facetex = use_facetex
@@ -347,7 +352,7 @@ class Hardpoint:
 
         matrix_rot = Matrix(self._rot_matrix).to_4x4()
 
-        # Convert rotation from WC
+        # Convert position/rotation from WC
         euler_rot = matrix_rot.to_euler("XYZ")
         euler_rot.y, euler_rot.z = -euler_rot.z, -euler_rot.y
         euler_rot.x *= -1
@@ -534,7 +539,7 @@ class IFFImporter(ImportBackend):
             bl_obj.empty_draw_type = "SPHERE"
             x, y, z, r = struct.unpack("<ffff", coll_data["data"])
             bl_obj.scale = r, r, r
-            bl_obj.location = x, y, z
+            bl_obj.location = -x, z, y
             bpy.context.scene.objects.link(bl_obj)
 
     def read_cstring(self, data, ofs):
