@@ -438,55 +438,52 @@ class IFFImporter(ImportBackend):
             )
 
     def read_mesh_data(self, lod_level):
-        mjrf_bytes_read = 0
-
         lodm = LODMesh(self.texname)
 
         geom = self.read_data()
-        mjrf_bytes_read += 12
+        geom_bytes_read = 4
         # Mesh version. In most cases, it will be 12
         mvers = geom["name"].decode("iso-8859-1").lstrip("0")
         if mvers == "": mvers = 0
         else: mvers = int(mvers)
 
-        geom_chunks = [
-            b"NAME",
-            b"VERT", b"NORM", b"VTNM", b"FVRT", b"FACE",
-            b"CNTR", b"RADI"
-        ]
-        # Most 3D models by fans don't have a NORM chunk, but most 3D
-        # models from the original game do.
-        num_geom_chunks = len(geom_chunks) - 1
-        geom_chunks_read = 0
+        print("Mesh format is", mvers)
 
-        while geom_chunks_read < num_geom_chunks:
+        while geom_bytes_read < geom["length"]:
             geom_data = self.read_data()
-            mjrf_bytes_read += geom_data["length"] + 8
-            # Ignore RADI
-            if geom_data["name"] == geom_chunks[0]:  # NAME
+            geom_bytes_read += geom_data["length"] + 8
+
+            # RADI and NORM chunks are ignored
+
+            if geom_data["name"] == b"NAME":
                 name_str = self.read_cstring(geom_data["data"], 0)
                 lodm.set_name(name_str)
-            elif geom_data["name"] == geom_chunks[1]:  # VERT
+
+            elif geom_data["name"] == b"VERT":
                 vert_idx = 0
                 while vert_idx * 12 < geom_data["length"]:
                     lodm.add_vert(struct.unpack_from(
                         "<fff", geom_data["data"], vert_idx * 12))
                     vert_idx += 1
-            elif geom_data["name"] == geom_chunks[2]:  # NORM
-                num_geom_chunks += 1
-            elif geom_data["name"] == geom_chunks[3]:  # VTNM
+
+            # Most 3D models by fans don't have a NORM chunk, but most 3D
+            # models from the original game do.
+
+            elif geom_data["name"] == b"VTNM":
                 vtnm_idx = 0
                 while vtnm_idx * 12 < geom_data["length"]:
                     lodm.add_norm(struct.unpack_from(
                         "<fff", geom_data["data"], vtnm_idx * 12))
                     vtnm_idx += 1
-            elif geom_data["name"] == geom_chunks[4]:  # FVRT
+
+            elif geom_data["name"] == b"FVRT":
                 fvrt_idx = 0
                 while fvrt_idx * 16 < geom_data["length"]:
                     lodm.add_fvrt(struct.unpack_from(
                         "<iiff", geom_data["data"], fvrt_idx * 16))
                     fvrt_idx += 1
-            elif geom_data["name"] == geom_chunks[5]:  # FACE
+
+            elif geom_data["name"] == b"FACE":
                 face_idx = 0
                 while face_idx * 28 < geom_data["length"]:
                     # Multiply by 28 to skip "unknown2" value
@@ -495,12 +492,13 @@ class IFFImporter(ImportBackend):
                     lodm.add_face(face_data)
                     register_texture(face_data[2])
                     face_idx += 1
-            elif geom_data["name"] == geom_chunks[5]:  # CNTR
+
+            elif geom_data["name"] == b"CNTR":
                 lodm.set_cntr(struct.unpack("<fff", geom_data["data"]))
-            geom_chunks_read += 1
+
             # print(
-            #     "mjr form length:", major_form["length"],
-            #     "mjr form read:", mjrf_bytes_read,
+            #     "geom length:", geom["length"],
+            #     "geom read:", geom_bytes_read,
             #     "current position:", self.iff_file.tell()
             # )
         try:
@@ -511,7 +509,8 @@ class IFFImporter(ImportBackend):
             bpy.context.scene.objects.link(bl_ob)
         except AssertionError:
             lodm.debug_info()
-        return mjrf_bytes_read
+        geom_bytes_read += 8  # This function used to return mjrf_bytes_read
+        return geom_bytes_read
 
     def read_hard_data(self, major_form):
         mjrf_bytes_read = 4
