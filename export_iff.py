@@ -24,7 +24,7 @@ from . import iff_mesh
 from math import sin, cos
 from collections import OrderedDict
 
-MAX_NUM_LODS = 3
+MAX_NUM_LODS = 5
 LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
 LFLAG_FULLBRIGHT = 2
 

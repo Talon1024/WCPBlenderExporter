@@ -27,7 +27,7 @@ from os import sep as dirsep
 from os.path import normpath, join as joinpath, exists as fexists
 from math import radians
 
-MAX_NUM_LODS = 3
+MAX_NUM_LODS = 5
 LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
 
 mfilepath = None  # These are Initialized in ImportBackend constructor
