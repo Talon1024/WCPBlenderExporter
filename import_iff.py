@@ -21,6 +21,7 @@
 import bpy
 import warnings
 import struct
+from . import iff_read
 from mathutils import Matrix
 from itertools import starmap, count
 from os import sep as dirsep
@@ -367,31 +368,59 @@ class Hardpoint:
 
 class IFFImporter(ImportBackend):
 
+    def __init__(self,
+                 filepath,
+                 texname,
+                 reorient_matrix,
+                 import_all_lods=False,
+                 use_facetex=False,
+                 import_bsp=False):
+
+        global mfilepath
+        global texmats
+
+        mfilepath = filepath
+        texmats = {}
+
+        if fexists(mfilepath):
+            self.iff_reader = iff_read.IffReader(mfilepath)
+
+        self.reorient_matrix = reorient_matrix
+        self.import_all_lods = import_all_lods
+        self.use_facetex = use_facetex
+        self.import_bsp = import_bsp
+
+        if texname.isspace() or texname == "":
+            # Get material/texture name from file name
+            self.texname = bpy.path.basename(filepath)
+            self.texname = self.texname[:self.texname.rfind(".")]
+        else:
+            self.texname = texname
+
     def read_lod_data(self, major_form):
         mjrf_bytes_read = 4
         # Read all LODs
         while mjrf_bytes_read < major_form["length"]:
-            lod_form = self.read_data()
+            lod_form = self.iff_reader.read_data()
             mjrf_bytes_read += 12
             lod_lev = lod_form["name"].decode("iso-8859-1").lstrip("0")
             if lod_lev == "": lod_lev = 0
             else: lod_lev = int(lod_lev)
 
-            self.skip_data()
+            self.iff_reader.skip_data()
             mjrf_bytes_read += 12
 
             mjrf_bytes_read += self.read_mesh_data(lod_lev)
 
             print(
                 "mjr form length:", major_form["length"],
-                "mjr form read:", mjrf_bytes_read,
-                "current position:", self.iff_file.tell()
+                "mjr form read:", mjrf_bytes_read
             )
 
     def read_mesh_data(self, lod_level):
         lodm = LODMesh(self.texname)
 
-        geom = self.read_data()
+        geom = self.iff_reader.read_data()
         geom_bytes_read = 4
         # Mesh version. In most cases, it will be 12
         mvers = geom["name"].decode("iso-8859-1").lstrip("0")
@@ -401,7 +430,7 @@ class IFFImporter(ImportBackend):
         print("Mesh format is", mvers)
 
         while geom_bytes_read < geom["length"]:
-            geom_data = self.read_data()
+            geom_data = self.iff_reader.read_data()
             geom_bytes_read += geom_data["length"] + 8
 
             # RADI and NORM chunks are ignored
@@ -466,7 +495,7 @@ class IFFImporter(ImportBackend):
     def read_hard_data(self, major_form):
         mjrf_bytes_read = 4
         while mjrf_bytes_read < major_form["length"]:
-            hardpt_chunk = self.read_data()
+            hardpt_chunk = self.iff_reader.read_data()
             # ALWAYS add 8 when you read a chunk (because the chunk header is
             # 8 bytes long)
             mjrf_bytes_read += hardpt_chunk["length"] + 8
@@ -484,7 +513,7 @@ class IFFImporter(ImportBackend):
             bpy.context.scene.objects.link(bl_ob)
 
     def read_coll_data(self):
-        coll_data = self.read_data()
+        coll_data = self.iff_reader.read_data()
         if coll_data["name"] == b"SPHR":
             bl_obj = bpy.data.objects.new("collsphr", None)
             bl_obj.empty_draw_type = "SPHERE"
@@ -505,13 +534,13 @@ class IFFImporter(ImportBackend):
 
     def load(self):
         self.iff_file = open(mfilepath, "rb")
-        root_form = self.read_data()
+        root_form = self.iff_reader.read_data()
         if root_form["type"] == "form":
             print("Root form is:", root_form["name"])
             if root_form["name"] == b"DETA":
                 mjrfs_read = 4
                 while mjrfs_read < root_form["length"]:
-                    major_form = self.read_data()
+                    major_form = self.iff_reader.read_data()
                     mjrfs_read += major_form["length"] + 8
                     # print("Reading major form:", major_form["name"])
                     if major_form["name"] == b"RANG":

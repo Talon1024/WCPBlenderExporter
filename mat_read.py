@@ -41,8 +41,8 @@ class MATReader:
         # Each colour is three bytes
         num_colours = cmap_chunk["length"] // 3
         for colr in range(num_colours):
-            self.palette.append(list(struct.unpack_from(
-                "<BBB", cmap_chunk["data"], colr * 3)))
+            self.palette.append(struct.unpack_from(
+                "<BBB", cmap_chunk["data"], colr * 3))
 
     def read_pxls(self, pxls_chunk):
         # One byte references a colour in the palette
@@ -58,5 +58,36 @@ class MATReader:
         # One byte for each pixel. The alpha channel is inverted,
         # so 255 would be fully transparent, and 0 is fully opaque
         for apxl in range(alph_chunk["length"]):
-            self.pixels[apxl][3] = struct.unpack_from(
-                "<B", alph_chunk["data"], apxl)
+            self.pixels[apxl][3] = 255 - (struct.unpack_from(
+                "<B", alph_chunk["data"], apxl)[0])
+
+    def read(self):
+        root_form = self.iff_reader.read_data()
+        if root_form["name"] == b"BITM":
+            inner_rform = self.iff_reader.read_data()
+            if inner_rform["name"] == b"FRAM":
+                inner_rform_read = 4
+
+                while inner_rform_read < inner_rform["length"]:
+                    mat_data = self.iff_reader.read_data()
+                    if mat_data["type"] == "chunk" mat_data["name"] == b"INFO":
+                        self.read_info(mat_data)
+
+                    elif (mat_data["type"] == "form" and
+                            mat_data["name"] == b"PAL "):
+                        self.read_palette(self.iff_reader.read_data())
+
+                    elif (mat_data["type"] == "chunk" and
+                            mat_data["name"] == b"PXLS"):
+                        self.read_pxls(mat_data)
+
+                    elif (mat_data["type"] == "chunk" and
+                            mat_data["name"] == b"ALPH"):
+                        self.read_alph(mat_data)
+                    inner_rform_read += mat_data["length"]
+            else:
+                raise TypeError("Invalid texture! (root form is {})".format(
+                                inner_rform["name"]))
+        else:
+            raise TypeError("Invalid texture! (root form is {})".format(
+                            root_form["name"]))

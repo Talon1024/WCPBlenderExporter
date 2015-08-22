@@ -46,15 +46,22 @@ class IffReader:
     def read_data(self):
         orig_pos = self.iff_file.tell()
         head = self.iff_file.read(4)
+
         if head in self.iff_heads:
+
             length = (struct.unpack(">i", self.iff_file.read(4))[0])
             name = self.iff_file.read(4)
+
             return {
                 "type": "form",
                 "length": length,
                 "name": name,
                 "offset": orig_pos
             }
+
+            # NOTE: This function doesn't read everything inside a form, and
+            # if you're counting the number of bytes to determine whether
+            # you've read the FORM completely, start the counter at 4!!
         elif head.isalnum() or head == b"FAR ":
             name = head
             length = struct.unpack(">i", self.iff_file.read(4))[0]
@@ -72,6 +79,8 @@ class IffReader:
                 "offset": orig_pos,
                 "data": data
             }
+
+            # NOTE: The chunk data is contained in the "data" key
         else:
             raise TypeError("Tried to read an invalid IFF file!")
         return None  # Shouldn't be reachable
