@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Blender WCP IFF exporter script by Kevin Caccamo
+# Blender WCP IFF mesh import/export script by Kevin Caccamo
 # Copyright © 2013-2015 Kevin Caccamo
 # E-mail: kevin@ciinet.org
 #
@@ -366,55 +366,6 @@ class Hardpoint:
 
 
 class IFFImporter(ImportBackend):
-
-    iff_heads = [b"FORM", b"CAT ", b"LIST"]
-
-    def skip_data(self):
-        orig_pos = self.iff_file.tell()
-        head = self.iff_file.read(4)
-        if head in self.iff_heads:
-            self.iff_file.read(8)
-        elif head.isalnum() or head == b"FAR ":
-            length = struct.unpack(">i", self.iff_file.read(4))[0]
-            self.iff_file.read(length)
-        else:
-            raise TypeError("This file is not a valid IFF file!")
-        del orig_pos
-        del head
-        return None
-
-    def read_data(self):
-        orig_pos = self.iff_file.tell()
-        head = self.iff_file.read(4)
-        if head in self.iff_heads:
-            length = (struct.unpack(">i", self.iff_file.read(4))[0])
-            name = self.iff_file.read(4)
-            return {
-                "type": "form",
-                "length": length,
-                "name": name,
-                "offset": orig_pos
-            }
-        elif head.isalnum() or head == b"FAR ":
-            name = head
-            length = struct.unpack(">i", self.iff_file.read(4))[0]
-            data = self.iff_file.read(length)
-
-            # IFF Chunks and FORMs are aligned at even offsets
-            if self.iff_file.tell() % 2 == 1:
-                self.iff_file.read(1)
-                length += 1
-
-            return {
-                "type": "chunk",
-                "length": length,
-                "name": name,
-                "offset": orig_pos,
-                "data": data
-            }
-        else:
-            raise TypeError("Tried to read an invalid IFF file!")
-        return None  # Shouldn't be reachable
 
     def read_lod_data(self, major_form):
         mjrf_bytes_read = 4

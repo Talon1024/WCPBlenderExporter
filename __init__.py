@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Blender WCP IFF exporter script by Kevin Caccamo
+# Blender WCP IFF mesh import/export script by Kevin Caccamo
 # Copyright © 2013-2015 Kevin Caccamo
 # E-mail: kevin@ciinet.org
 #
