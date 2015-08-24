@@ -21,7 +21,7 @@
 import bpy
 import warnings
 import struct
-from . import iff_read
+from . import iff_read, mat_read
 from mathutils import Matrix
 from itertools import starmap, count
 from os import sep as dirsep
@@ -80,8 +80,25 @@ def register_texture(texnum, mat_name=None):
 
         if fexists(mat_path):
             print("Found MAT file:", mat_path)
-            # TODO: Implement reading of MAT files.
-            # print("Cannot read MAT files as of now.")
+
+            mat_reader = mat_read.MATReader(mat_path)
+            mat_reader.read()
+            bl_img = bpy.data.images.new(
+                mat_path[mat_path.rfind(dirsep):],
+                getattr(mat_reader, "img_width"),
+                getattr(mat_reader, "img_height"),
+                True
+            )
+            bl_img.pixels = [x / 255 for x in getattr(mat_reader, "pixels")]
+
+            bl_mtexslot = bl_mat.texture_slots.add()
+            bl_mtexslot.texture_coords = "UV"
+            bl_mtexslot.uv_layer = "UVMap"
+
+            bl_mtex = bpy.data.textures.new(mat_name, "IMAGE")
+            bl_mtex.image = bl_img
+
+            bl_mtexslot.texture = bl_mtex
         else:
             # print("MAT texture {0:0>8d}.mat not found!".format(
             #     texnum))
@@ -382,9 +399,6 @@ class IFFImporter(ImportBackend):
         mfilepath = filepath
         texmats = {}
 
-        if fexists(mfilepath):
-            self.iff_reader = iff_read.IffReader(mfilepath)
-
         self.reorient_matrix = reorient_matrix
         self.import_all_lods = import_all_lods
         self.use_facetex = use_facetex
@@ -533,7 +547,7 @@ class IFFImporter(ImportBackend):
         return cstring.decode("iso-8859-1")
 
     def load(self):
-        self.iff_file = open(mfilepath, "rb")
+        self.iff_reader = iff_read.IffReader(mfilepath)
         root_form = self.iff_reader.read_data()
         if root_form["type"] == "form":
             print("Root form is:", root_form["name"])
