@@ -97,12 +97,18 @@ class MATReader:
                             root_form["name"]))
 
     def flip_y(self):
-        for py in range(self.img_height):
-            for px in range(self.img_width):
-                # WIP
-                # Temporarily store the pixel on the opposite side of the image
-                temp_pxl = self.pixels[(self.img_height - py) + (px * self.img_width * 4):(self.img_height - py) + (px * self.img_width * 4) + 4]
+        # Flip the image vertically, row by row
+        img_rows = []
 
-                self.pixels[(self.img_height - py) + (px * self.img_width * 4):(self.img_height - py) + (px * self.img_width * 4) + 4] = (
-                    self.pixels[(py) + (px * self.img_width * 4):(py) + (px * self.img_width * 4) + 4])
-                self.pixels[(py) + (px * self.img_width * 4):(py) + (px * self.img_width * 4) + 4] = temp_pxl
+        for rowidx in range(self.img_height):
+            # Get each row of pixels, and put them into a list of pixel rows
+            cur_row_start = rowidx * self.img_width * 4
+            cur_row_end = cur_row_start + self.img_width * 4
+
+            img_rows.append(self.pixels[cur_row_start:cur_row_end])
+            print("img row length:", len(self.pixels[cur_row_start:cur_row_end]))
+
+        self.pixels = array.array("B")
+
+        for row in reversed(img_rows):
+            self.pixels.extend(row)
