@@ -14,7 +14,7 @@ fi
 # eval cp --target-directory=$blender_scripts_folder {__init__,export_iff,iff,iff_mesh,import_iff}.py
 # else
 blender_scripts_folder="$homedir/BlenderScriptsDev/addons/io_scene_wcp" # Production script folder
-eval cp --target-directory=$blender_scripts_folder {__init__,export_iff,iff,iff_mesh,import_iff}.py
+eval cp --target-directory=$blender_scripts_folder {__init__,export_iff,iff,iff_mesh,iff_read,mat_read,import_iff}.py
 # fi
 
 if eval [ -d $blender_scripts_folder/__pycache__ ]; then

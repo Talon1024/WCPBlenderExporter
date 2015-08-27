@@ -35,7 +35,7 @@ mfilepath = None  # These are Initialized in ImportBackend constructor
 texmats = None
 
 
-def register_texture(texnum, mat_name=None):
+def register_texture(texnum, mat_name=None, read_mats=True):
     """Add a texture to the texture reference if it isn't already there.
 
     Add a texture to the global texture dictionary if it isn't already in it.
@@ -81,24 +81,26 @@ def register_texture(texnum, mat_name=None):
         if fexists(mat_path):
             print("Found MAT file:", mat_path)
 
-            mat_reader = mat_read.MATReader(mat_path)
-            mat_reader.read()
-            bl_img = bpy.data.images.new(
-                mat_path[mat_path.rfind(dirsep):],
-                getattr(mat_reader, "img_width"),
-                getattr(mat_reader, "img_height"),
-                True
-            )
-            bl_img.pixels = [x / 255 for x in getattr(mat_reader, "pixels")]
+            if read_mats:
+                mat_reader = mat_read.MATReader(mat_path)
+                mat_reader.read()
+                mat_reader.flip_y()
+                bl_img = bpy.data.images.new(
+                    mat_path[mat_path.rfind(dirsep):],
+                    mat_reader.img_width,
+                    mat_reader.img_height,
+                    True
+                )
+                bl_img.pixels = [x / 255 for x in mat_reader.pixels.tolist()]
 
-            bl_mtexslot = bl_mat.texture_slots.add()
-            bl_mtexslot.texture_coords = "UV"
-            bl_mtexslot.uv_layer = "UVMap"
+                bl_mtexslot = bl_mat.texture_slots.add()
+                bl_mtexslot.texture_coords = "UV"
+                bl_mtexslot.uv_layer = "UVMap"
 
-            bl_mtex = bpy.data.textures.new(mat_name, "IMAGE")
-            bl_mtex.image = bl_img
+                bl_mtex = bpy.data.textures.new(mat_name, "IMAGE")
+                bl_mtex.image = bl_img
 
-            bl_mtexslot.texture = bl_mtex
+                bl_mtexslot.texture = bl_mtex
         else:
             # print("MAT texture {0:0>8d}.mat not found!".format(
             #     texnum))
@@ -138,7 +140,8 @@ class ImportBackend:
                  reorient_matrix,
                  import_all_lods=False,
                  use_facetex=False,
-                 import_bsp=False):
+                 import_bsp=False,
+                 read_mats=False):
 
         global mfilepath
         global texmats
@@ -150,6 +153,7 @@ class ImportBackend:
         self.import_all_lods = import_all_lods
         self.use_facetex = use_facetex
         self.import_bsp = import_bsp
+        self.read_mats = read_mats
 
         if texname.isspace() or texname == "":
             # Get material/texture name from file name
@@ -385,32 +389,6 @@ class Hardpoint:
 
 class IFFImporter(ImportBackend):
 
-    def __init__(self,
-                 filepath,
-                 texname,
-                 reorient_matrix,
-                 import_all_lods=False,
-                 use_facetex=False,
-                 import_bsp=False):
-
-        global mfilepath
-        global texmats
-
-        mfilepath = filepath
-        texmats = {}
-
-        self.reorient_matrix = reorient_matrix
-        self.import_all_lods = import_all_lods
-        self.use_facetex = use_facetex
-        self.import_bsp = import_bsp
-
-        if texname.isspace() or texname == "":
-            # Get material/texture name from file name
-            self.texname = bpy.path.basename(filepath)
-            self.texname = self.texname[:self.texname.rfind(".")]
-        else:
-            self.texname = texname
-
     def read_lod_data(self, major_form):
         mjrf_bytes_read = 4
         # Read all LODs
@@ -484,7 +462,7 @@ class IFFImporter(ImportBackend):
                     face_data = struct.unpack_from(
                         "<ifiiii", geom_data["data"], face_idx * 28)
                     lodm.add_face(face_data)
-                    register_texture(face_data[2])
+                    register_texture(face_data[2], read_mats=self.read_mats)
                     face_idx += 1
 
             elif geom_data["name"] == b"CNTR":

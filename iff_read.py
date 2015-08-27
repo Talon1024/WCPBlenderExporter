@@ -20,23 +20,29 @@
 
 # IFF reader class
 from os.path import exists as fexists
+import struct
 
 
 class IffReader:
 
-    iff_heads = [b"FORM", b"CAT ", b"LIST"]
+    _iff_heads = [b"FORM", b"CAT ", b"LIST"]
 
     def __init__(self, iff_file):
-        self.iff_file = open(iff_file, "rb")
+        self._iff_file = open(iff_file, "rb")
 
     def skip_data(self):
-        orig_pos = self.iff_file.tell()
-        head = self.iff_file.read(4)
-        if head in self.iff_heads:
-            self.iff_file.read(8)
+        orig_pos = self._iff_file.tell()
+        head = self._iff_file.read(4)
+        if head in self._iff_heads:
+            self._iff_file.read(8)
+            # Don't skip the entire FORM, just the header (length and name).
         elif head.isalnum() or head == b"FAR ":
-            length = struct.unpack(">i", self.iff_file.read(4))[0]
-            self.iff_file.read(length)
+            # Skip the entire CHUNK
+            length = struct.unpack(">i", self._iff_file.read(4))[0]
+            self._iff_file.read(length)
+
+            # IFF Chunks and FORMs are aligned at even offsets
+            if self._iff_file.tell() % 2 == 1: self._iff_file.read(1)
         else:
             raise TypeError("This file is not a valid IFF file!")
         del orig_pos
@@ -44,13 +50,13 @@ class IffReader:
         return None
 
     def read_data(self):
-        orig_pos = self.iff_file.tell()
-        head = self.iff_file.read(4)
+        orig_pos = self._iff_file.tell()
+        head = self._iff_file.read(4)
 
-        if head in self.iff_heads:
+        if head in self._iff_heads:
 
-            length = (struct.unpack(">i", self.iff_file.read(4))[0])
-            name = self.iff_file.read(4)
+            length = (struct.unpack(">i", self._iff_file.read(4))[0])
+            name = self._iff_file.read(4)
 
             return {
                 "type": "form",
@@ -59,17 +65,21 @@ class IffReader:
                 "offset": orig_pos
             }
 
-            # NOTE: This function doesn't read everything inside a form, and
-            # if you're counting the number of bytes to determine whether
-            # you've read the FORM completely, start the counter at 4!!
+            # NOTE: This method (as well as the similar skip_data method)
+            # doesn't read everything inside a form, and if you're counting the
+            # number of bytes to determine whether you've read the FORM
+            # completely, start the counter at 4, and remember to add 8 each
+            # time to take the FORM/CHUNK header into account!! (The 4 bytes
+            # representing the length of the FORM as a 32-bit unsigned integer
+            # is counted as part of the inside of the FORM)
         elif head.isalnum() or head == b"FAR ":
             name = head
-            length = struct.unpack(">i", self.iff_file.read(4))[0]
-            data = self.iff_file.read(length)
+            length = struct.unpack(">i", self._iff_file.read(4))[0]
+            data = self._iff_file.read(length)
 
             # IFF Chunks and FORMs are aligned at even offsets
-            if self.iff_file.tell() % 2 == 1:
-                self.iff_file.read(1)
+            if self._iff_file.tell() % 2 == 1:
+                self._iff_file.read(1)
                 length += 1
 
             return {

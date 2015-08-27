@@ -20,6 +20,7 @@
 
 # MAT reader
 import struct
+import array
 from . import iff_read
 
 
@@ -27,22 +28,21 @@ class MATReader:
 
     def __init__(self, matfpath):
         self.iff_reader = iff_read.IffReader(matfpath)
-        self.palette = []
-        self.pixels = None
+        self.palette = None  # To be initialized in read_palette
+        self.pixels = None  # To be initialized in read_info
 
     def read_info(self, info_chunk):
-        dimensions = struct.unpack_from("<ff", info_chunk["data"], 0)
+        dimensions = struct.unpack_from("<II", info_chunk["data"], 0)
         self.img_width, self.img_height = dimensions
-        # Image width * height * 4 channels per pixel
-        self.pixels = [
-            None for x in range(self.img_width * self.img_height * 4)]
+        # Image width * height * 4 channels per pixel (RGB + Alpha)
+        self.pixels = array.array(
+            'B', [0 for x in range(self.img_width * self.img_height * 4)])
 
     def read_palette(self, cmap_chunk):
-        # Each colour is three bytes
-        num_colours = cmap_chunk["length"] // 3
-        for colr in range(num_colours):
-            self.palette.append(struct.unpack_from(
-                "<BBB", cmap_chunk["data"], colr * 3))
+        # Each colour is three bytes (R, G, B)
+        pal_struct = "<" + "B" * cmap_chunk["length"]  # Little endian uchars
+        self.palette = array.array(
+            "B", struct.unpack(pal_struct, cmap_chunk["data"]))
 
     def read_pxls(self, pxls_chunk):
         # One byte references a colour in the palette
@@ -50,15 +50,16 @@ class MATReader:
             palref = struct.unpack_from(
                 "<B", pxls_chunk["data"], cpxl)[0]
 
-            self.pixels[cpxl * 4:cpxl * 4 + 3] = self.palette[palref]
+            self.pixels[cpxl * 4:cpxl * 4 + 3] = (
+                self.palette[palref * 3:palref * 3 + 3])
             # Colour at index 0 is transparent by default.
-            self.pixels[cpxl].append(255 if palref > 0 else 0)
+            self.pixels[cpxl * 4 + 3] = 0 if palref == 0 else 255
 
     def read_alph(self, alph_chunk):
         # One byte for each pixel. The alpha channel is inverted,
         # so 255 would be fully transparent, and 0 is fully opaque
         for apxl in range(alph_chunk["length"]):
-            self.pixels[apxl][3] = 255 - (struct.unpack_from(
+            self.pixels[apxl * 4 + 3] = 255 - (struct.unpack_from(
                 "<B", alph_chunk["data"], apxl)[0])
 
     def read(self):
@@ -69,8 +70,10 @@ class MATReader:
                 inner_rform_read = 4
 
                 while inner_rform_read < inner_rform["length"]:
+
                     mat_data = self.iff_reader.read_data()
-                    if mat_data["type"] == "chunk" mat_data["name"] == b"INFO":
+                    if (mat_data["type"] == "chunk" and
+                            mat_data["name"] == b"INFO"):
                         self.read_info(mat_data)
 
                     elif (mat_data["type"] == "form" and
@@ -84,10 +87,22 @@ class MATReader:
                     elif (mat_data["type"] == "chunk" and
                             mat_data["name"] == b"ALPH"):
                         self.read_alph(mat_data)
-                    inner_rform_read += mat_data["length"]
+
+                    inner_rform_read += mat_data["length"] + 8
             else:
                 raise TypeError("Invalid texture! (root form is {})".format(
                                 inner_rform["name"]))
         else:
             raise TypeError("Invalid texture! (root form is {})".format(
                             root_form["name"]))
+
+    def flip_y(self):
+        for py in range(self.img_height):
+            for px in range(self.img_width):
+                # WIP
+                # Temporarily store the pixel on the opposite side of the image
+                temp_pxl = self.pixels[(self.img_height - py) + (px * self.img_width * 4):(self.img_height - py) + (px * self.img_width * 4) + 4]
+
+                self.pixels[(self.img_height - py) + (px * self.img_width * 4):(self.img_height - py) + (px * self.img_width * 4) + 4] = (
+                    self.pixels[(py) + (px * self.img_width * 4):(py) + (px * self.img_width * 4) + 4])
+                self.pixels[(py) + (px * self.img_width * 4):(py) + (px * self.img_width * 4) + 4] = temp_pxl
