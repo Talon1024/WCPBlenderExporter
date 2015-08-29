@@ -13,7 +13,7 @@ fi
 # blender_scripts_folder="$homedir/BlenderScriptsDev/addons/io_scene_wcp" # Development script folder
 # eval cp --target-directory=$blender_scripts_folder {__init__,export_iff,iff,iff_mesh,import_iff}.py
 # else
-blender_scripts_folder="$homedir/BlenderScriptsDev/addons/io_scene_wcp" # Production script folder
+blender_scripts_folder="$homedir/BlenderScripts/addons/io_scene_wcp" # Production script folder
 eval cp --target-directory=$blender_scripts_folder {__init__,export_iff,iff,iff_mesh,iff_read,mat_read,import_iff}.py
 # fi
 
