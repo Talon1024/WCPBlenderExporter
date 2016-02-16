@@ -67,7 +67,7 @@ IFF Export Tutorial
 7. Hidden hardpoint empties (hardpoint empties that are not visible in Blender's viewport) will not be exported.
 8. Optionally, you can override the calculated collision sphere and radius by using an empty named `collsphr`.
 9. Go to where you exported the .IFF file. There should be a text file in that folder that has the same name as your IFF file, but with a different extension.
-10. Read the text file mentioned in step 1 to see which images should be converted, and what they should be named.
+10. Read the text file mentioned in step 5 to see which images should be converted, and what they should be named.
 11. Convert the textures to WCP/SO .mat format, and place them in the `mat` folder under your WC Secret Ops root directory.
 
 To use the mesh, you will need to reference the mesh file in a ship file.

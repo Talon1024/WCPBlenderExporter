@@ -145,7 +145,7 @@ class ExportIFF(Operator, ExportHelper):
     # generate_bsp = BoolProperty(
     #         name = "Generate BSP",
     #         description = "Generate a BSP tree "
-    #         "(for corvette and capship component meshes)",
+    #         "(for corvette and capship hull/component meshes)",
     #         default = False
     #     )
 
@@ -179,7 +179,15 @@ class ExportIFF(Operator, ExportHelper):
         default=False
     )
 
-    # Useless. Other exporters for Blender use separate classes.
+    include_far_chunk = BoolProperty(
+        name="Include FAR Chunk",
+        description="Include the 'FAR ' CHUNK when exporting to IFF. Only "
+        "required if the ship being exported is a fighter.",
+        default=True
+    )
+
+    # Useless. Other exporters for Blender use separate classes for other
+    # formats.
     # output_format = EnumProperty(
     #         name="Output Format",
     #         items=(('Binary', "Binary IFF Format", ""),
@@ -204,13 +212,13 @@ class ExportIFF(Operator, ExportHelper):
             self.report({"INFO"}, "File already exists!")
 
         # NOTE: BSP Tree generation is not implemented!
-        # As a fallback measure, I'm hard-coding this attribute
+        # As a fallback measure, I'm hard-coding this attribute for now.
         self.generate_bsp = False
 
         exporter = getattr(export_iff, self.backend_class_name)(
             self.filepath, self.texnum, self.apply_modifiers,
             self.active_as_lod0, self.use_facetex, wc_orientation_matrix,
-            self.generate_bsp
+            self.include_far_chunk, self.generate_bsp
         )
 
         exporter.export()

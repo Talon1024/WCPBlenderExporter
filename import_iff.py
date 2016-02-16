@@ -102,9 +102,12 @@ def register_texture(texnum, mat_name=None, read_mats=True):
 
                 bl_mtexslot.texture = bl_mtex
         else:
-            # print("MAT texture {0:0>8d}.mat not found!".format(
-            #     texnum))
-            pass
+            print("MAT texture {0:0>8d}.mat not found!".format(texnum))
+        if "textureRefDoc" in bpy.data.texts:
+            textureRefDoc = bpy.data.texts["textureRefDoc"]
+        else:
+            textureRefDoc = bpy.data.texts.new("textureRefDoc")
+        textureRefDoc.write("{0:0>8d}.mat -> {}\n".format(texnum, mat_name))
 
     if mat_name is None:
         mat_name = mfilepath[mfilepath.rfind(dirsep) + 1:mfilepath.rfind(".")]

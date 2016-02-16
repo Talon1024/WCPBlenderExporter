@@ -167,7 +167,7 @@ class MeshLODForm(iff.IffForm):
 
 
 class MeshIff(iff.IffFile):
-    def __init__(self, filename):
+    def __init__(self, filename, include_far_chunk):
         # Initialize an empty mesh IFF file, initialize data structures, etc.
         super().__init__("DETA", filename)
 
@@ -183,8 +183,9 @@ class MeshIff(iff.IffFile):
         self._mcoll = iff.IffForm("COLL")
         self.root_form.add_member(self._mcoll)
 
-        self._mfar = iff.IffChunk("FAR ", [float(0), float(900000)])
-        self.root_form.add_member(self._mfar)
+        if include_far_chunk:
+            self._mfar = iff.IffChunk("FAR ", [float(0), float(900000)])
+            self.root_form.add_member(self._mfar)
 
     def make_coll_sphr(self, X, Y, Z, radius):
         if self._mcoll.has_members():

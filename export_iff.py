@@ -49,6 +49,7 @@ class ExportBackend:
                  active_obj_as_lod0=True,
                  use_facetex=False,
                  wc_orientation_matrix=None,
+                 include_far_chunk=True
                  generate_bsp=False):
         self.filepath = filepath
         self.start_texnum = start_texnum
@@ -56,6 +57,7 @@ class ExportBackend:
         self.active_obj_as_lod0 = active_obj_as_lod0
         self.use_facetex = use_facetex
         self.wc_orientation_matrix = wc_orientation_matrix
+        self.include_far_chunk = include_far_chunk
         self.generate_bsp = generate_bsp
 
     def calc_rot_matrix(self, rx, ry, rz):
@@ -400,7 +402,7 @@ class IFFExporter(ExportBackend):
         modelname = get_fname(self.filepath)
 
         # Create an IFF mesh object
-        imesh = iff_mesh.MeshIff(filename)
+        imesh = iff_mesh.MeshIff(filename, self.include_far_chunk)
 
         # Get LOD data and number of LODs
         lod_data = self.get_lod_data()

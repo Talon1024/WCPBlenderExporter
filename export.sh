@@ -4,7 +4,7 @@
 
 homedir=`echo $HOME | sed 's/\ /\\\ /g'`
 
-if [ ! -z $(uname | grep -E 'MINGW|Cygwin') ]; then
+if [ -n $(uname | grep 'MINGW\|Cygwin') ]; then
   # We're using Bash on Windows!
   homedir="$homedir/Documents"
 fi
