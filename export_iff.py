@@ -20,12 +20,11 @@
 
 import bpy
 import warnings
+import re
 from . import iff_mesh
 from math import sin, cos
 from collections import OrderedDict
 
-MAX_NUM_LODS = 5
-LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
 LFLAG_FULLBRIGHT = 2
 
 # Non-critical warnings will be reported to Blender. Critical errors will be
@@ -38,6 +37,56 @@ class KeyWarning(Warning):
 
 class TypeWarning(Warning):
     pass
+
+
+class LODManager:
+
+    MAX_NUM_LODS = 5
+
+    # The LOD base object is a LOD for the main model.
+    LOD_BASE_MAIN = 0
+
+    # Name pattern for main LODs.
+    # Group 1 is the LOD level number.
+    MAIN_LOD_RE = re.compile(r"^detail-(\d+)$")
+
+    # The LOD base object is a LOD for a child model, or the main model if user
+    # decides to set the active object as LOD 0.
+    LOD_BASE_CHLD = 1
+
+    # Name pattern for child LODs, and main LODs if active object is used as a
+    # main LOD.
+    # Group 1 is the child object name, group 2 is the LOD level number.
+    CHLD_LOD_RE = re.compile(r"^(\w+)-lod(\d+)$")
+
+    def __init__(self, base_obj, scene=bpy.context.scene):
+        self.base_obj = base_obj
+        self.base_class = self.LOD_BASE_MAIN
+        self.scene = scene
+        self.LODs = []
+
+    def _getLOD(self, lod_obj):
+        lod = self.MAIN_LOD_RE.match(lod_obj.name)
+        if lod:
+            self.base_class = self.LOD_BASE_MAIN
+            lod = int(lod.group(1))
+            return lod
+
+        lod = self.CHLD_LOD_RE.match(lod_obj.name)
+        if lod:
+            self.base_class = self.LOD_BASE_CHLD
+            self.base_name = lod.group(1)
+            lod = int(lod.group(2))
+            return lod
+
+        return 0
+
+    def _scanLODs(self):
+        # What is the base object's LOD?
+        base_lod = self._getLOD(self.base_obj)
+
+        for thing in self.scene.objects:
+            if thing.name
 
 
 class ExportBackend:
@@ -152,12 +201,24 @@ class ExportBackend:
         ]
         return result_matrix
 
-    def get_lod_data(self):
-        """Get the level of detail data pertinent to the game engine"""
-        num_lods = 0
+    def get_lod_data(self, for_object=bpy.context.active_object):
+        """Get the level of detail data pertinent to the game engine
+
+        Positional arguments:
+        for_object -- the object for which to get the LOD data."""
+
+        # Parse name of object.
+        if (for_object.name.startswith(MAIN_LOD_PREFIX)):
+            pass
+        elif (SUB_LOD_SUFFIX_RE.search(for_object.name)):
+            pass
+        else:
+            raise KeyError("")
+
+        # See if there are any other LODs for this object.
 
         # Get the LOD data
-        lod_data = dict()
+        lod_data = []
         for lod in range(MAX_NUM_LODS):
             ob = None
             lod_ob_name = LOD_NAMES[lod]
@@ -168,18 +229,16 @@ class ExportBackend:
                         ob.name != lod_ob_name):
                     if ob.type == "MESH":
                         ob = bpy.context.active_object
-                        lod_data["LOD-" + str(lod)] = ob
-                        num_lods += 1
+                        lod_data.append(ob)
                     else:
                         error_msg = "Object " + ob.name + " is not a mesh!"
                         warnings.warn(error_msg, TypeWarning)
                         ob = bpy.data.objects[lod_ob_name]
                         try:
-                            lod_data["LOD-" + str(lod)] = ob
+                            lod_data.append(ob)
                             if ob.type != "MESH":
                                 error_msg = lod_ob_name + " is not a mesh!"
                                 raise TypeError(error_msg)
-                            num_lods += 1
                         except KeyError:
                             error_msg = ("Cannot find an object named " +
                                          lod_ob_name + "!")
@@ -187,11 +246,10 @@ class ExportBackend:
                 else:    # Otherwise, use the detail-0 object
                     ob = bpy.data.objects[lod_ob_name]
                     try:
-                        lod_data["LOD-" + str(lod)] = ob
+                        lod_data.append(ob)
                         if ob.type != "MESH":
                             error_msg = lod_ob_name + " is not a mesh!"
                             raise TypeError(error_msg)
-                        num_lods += 1
                     except KeyError:
                         error_msg = ("Cannot find an object named " +
                                      lod_ob_name + "!")
@@ -199,12 +257,10 @@ class ExportBackend:
             else:   # Other LODs
                 try:
                     ob = bpy.data.objects[lod_ob_name]
-                    lod_data["LOD-" + str(lod)] = ob
-                    num_lods += 1
+                    lod_data.append(ob)
                 except KeyError:
                     error_msg = "Unable to find a mesh for LOD " + str(lod)
                     warnings.warn(error_msg, KeyWarning)
-        lod_data["num_lods"] = num_lods
         return lod_data
 
     def get_hardpoints(self):
@@ -386,9 +442,9 @@ class IFFExporter(ExportBackend):
 
     def export(self):
         """
-        Export a .pas file from the Blender scene.
-        The model is exported as a .pas file that can be compiled
-        by WCPPascal into a WCP/SO format mesh.
+        Export a .iff file from the Blender scene.
+        The model is exported as an .iff file, which can be used in
+        Wing Commander: Prophecy/Secret Ops.
         """
 
         # Aliases to long function names
@@ -603,8 +659,11 @@ class XMFExporter(ExportBackend):
     def export(self):
         """
         Export a .pas file from the Blender scene.
-        The model is exported as a .pas file that can be compiled
-        by WCPPascal into a WCP/SO format mesh.
+        The model is exported as an XMF (IFF source) file that can be compiled
+        by WCPPascal into a WCP/SO format mesh iff file.
+
+        Defunct as of commit 64f9f39, but may still be useful for debugging if
+        the need arises.
         """
 
         # Aliases to long function names

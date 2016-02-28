@@ -33,7 +33,7 @@ bl_info = {
     "name": "WCP/SO Mesh File",
     "author": "Kevin Caccamo",
     "description": "Export to a WCP/SO mesh file.",
-    "version": (1, 4),
+    "version": (1, 7),
     "blender": (2, 65, 0),
     "location": "File > Export",
     "warning": "",
@@ -182,7 +182,7 @@ class ExportIFF(Operator, ExportHelper):
     include_far_chunk = BoolProperty(
         name="Include FAR Chunk",
         description="Include the 'FAR ' CHUNK when exporting to IFF. Only "
-        "required if the ship being exported is a fighter.",
+        "required if the mesh being exported is a fighter mesh.",
         default=True
     )
 

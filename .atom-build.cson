@@ -1,0 +1,8 @@
+cmd: '{PROJECT_PATH}/export.sh'
+name: 'Wing Blender (Development)'
+args: ['-d']
+cwd: '{PROJECT_PATH}'
+targets:
+  'Wing Blender (Production)':
+    cmd: '{PROJECT_PATH}/export.sh'
+    cwd: '{PROJECT_PATH}'

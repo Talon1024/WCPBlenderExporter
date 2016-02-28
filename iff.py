@@ -26,14 +26,14 @@ import io
 class IffForm:
     # A FORM is an IFF data structure that can hold CHUNKs or other FORMs
     def __init__(self, name, members=[]):
-        if len(name) == 4:  # The _name of the FORM must be 4 letters long
+        if len(name) == 4:  # The name of the FORM must be 4 letters long
             self._name = name.upper()
         elif len(name) > 4:
             self._name = name[4:].upper()
         elif len(name) < 4:
             self._name = name.ljust(4).upper()
         # Make a slice copy of the member list so that every FORM can have
-        # different members. If this is not done, all FORM objects will have
+        # different members. If this is not done, all IffForm objects will have
         # the same members
         self._members = members[:]
 
@@ -68,9 +68,9 @@ class IffForm:
     def to_xmf(self):
         """Convert this FORM to an XMF (IFF Source) string"""
         xmf_string = io.StringIO()
-        xmf_string.write('\nFORM "' + self._name + '"\n{\n')
+        xmf_string.write('\nFORM "%s"\n{\n' % self._name)
         for x in self._members:
-            xmf_string.write(x.to_xmf())
+            xmf_string.write(x.to_xmf())  # All members of a FORM are CHUNKs.
         xmf_string.write("\n}\n")
         return xmf_string.getvalue()
 
@@ -114,7 +114,7 @@ class IffChunk(IffForm):
         Returns an XMF string.
         """
         xmf_string = io.StringIO()
-        xmf_string.write('CHUNK "' + self._name + '"\n{\n')
+        xmf_string.write('CHUNK "%s"\n{\n' % self._name)
         for x in self._members:
             if isinstance(x, int):
                 xmf_string.write("long %i" % x)
