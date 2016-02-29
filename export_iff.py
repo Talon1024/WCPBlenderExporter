@@ -49,7 +49,7 @@ class ExportBackend:
                  active_obj_as_lod0=True,
                  use_facetex=False,
                  wc_orientation_matrix=None,
-                 include_far_chunk=True
+                 include_far_chunk=True,
                  generate_bsp=False):
         self.filepath = filepath
         self.start_texnum = start_texnum
