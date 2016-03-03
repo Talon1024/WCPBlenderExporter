@@ -39,7 +39,22 @@ class TypeWarning(Warning):
     pass
 
 
+class MeshManager:
+
+    def __init__(self, base_obj, active_obj_as_lod0):
+        if not isinstance(base_obj, bpy.types.Object):
+            raise TypeError("Base object must be a mesh object!")
+
+        self.lod_mngr = LODManager(base_obj)
+        self.hardpoints = {}
+
+    def get_mats(self):
+        return self.lod_mngr.get_mats()
+
+
 class LODManager:
+    # Manages the LODs for a mesh to export.
+    # Scans for a base LOD 0 mesh and other related LODs in a given scene.
 
     MAX_NUM_LODS = 5
 
@@ -60,33 +75,101 @@ class LODManager:
     CHLD_LOD_RE = re.compile(r"^(\w+)-lod(\d+)$")
 
     def __init__(self, base_obj, scene=bpy.context.scene):
-        self.base_obj = base_obj
-        self.base_class = self.LOD_BASE_MAIN
-        self.scene = scene
-        self.LODs = []
+        if not isinstance(base_obj, bpy.types.Object):
+            raise TypeError("base_obj must be a mesh object!")
+        if not isinstance(scene, bpy.types.Scene):
+            raise TypeError("scene must be a scene!")
 
-    def _getLOD(self, lod_obj):
+        self.scene = scene
+        self.base_name = ''
+        self.base_class = 0
+        base_lod = self._get_lod(base_obj, True)
+        self.lods = [None for x in range(self.MAX_NUM_LODS)]
+        self.lods[base_lod] = base_obj
+
+    def _get_lod(self, lod_obj, base=False):
         lod = self.MAIN_LOD_RE.match(lod_obj.name)
         if lod:
-            self.base_class = self.LOD_BASE_MAIN
+            if base:
+                self.base_class = self.LOD_BASE_MAIN
             lod = int(lod.group(1))
             return lod
 
         lod = self.CHLD_LOD_RE.match(lod_obj.name)
         if lod:
-            self.base_class = self.LOD_BASE_CHLD
-            self.base_name = lod.group(1)
+            if base:
+                self.base_class = self.LOD_BASE_CHLD
+                self.base_name = lod.group(1)
             lod = int(lod.group(2))
             return lod
 
         return 0
 
-    def _scanLODs(self):
-        # What is the base object's LOD?
-        base_lod = self._getLOD(self.base_obj)
+    def scan_lods(self):
+        for lod in range(self.MAX_NUM_LODS):
+            lod_name = ""
+            if self.base_class == self.LOD_BASE_MAIN:
+                lod_name = "detail-%d" % lod
+            elif self.base_class == self.LOD_BASE_CHLD:
+                lod_name = "%s-lod%d" % (self.base_name, lod)
 
-        for thing in self.scene.objects:
-            if thing.name
+            if lod_name in self.scene.objects:
+                if self.lods[lod] is None:
+                    if self.scene.objects[lod_name].type == 'MESH':
+                        self.lods[lod] = self.scene.objects[lod_name]
+                    else:
+                        raise TypeError("Object %s is not a mesh!" % lod_name)
+
+                else:
+                    raise ValueError(
+                        "Tried to set LOD %d to object %s, but it was already "
+                        "set to object %s!" % lod, lod_name, self.lods[lod])
+
+    def trim_lods(self):
+        # Ensure the LODs array is consistent
+
+        if self.lods[0] is None:
+            raise TypeError("The first LOD (LOD 0) of the model must exist!")
+
+        no_lod_idx = None  # Index for first blank LOD
+
+        for lod_idx, lod_obj in enumerate(self.lods):
+            if no_lod_idx is None:
+                if lod_obj is None:
+                    no_lod_idx = lod_idx
+            else:
+                if lod_obj is not None:
+                    raise TypeError(
+                        "Inconsistent LODs. A LOD object was found after lod "
+                        "%d (%s)." % (no_lod_idx, lod_obj.name))
+
+        self.lods = self.lods[:no_lod_idx]
+
+    def get_mats(self):
+        used_mtls = []
+
+        for lod_obj in self.lods:
+            lod_mesh = lod_obj.to_mesh(
+                self.scene, self.apply_modifiers, "PREVIEW")
+
+            if self.use_facetex:
+                active_tm_idx = None
+                for idx, texmap in enumerate(lod_mesh.tessface_uv_textures):
+                    if texmap.active:
+                        active_tm_idx = idx
+                        break
+                for f in mesh.tessface_uv_textures[active_tm_idx].data:
+                    cur_mtl = get_bname(f.image.filepath)
+                    if cur_mtl not in used_mtls:
+                        used_mtls.append(cur_mtl)
+
+            else:
+                for f in lod_mesh.tessfaces:
+                    cur_mtl = lod_mesh.materials[f.material_index].name
+                    if cur_mtl not in used_mtls:
+                        used_mtls.append(cur_mtl)
+
+        return used_mtls
 
 
 class ExportBackend:
@@ -206,16 +289,6 @@ class ExportBackend:
 
         Positional arguments:
         for_object -- the object for which to get the LOD data."""
-
-        # Parse name of object.
-        if (for_object.name.startswith(MAIN_LOD_PREFIX)):
-            pass
-        elif (SUB_LOD_SUFFIX_RE.search(for_object.name)):
-            pass
-        else:
-            raise KeyError("")
-
-        # See if there are any other LODs for this object.
 
         # Get the LOD data
         lod_data = []

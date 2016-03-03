@@ -94,7 +94,7 @@ class MeshLODForm(iff.IffForm):
         self._fvrt_chunk.add_member(uv_y)
 
     def add_face(self, vtnm_idx, dplane, texnum,
-                 fvrt_idx, num_verts, light_flags):
+                 fvrt_idx, num_verts, light_flags, alt_mat=0x7F0096FF):
         if not isinstance(vtnm_idx, int):
             raise TypeError("Vertex normal index must be an integer!")
         if not isinstance(dplane, float):
@@ -113,7 +113,7 @@ class MeshLODForm(iff.IffForm):
         self._face_chunk.add_member(fvrt_idx)  # Index of face's first FVRT
         self._face_chunk.add_member(num_verts)  # Number of vertices
         self._face_chunk.add_member(light_flags)  # Lighting flags
-        self._face_chunk.add_member(0x7F0096FF)  # Unknown
+        self._face_chunk.add_member(alt_mat)  # Unknown (alternate MAT?)
 
     def set_center(self, cx, cy, cz):
         if self._cntr_chunk.has_members():

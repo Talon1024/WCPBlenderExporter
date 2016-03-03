@@ -36,7 +36,7 @@ bl_info = {
     "version": (1, 7),
     "blender": (2, 65, 0),
     "location": "File > Export",
-    "warning": "",
+    "warning": "%{GIT_COMMIT}",
     "wiki_url": "http://www.ciinet.org/kevin/"
     "bl_wcp_exporter/bl_wcp_export_manual.html",
     "category": "Import-Export"
@@ -85,6 +85,8 @@ class ImportIFF(Operator, ImportHelper):
     backend_class_name = "IFFImporter"
 
     def execute(self, context):
+        warnings.resetwarnings()
+
         # WIP
         wc_orientation_matrix = axis_conversion("Z", "Y").to_4x4()
 
@@ -199,6 +201,8 @@ class ExportIFF(Operator, ExportHelper):
     backend_class_name = "IFFExporter"
 
     def execute(self, context):
+        warnings.resetwarnings()
+
         # Get the matrix to transform the model to "WCP/SO" orientation
         wc_orientation_matrix = axis_conversion(
             self.axis_forward, self.axis_up, "Z", "Y"
@@ -308,6 +312,8 @@ class ExportXMF(Operator, ExportHelper):
     backend_class_name = "XMFExporter"
 
     def execute(self, context):
+        warnings.resetwarnings()
+
         # Get the matrix to transform the model to "WCP/SO" orientation
         wc_orientation_matrix = axis_conversion(
             self.axis_forward, self.axis_up, "Z", "Y"

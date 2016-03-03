@@ -31,7 +31,7 @@ Installation
 9. Check off the checkbox at the far right to enable the exporter script.
 10. Save your settings if you want to permanently enable the exporter script.
 
-For more information, see [this guide](http://wiki.blender.org/index.php/Doc:2.6/Manual/Extensions/Python/Add-Ons) on the Blender wiki.
+For more information, see [this guide](https://www.blender.org/manual/advanced/scripting/python/add_ons.html) on the Blender wiki.
 
 IFF Import Tutorial
 -------------------
