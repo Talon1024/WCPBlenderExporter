@@ -19,6 +19,7 @@
 # <pep8-80 compliant>
 
 import bpy
+import mathutils
 import warnings
 import re
 from . import iff_mesh
@@ -39,20 +40,58 @@ class TypeWarning(Warning):
     pass
 
 
-class MeshManager:
+class IFFMetadata:
 
-    def __init__(self, base_obj, active_obj_as_lod0):
-        if not isinstance(base_obj, bpy.types.Object):
-            raise TypeError("Base object must be a mesh object!")
+    class Sphere:
+        def __init__(self, x, y, z, r):
+            if not isinstance(x, float):
+                raise TypeError("X Coordinate must be a float!")
+            if not isinstance(y, float):
+                raise TypeError("Y Coordinate must be a float!")
+            if not isinstance(z, float):
+                raise TypeError("Z Coordinate must be a float!")
+            if not isinstance(r, float):
+                raise TypeError("Radius must be a float!")
 
-        self.lod_mngr = LODManager(base_obj)
-        self.hardpoints = {}
+            self.x = x
+            self.y = y
+            self.z = z
+            self.r = r
 
-    def get_mats(self):
-        return self.lod_mngr.get_mats()
+        def to_tuple(self):
+            return (self.x, self.y, self.z, self.r)
+
+    class Hardpoint:
+
+        def __init__(self, matrix, name):
+            if not isinstance(matrix, mathutils.Matrix):
+                raise TypeError("matrix must be a Blender Matrix!")
+            if not isinstance(name, str):
+                raise TypeError("name must be a string!")
+
+            self.location = matrix.to_translation()
+            self.orientation = matrix.to_euler("XYZ").to_matrix()
+            self.name = name
+
+        def to_chunk(self):
+            iffc = iff.IffChunk("HARD")
+            iffc.add_member(self.orientation[0][0])
+            iffc.add_member(self.orientation[0][1])
+            iffc.add_member(self.orientation[0][2])
+            iffc.add_member(self.location[0])
+            iffc.add_member(self.orientation[2][0])
+            iffc.add_member(self.orientation[2][1])
+            iffc.add_member(self.orientation[2][2])
+            iffc.add_member(self.location[2])
+            iffc.add_member(self.orientation[1][0])
+            iffc.add_member(self.orientation[1][1])
+            iffc.add_member(self.orientation[1][2])
+            iffc.add_member(self.location[1])
+            iffc.add_member(self.name)
+            return iffc
 
 
-class LODManager:
+class ModelManager:
     # Manages the LODs for a mesh to export.
     # Scans for a base LOD 0 mesh and other related LODs in a given scene.
 
@@ -74,6 +113,9 @@ class LODManager:
     # Group 1 is the child object name, group 2 is the LOD level number.
     CHLD_LOD_RE = re.compile(r"^(\w+)-lod(\d+)$")
 
+    # Name pattern for hardpoints
+    HARDPOINT_RE = re.compile(r"^hp-(\w+)(?:\.\d*)?$")
+
     def __init__(self, base_obj, scene=bpy.context.scene):
         if not isinstance(base_obj, bpy.types.Object):
             raise TypeError("base_obj must be a mesh object!")
@@ -86,6 +128,7 @@ class LODManager:
         base_lod = self._get_lod(base_obj, True)
         self.lods = [None for x in range(self.MAX_NUM_LODS)]
         self.lods[base_lod] = base_obj
+        self.hardpoints = []
 
     def _get_lod(self, lod_obj, base=False):
         lod = self.MAIN_LOD_RE.match(lod_obj.name)
@@ -171,6 +214,19 @@ class LODManager:
 
         return used_mtls
 
+    def get_hardpoints(self):
+        if self.lods[0] is None:
+            raise TypeError(
+                "The first LOD (LOD 0) of the model must exist!")
+
+        for lod_idx in range(len(self.lods)):
+            for obj in self.scene.objects:
+                if (obj.parent is self.lods[lod_idx] and
+                        obj.type == "EMPTY" and
+                        self.HARDPOINT_RE.match(obj.name)):
+                    hpname = self.HARDPOINT_RE.match(obj.name).group(1)
+                    hardpt = IFFMetadata.Hardpoint(obj.matrix_world, hpname)
+
 
 class ExportBackend:
 
@@ -223,11 +279,12 @@ class ExportBackend:
                     [0, 0, 1]]
 
         # From http://nghiaho.com/?page_id=846: R = ZYX
-        rot_matrix = self.multiply_3x3_matrices(matrix_z, matrix_y)
-        rot_matrix = self.multiply_3x3_matrices(rot_matrix, matrix_x)
+        rot_matrix = ExportBackend.multiply_3x3_matrices(matrix_z, matrix_y)
+        rot_matrix = ExportBackend.multiply_3x3_matrices(rot_matrix, matrix_x)
         return rot_matrix
 
-    def multiply_3x3_matrices(self, matrix1, matrix2):
+    @staticmethod
+    def multiply_3x3_matrices(matrix1, matrix2):
         """
         Multiplies two 3x3 matrices together and
         returns the resulting matrix.

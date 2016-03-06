@@ -19,6 +19,8 @@
 # <pep8-80 compliant>
 
 # Classes for IFF data structures
+# See the EA IFF 85 specification here:
+# https://github.com/1fish2/IFF/tree/master/IFF docs with Commodore revisions/
 import struct
 import io
 
@@ -26,23 +28,39 @@ import io
 class IffForm:
     # A FORM is an IFF data structure that can hold CHUNKs or other FORMs
     def __init__(self, name, members=[]):
+        name = name.strip()
         if len(name) == 4:  # The name of the FORM must be 4 letters long
             self._name = name.upper()
         elif len(name) > 4:
-            self._name = name[4:].upper()
+            self._name = name[:4].upper()
         elif len(name) < 4:
-            self._name = name.ljust(4).upper()
+            self._name = name.upper().ljust(4)
+
+        for idchar in self._name:
+            if ord(idchar) < 0x20 or ord(idchar) > 0x7E:
+                raise ValueError(
+                    "Invalid name for this " + type(self).__name__)
+
+        for member in members:
+            if not self.is_member_valid(member):
+                raise TypeError("Member %r is of an invalid type for an %s!" %
+                                (member, type(self).__name__))
+
         # Make a slice copy of the member list so that every FORM can have
         # different members. If this is not done, all IffForm objects will have
         # the same members
+        self._length = 4  # Account for FORM name
         self._members = members[:]
+
+    def __str__(self):
+        return "{} {!r}".format(type(self).__name__, self._name)
 
     def is_member_valid(self, member):
         if (isinstance(member, IffForm) or
                 isinstance(member, IffChunk)):
-            return True
+            return 1
         else:
-            return False
+            return 0
 
     def add_member(self, memberToAdd):
         """Add a member to this FORM
@@ -52,17 +70,26 @@ class IffForm:
         # Only add a member if it is a CHUNK or a FORM
         if self.is_member_valid(memberToAdd):
             self._members.append(memberToAdd)
+            self._length += memberToAdd.get_length() + 8
+            if memberToAdd.get_length() % 2 == 1:
+                self._length += 1
         else:
             raise TypeError
 
     def insert_member(self, memberToAdd, pos):
         if self.is_member_valid(memberToAdd):
             self._members.insert(pos, memberToAdd)
+            self._length += memberToAdd.get_length() + 8
+            if memberToAdd.get_length() % 2 == 1:
+                self._length += 1
         else:
             raise TypeError
 
     def remove_member(self, memberToRemove):
         """Remove a member from this FORM"""
+        self._length -= memberToRemove.get_length() + 8
+        if memberToAdd.get_length() % 2 == 1:
+            self._length -= 1
         self._members.remove(memberToRemove)
 
     def to_xmf(self):
@@ -78,10 +105,8 @@ class IffForm:
         iffbytes = bytearray()
         for x in self._members:
             iffbytes.extend(x.to_bytes())
-        iffbytes = bytes(iffbytes)
-        formlen = len(iffbytes) + 4
         iffbytes = (b"FORM" +
-                    struct.pack(">l", formlen) +
+                    struct.pack(">l", self._length) +
                     self._name.encode("ascii", "replace") +
                     iffbytes)
         return iffbytes
@@ -95,19 +120,71 @@ class IffForm:
     def clear_members(self):
         """Remove all members from this FORM"""
         self._members = []
+        self._length = 4
+
+    def get_length(self):
+        return self._length
 
 
 class IffChunk(IffForm):
     # A CHUNK is an IFF data structure that holds binary data,
     # such as integers, floats, or strings.
 
+    def __init__(self, name, members=[]):
+        super().__init__(name, members)
+        self._length = 0
+        self._last_type_added = 0
+
     def is_member_valid(self, member):
         if (isinstance(member, int) or
-                isinstance(member, float) or
-                isinstance(member, str)):
-            return True
+                isinstance(member, float)):
+            return 1
+        elif isinstance(member, str):
+            return 2
         else:
-            return False
+            return 0
+
+    def add_member(self, memberToAdd):
+        """Add a member to this FORM
+
+        Only CHUNKs or other FORMs may be added to a FORM
+        """
+        membtype = self.is_member_valid(memberToAdd)
+        if membtype > 0:
+            self._members.append(memberToAdd)
+            if membtype == 1:  # Numeric (int/float)
+                if self._last_type_added == 2:
+                    self._length += 1
+                self._length += 4
+            elif membtype == 2:  # String
+                self._length += len(memberToAdd)
+            self._last_type_added = membtype
+        else:
+            raise TypeError("Tried to add an invalid piece of data!")
+
+    def insert_member(self, memberToAdd, pos):
+        membtype = self.is_member_valid(memberToAdd)
+        omembtype = (
+            self.is_member_valid(self._members[pos - 1]) if pos > 0 else 0)
+        if membtype > 0:
+            self._members.insert(pos, memberToAdd)
+            if membtype == 1:
+                if omembtype == 2:
+                    self._length += 1
+                self._length += 4
+            elif membtype == 2:
+                self._length += len(memberToAdd)
+        else:
+            raise TypeError
+
+    def remove_member(self, memberToRemove):
+        """Remove a member from this FORM"""
+        if (isinstance(memberToRemove, int) or
+                isinstance(memberToRemove, float)):
+            self._length -= 4
+        else:
+            self._length -= len(memberToRemove)
+        self._members.remove(memberToRemove)
 
     def to_xmf(self):
         """
@@ -136,13 +213,13 @@ class IffChunk(IffForm):
             if isinstance(x, str):
                 iffbytes.extend(x.encode("ascii", "replace"))
                 iffbytes.append(0)
-                # If the string contains an even number of characters,
-                # add an extra 0-byte for padding
-                if (len(x) % 2 == 0):
-                    iffbytes.append(0)
-        iffbytes = bytes(iffbytes)
+        # If the chunk contains an odd number of bytes, add an extra 0-byte for
+        # padding. See the EA IFF 85 specification here:
+        # https://github.com/1fish2/IFF/tree/master/IFF%20docs%20with%20Commodore%20revisions/
+        if self._length % 2 == 1:
+            iffbytes.append(0)
         iffbytes = (self._name.encode("ascii", "replace") +
-                    struct.pack(">l", len(iffbytes)) +
+                    struct.pack(">l", self._length) +
                     iffbytes)
         return iffbytes
 

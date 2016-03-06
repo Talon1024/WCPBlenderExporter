@@ -85,7 +85,7 @@ different extension.
 
 To use the mesh, you will need to reference the mesh file in a ship file.
 
-For modders who want to use this exporter script, an example .blend file and accompanying test data is included in the `examples` folder of this repository, and an exported "game-ready" version of the test ship is in the `test` folder.
+For modders who want to use this exporter script, example .blend files and accompanying textures are included in the subfolders in the `examples` folder of this repository. An exported "game-ready" version of each corresponding example model is located in the folder suffixed with `_wcp`
 
 Getting involved (Testing)
 --------------------------
@@ -113,7 +113,7 @@ Note that the latest version may not be usable.
 Getting involved (Development)
 ------------------------------
 
-If you want to contribute to this project, get the latest development version of the code, and check out the issues page, or the [TODO Document](TODO.md).
+If you want to contribute to this project, get the latest development version of the code, and check out the issues page, or the [TODO Document](TODO.md). Feel free to fork this repo and do pull requests.
 
 Projects using Wing Blender
 ---------------------------
