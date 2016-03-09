@@ -30,7 +30,7 @@ class TestIFF(unittest.TestCase):
                          "IffForm isn't converting to a string properly!")
 
         # Exception testing.
-        # Invalid Chunk ID
+        # Invalid Form ID
         self.assertRaises(ValueError, iff.IffForm, ("\x02Aéâ"))
         # Invalid member types
         self.assertRaises(TypeError, iff.IffForm, "DETA", [192, 2.25, "abc"])

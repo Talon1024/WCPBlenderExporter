@@ -167,11 +167,23 @@ class MeshLODForm(iff.IffForm):
 
 
 class MeshIff(iff.IffFile):
-    def __init__(self, filename, include_far_chunk):
+    def __init__(self, filename, include_far_chunk,
+                 dranges=[float(0), float(400), float(800)]):
+
+        if not isinstance(include_far_chunk, bool):
+            raise TypeError("include_far_chunk must be a boolean value!")
+
+        if isinstance(dranges, list):
+            for drange in dranges:
+                if not isinstance(drange, float):
+                    raise TypeError("Each LOD range must be a float!")
+        else:
+            raise TypeError("dranges must be a list or tuple!")
+
         # Initialize an empty mesh IFF file, initialize data structures, etc.
         super().__init__("DETA", filename)
 
-        self._mrang = iff.IffChunk("RANG", [float(0), float(400), float(800)])
+        self._mrang = iff.IffChunk("RANG", dranges)
         self.root_form.add_member(self._mrang)
 
         self._mmeshes = iff.IffForm("MESH")
@@ -228,6 +240,18 @@ class MeshIff(iff.IffFile):
     def add_lod(self, lod):
         if isinstance(lod, MeshLODForm):
             self._mmeshes.add_member(lod)
+
+    def set_dranges(self, dranges):
+        if isinstance(dranges, list) or isinstance(dranges, tuple):
+            for drange in dranges:
+                if not isinstance(drange, float):
+                    raise TypeError("Each LOD range must be a float!")
+        else:
+            raise TypeError("dranges must be a list or tuple!")
+
+        self._mrang.clear_members()
+        for drange in dranges:
+            self._mrang.add_member(drange)
 
     def get_meshes_form(self):
         warnings.warn("get_meshes_form is deprecated!", DeprecationWarning)

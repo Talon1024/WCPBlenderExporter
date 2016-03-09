@@ -51,7 +51,7 @@ IFF Export Tutorial
 
 2. The converter will, by default, use an object in the scene named `detail-0` as the LOD 0 mesh. You can make the converter use the active object as the LOD 0 mesh. If you turn this option off, or if the active object is not a mesh, the converter will try to use the object in the scene named `detail-0` as the LOD 0 mesh if it exists. Otherwise, nothing is exported.
 
-3. a. If you are using materials, you must assign a material to each face on the model, and you must have at least one UV-mapped image texture in the material.
+3. a. If you are using materials, you must assign a material to each face on the model, and you must have at least one UV-mapped image texture in one of the material's texture slots.
 
    b. If you are using face textures, you must assign a texture to each face on the model.
 

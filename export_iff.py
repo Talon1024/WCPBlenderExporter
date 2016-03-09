@@ -116,6 +116,9 @@ class ModelManager:
     # Name pattern for hardpoints
     HARDPOINT_RE = re.compile(r"^hp-(\w+)(?:\.\d*)?$")
 
+    # Name pattern for LOD range info
+    DRANGE_RE = re.compile(r"^drang=([0-9,]+)(?:\.\d*)?$")
+
     def __init__(self, base_obj, scene=bpy.context.scene):
         if not isinstance(base_obj, bpy.types.Object):
             raise TypeError("base_obj must be a mesh object!")
@@ -129,6 +132,7 @@ class ModelManager:
         self.lods = [None for x in range(self.MAX_NUM_LODS)]
         self.lods[base_lod] = base_obj
         self.hardpoints = []
+        self.dranges = [float(0)]
 
     def _get_lod(self, lod_obj, base=False):
         lod = self.MAIN_LOD_RE.match(lod_obj.name)
@@ -227,6 +231,55 @@ class ModelManager:
                     hpname = self.HARDPOINT_RE.match(obj.name).group(1)
                     hardpt = IFFMetadata.Hardpoint(obj.matrix_world, hpname)
 
+    def get_dranges(self):
+        if self.lods[0] is None:
+            raise TypeError(
+                "The first LOD (LOD 0) of the model must exist!")
+
+        # Get existing LOD ranges
+        for lod_idx in range(len(self.lods)):
+            if lod_idx > 0:
+                # LOD Ranges are only valid for LODs greater than 0
+                for obj in self.scene.objects:
+                    if (obj.parent is self.lods[lod_idx] and
+                            obj.type == "EMPTY" and
+                            self.DRANGE_RE.match(obj.name)):
+                        drange = self.DRANGE_RE.match(obj.name).group(1)
+                        drange = drange.translate({44: 46})  # Comma to period
+                        drange = float(drange)
+                        self.dranges.append(drange)
+                        break
+                else:
+                    self.dranges.append(None)
+
+        # Calculate LOD ranges that don't exist
+        for dr_idxa in range(self.dranges):
+            if self.dranges[dr_idxa] is None:
+                drange_before = None
+                drange_after = None
+                drange_empty_space = 0
+
+                # Find closest value for drange_before
+                for dr_idxb in range(len(self.dranges)):
+                    if dr_idxb > 0:
+                        if dr_idxa == dr_idxb:
+                            break
+                        elif (dr_idxb < dr_idxa and
+                              self.dranges[dr_idxb] is not None):
+                            drange_before = self.dranges[dr_idxb]
+
+                # Find closest value for drange_after
+                for dr_idxb in range(len(self.dranges)):
+                    # We're going to traverse the list in reverse now
+                    if len(self.dranges) - dr_idxb == dr_idxa:
+                        break
+                    elif (len(self.dranges) - dr_idxb > dr_idxa and
+                            self.dranges[len(self.dranges) - dr_idxb]
+                            is not None):
+                        pass
+
+        return self.dranges
+
 
 class ExportBackend:
 
@@ -237,7 +290,7 @@ class ExportBackend:
                  active_obj_as_lod0=True,
                  use_facetex=False,
                  wc_orientation_matrix=None,
-                 include_far_chunk=True
+                 include_far_chunk=True,
                  generate_bsp=False):
         self.filepath = filepath
         self.start_texnum = start_texnum
