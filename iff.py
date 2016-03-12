@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 # Blender WCP IFF mesh import/export script by Kevin Caccamo
-# Copyright © 2013-2015 Kevin Caccamo
+# Copyright © 2013-2016 Kevin Caccamo
 # E-mail: kevin@ciinet.org
 #
 # This program is free software; you can redistribute it and/or

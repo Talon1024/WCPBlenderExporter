@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 # Blender WCP IFF mesh import/export script by Kevin Caccamo
-# Copyright © 2013-2015 Kevin Caccamo
+# Copyright © 2013-2016 Kevin Caccamo
 # E-mail: kevin@ciinet.org
 #
 # This program is free software; you can redistribute it and/or
@@ -29,6 +29,21 @@ class IffReader:
 
     def __init__(self, iff_file):
         self._iff_file = open(iff_file, "rb")
+
+    def id_isvalid(self, iffid):
+        if len(iffid) != 4:
+            raise TypeError("Invalid Chunk/Form ID length!")
+
+        if isinstance(iffid, bytes):
+            for idchar in iffid:
+                if idchar < 0x20 or idchar > 0x7E:
+                    raise ValueError("Invalid Chunk/Form ID!")
+        elif isinstance(iffid, str):
+            for idchar in iffid:
+                if ord(idchar) < 0x20 or ord(idchar) > 0x7E:
+                    raise ValueError("Invalid Chunk/Form ID!")
+
+        return True  # No error was raised, so it's valid
 
     def skip_data(self):
         orig_pos = self._iff_file.tell()
@@ -72,7 +87,8 @@ class IffReader:
             # time to take the FORM/CHUNK header into account!! (The 4 bytes
             # representing the length of the FORM as a 32-bit unsigned integer
             # is counted as part of the inside of the FORM)
-        elif head.isalnum() or head == b"FAR ":
+
+        elif self.id_isvalid(head):
             name = head
             length = struct.unpack(">i", self._iff_file.read(4))[0]
             data = self._iff_file.read(length)

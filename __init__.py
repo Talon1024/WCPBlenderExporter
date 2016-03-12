@@ -185,7 +185,7 @@ class ExportIFF(Operator, ExportHelper):
         name="Include FAR Chunk",
         description="Include the 'FAR ' CHUNK when exporting to IFF. Only "
         "required if the mesh being exported is a fighter mesh.",
-        default=True
+        default=False
     )
 
     # Useless. Other exporters for Blender use separate classes for other
@@ -197,6 +197,16 @@ class ExportIFF(Operator, ExportHelper):
     #               ),
     #         default='Binary',
     #         )
+    
+    output_version = EnumProperty(
+        name="Mesh version",
+        items=(("11", "Mesh version 11", "Use mesh version 11"),
+               ("12", "Mesh version 12", "Use mesh version 12"),
+               ("13", "Mesh version 13", "Use mesh version 13")),
+        description="The mesh version to export the model(s) as. This "
+            "determines how the game loads and uses the model(s).",
+        default="12"
+    )
 
     backend_class_name = "IFFExporter"
 

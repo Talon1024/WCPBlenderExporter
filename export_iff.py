@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 # Blender WCP IFF mesh import/export script by Kevin Caccamo
-# Copyright © 2013-2015 Kevin Caccamo
+# Copyright © 2013-2016 Kevin Caccamo
 # E-mail: kevin@ciinet.org
 #
 # This program is free software; you can redistribute it and/or
@@ -25,6 +25,7 @@ import re
 from . import iff_mesh
 from math import sin, cos
 from collections import OrderedDict
+from itertools import repeat
 
 LFLAG_FULLBRIGHT = 2
 
@@ -253,30 +254,35 @@ class ModelManager:
                     self.dranges.append(None)
 
         # Calculate LOD ranges that don't exist
-        for dr_idxa in range(self.dranges):
+        for dr_idxa in range(len(self.dranges)):
             if self.dranges[dr_idxa] is None:
-                drange_before = None
-                drange_after = None
-                drange_empty_space = 0
-
-                # Find closest value for drange_before
-                for dr_idxb in range(len(self.dranges)):
-                    if dr_idxb > 0:
-                        if dr_idxa == dr_idxb:
-                            break
-                        elif (dr_idxb < dr_idxa and
-                              self.dranges[dr_idxb] is not None):
-                            drange_before = self.dranges[dr_idxb]
+                drange_before = self.dranges[dr_idxa - 1]
+                empty_dranges = 0
 
                 # Find closest value for drange_after
-                for dr_idxb in range(len(self.dranges)):
-                    # We're going to traverse the list in reverse now
-                    if len(self.dranges) - dr_idxb == dr_idxa:
+                for dr_idxb in range(dr_idxa, len(self.dranges)):
+                    if dr_idxb is not None:
                         break
-                    elif (len(self.dranges) - dr_idxb > dr_idxa and
-                            self.dranges[len(self.dranges) - dr_idxb]
-                            is not None):
-                        pass
+                    else:
+                        empty_dranges += 1
+
+                try:
+                    drange_after = self.dranges[dr_idxa + empty_dranges]
+                except IndexError:
+                    drange_after = 500.0 * (empty_dranges + 1) + drange_before
+
+                drange_interval = (
+                    (drange_after - drange_before) /
+                    (empty_dranges + 1))
+
+                dridx_end = dr_idxa + empty_dranges
+
+                # Best list comprehension ever LOL.
+                self.dranges[dr_idxa:dridx_end] = [
+                    x * n + drange_before for x, n in zip(
+                        repeat(drange_interval, empty_dranges),
+                        range(1, empty_dranges + 1)
+                    )]
 
         return self.dranges
 

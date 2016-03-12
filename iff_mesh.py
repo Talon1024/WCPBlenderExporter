@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 # Blender WCP IFF mesh import/export script by Kevin Caccamo
-# Copyright © 2013-2015 Kevin Caccamo
+# Copyright © 2013-2016 Kevin Caccamo
 # E-mail: kevin@ciinet.org
 #
 # This program is free software; you can redistribute it and/or
@@ -57,25 +57,25 @@ class MeshLODForm(iff.IffForm):
             raise TypeError("Name of this mesh LOD must be a string!")
 
     def add_vertex(self, vx, vy, vz):
-        if (isinstance(vx, float) and
+        if not (isinstance(vx, float) and
                 isinstance(vy, float) and
                 isinstance(vz, float)):
-            self._vert_chunk.add_member(vx)
-            self._vert_chunk.add_member(vy)
-            self._vert_chunk.add_member(vz)
-        else:
             raise TypeError("The vertex coordinates must be floating point"
                             " values!")
 
+        self._vert_chunk.add_member(vx)
+        self._vert_chunk.add_member(vy)
+        self._vert_chunk.add_member(vz)
+
     def add_normal(self, nx, ny, nz):
-        if (isinstance(nx, float) and
+        if not (isinstance(nx, float) and
                 isinstance(ny, float) and
                 isinstance(nz, float)):
-            self._vtnm_chunk.add_member(nx)
-            self._vtnm_chunk.add_member(ny)
-            self._vtnm_chunk.add_member(nz)
-        else:
             raise TypeError("The normal vector must be floating point values!")
+
+        self._vtnm_chunk.add_member(nx)
+        self._vtnm_chunk.add_member(ny)
+        self._vtnm_chunk.add_member(nz)
 
     def add_fvrt(self, vert_idx, vtnm_idx, uv_x, uv_y):
         if (not(isinstance(vert_idx, int) and
@@ -86,8 +86,7 @@ class MeshLODForm(iff.IffForm):
                 isinstance(uv_y, float))):
             raise TypeError("The UV coordinates must be floating point"
                             " values!")
-        # Both data types have been checked, so
-        # we know we can safely add them to the chunk
+
         self._fvrt_chunk.add_member(vert_idx)
         self._fvrt_chunk.add_member(vtnm_idx)
         self._fvrt_chunk.add_member(uv_x)
@@ -107,6 +106,9 @@ class MeshLODForm(iff.IffForm):
             raise TypeError("Number of vertices must be an integer!")
         if not isinstance(light_flags, int):
             raise TypeError("Lighting wordflag must be an integer!")
+        if not isinstance(alt_mat, int):
+            raise TypeError("Alternate MAT must be an integer!")
+
         self._face_chunk.add_member(vtnm_idx)  # Face normal
         self._face_chunk.add_member(dplane)  # D-Plane
         self._face_chunk.add_member(texnum)  # Texture number
