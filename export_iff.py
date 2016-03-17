@@ -69,6 +69,12 @@ class ModelManager:
     # Name pattern for LOD range info
     DRANGE_RE = re.compile(r"^drang=([0-9,]+)(?:\.\d*)?$")
 
+    # prefix for CNTR/RADI spheres
+    CNTRADI_PFX = "cntradi"
+
+    # prefix for COLL->SPHR spheres
+    COLLSPHR_PFX = "collsphr"
+
     def __init__(self, base_obj, scene=bpy.context.scene):
         if not isinstance(base_obj, bpy.types.Object):
             raise TypeError("base_obj must be a Blender mesh object!")
@@ -83,6 +89,7 @@ class ModelManager:
         self.lods[base_lod] = base_obj
         self.hardpoints = []
         self.dranges = [float(0)]
+        self.dsphrs = [None for x in range(self.MAX_NUM_LODS)]
 
     def _get_lod(self, lod_obj, base=False):
         lod = self.MAIN_LOD_RE.match(lod_obj.name)
@@ -179,7 +186,9 @@ class ModelManager:
                         obj.type == "EMPTY" and
                         self.HARDPOINT_RE.match(obj.name)):
                     hpname = self.HARDPOINT_RE.match(obj.name).group(1)
-                    hardpt = iff_mesh.Hardpoint(obj.matrix_world, hpname)
+                    hardpt = iff_mesh.Hardpoint(
+                        obj.rotation_euler.to_matrix(), obj.location, hpname)
+                    self.hardpoints.append(hardpt)
 
     def get_dranges(self):
         if self.lods[0] is None:
@@ -242,6 +251,16 @@ class ModelManager:
                     )]
 
         return self.dranges
+
+    def get_dspheres(self):
+        for lod_idx in range(len(self.lods)):
+            for obj in self.scene.objects:
+                if (obj.parent == self.lods[lod_idx] and
+                        obj.name.lower().startswith(self.CNTRADI_PFX) and
+                        obj.type == "EMPTY" and
+                        obj.empty_draw_type == "SPHERE"):
+                    self.dsphrs[lod_idx] = iff_mesh.Sphere(
+                        *obj.location, max(obj.scale))
 
 
 class ExportBackend:

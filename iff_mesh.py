@@ -56,6 +56,17 @@ class Sphere:
         radi_chunk.add_member(self.r)
         return radi_chunk
 
+    def to_collsphr_chunk(self):
+        collsphr_chunk = iff.IffChunk("SPHR")
+        collsphr_chunk.add_member(self.x)
+        collsphr_chunk.add_member(self.z)
+        collsphr_chunk.add_member(self.y)
+        collsphr_chunk.add_member(self.r)
+        return collsphr_chunk
+
+    def to_chunks(self):
+        return self.to_cntr_chunk(), self.to_radi_chunk()
+
     def to_bl_obj(self):
         import bpy
         bl_obj = bpy.data.objects.new("cntradi", None)
@@ -68,44 +79,51 @@ class Sphere:
 
         return bl_obj
 
+    @staticmethod
+    def from_chunks(cntr_chunk, radi_chunk):
+        import struct
+
+        x, y, z = struct.unpack("<fff", cntr_chunk)
+        r = struct.unpack("<f", radi_chunk)[0]
+
+        return Sphere(x, y, z, r)
+
 
 class Hardpoint:
     # Hardpoints
 
-    def __init__(self, matrix, name):
-        import mathutils
-        if not isinstance(matrix, mathutils.Matrix):
-            raise TypeError("matrix must be a Blender Matrix!")
-        if not isinstance(name, str):
-            raise TypeError("name must be a string!")
+    def __init__(self, rot_matrix, location, name):
+        # rot_matrix should be a mathutils.Matrix or compatible value
+        # location should be a mathutils.Vector or compatible value
 
-        self.location = matrix.to_translation()
-        self.orientation = matrix.to_euler("XYZ").to_matrix()
+        self.rot_matrix = rot_matrix
+        self.location = location
         self.name = name
 
     def to_chunk(self):
         hard_chunk = iff.IffChunk("HARD")
-        hard_chunk.add_member(self.orientation[0][0])
-        hard_chunk.add_member(self.orientation[0][1])
-        hard_chunk.add_member(self.orientation[0][2])
+        hard_chunk.add_member(self.rot_matrix[0][0])
+        hard_chunk.add_member(self.rot_matrix[0][1])
+        hard_chunk.add_member(self.rot_matrix[0][2])
         hard_chunk.add_member(self.location[0])
-        hard_chunk.add_member(self.orientation[2][0])
-        hard_chunk.add_member(self.orientation[2][1])
-        hard_chunk.add_member(self.orientation[2][2])
-        hard_chunk.add_member(self.location[2])
-        hard_chunk.add_member(self.orientation[1][0])
-        hard_chunk.add_member(self.orientation[1][1])
-        hard_chunk.add_member(self.orientation[1][2])
+        hard_chunk.add_member(self.rot_matrix[1][0])
+        hard_chunk.add_member(self.rot_matrix[1][1])
+        hard_chunk.add_member(self.rot_matrix[1][2])
+        hard_chunk.add_member(self.location[2])  # Z in VISION is front/back
+        hard_chunk.add_member(self.rot_matrix[2][0])
+        hard_chunk.add_member(self.rot_matrix[2][1])
+        hard_chunk.add_member(self.rot_matrix[2][2])
         hard_chunk.add_member(self.location[1])
         hard_chunk.add_member(self.name)
         return hard_chunk
 
     def to_bl_obj(self):
         import bpy
-        bl_obj = bpy.data.objects.new("hp-" + self._name, None)
+        from mathutils import Matrix
+        bl_obj = bpy.data.objects.new("hp-" + self.name, None)
         bl_obj.empty_draw_type = "ARROWS"
 
-        matrix_rot = Matrix(self._rot_matrix).to_4x4()
+        matrix_rot = Matrix(self.rot_matrix).to_4x4()
 
         # Convert position/rotation from WC
         euler_rot = matrix_rot.to_euler("XYZ")
@@ -117,6 +135,33 @@ class Hardpoint:
 
         bl_obj.matrix_basis = matrix_loc * matrix_rot
         return bl_obj
+
+    @staticmethod
+    def from_chunk(cls, chunk_data):
+        import struct
+
+        def read_cstring(data, ofs):
+            cstring = bytearray()
+            while data[ofs] != 0:
+                if data[ofs] == 0: break
+                cstring.append(data[ofs])
+                ofs += 1
+            return cstring.decode("ascii")
+
+        hardpt_data = struct.unpack_from("<ffffffffffff", chunk_data, 0)
+
+        hardpt_rot = (
+            (hardpt_data[0], hardpt_data[1], hardpt_data[2]),
+            (hardpt_data[4], hardpt_data[5], hardpt_data[6]),
+            (hardpt_data[8], hardpt_data[9], hardpt_data[10])
+        )
+
+        hardpt_loc = (hardpt_data[3], hardpt_data[7], hardpt_data[11])
+
+        hardpt_name_ofs = 48
+        hardpt_name = read_cstring(chunk_data, hardpt_name_ofs)
+
+        return Hardpoint(hardpt_rot, hardpt_loc, hardpt_name)
 
 
 class MeshLODForm(iff.IffForm):

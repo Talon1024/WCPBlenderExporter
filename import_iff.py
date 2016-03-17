@@ -352,49 +352,6 @@ class LODMesh:
             # print("length of data:", len(data))
 
 
-class Hardpoint:
-
-    def __init__(self, pos_data, name):
-        # Initialize rotation matrix data structure
-        # so we don't get access violations.
-        warnings.warn("Use Hardpoint from iff_mesh.", DeprecationWarning)
-        self._rot_matrix = [
-            [None, None, None],
-            [None, None, None],
-            [None, None, None]
-        ]
-        self._rot_matrix[0][0] = pos_data[0]
-        self._rot_matrix[0][1] = pos_data[1]
-        self._rot_matrix[0][2] = pos_data[2]
-        self._x = pos_data[3]
-        self._rot_matrix[1][0] = pos_data[4]
-        self._rot_matrix[1][1] = pos_data[5]
-        self._rot_matrix[1][2] = pos_data[6]
-        self._y = pos_data[7]
-        self._rot_matrix[2][0] = pos_data[8]
-        self._rot_matrix[2][1] = pos_data[9]
-        self._rot_matrix[2][2] = pos_data[10]
-        self._z = pos_data[11]
-        self._name = name
-
-    def to_bl_obj(self):
-        bl_obj = bpy.data.objects.new("hp-" + self._name, None)
-        bl_obj.empty_draw_type = "ARROWS"
-
-        matrix_rot = Matrix(self._rot_matrix).to_4x4()
-
-        # Convert position/rotation from WC
-        euler_rot = matrix_rot.to_euler("XYZ")
-        euler_rot.y, euler_rot.z = -euler_rot.z, -euler_rot.y
-        euler_rot.x *= -1
-
-        matrix_rot = euler_rot.to_matrix().to_4x4()
-        matrix_loc = Matrix.Translation((self._x, self._z, self._y))
-
-        bl_obj.matrix_basis = matrix_loc * matrix_rot
-        return bl_obj
-
-
 class IFFImporter(ImportBackend):
 
     def read_rang_chunk(self, rang_chunk):
@@ -507,14 +464,8 @@ class IFFImporter(ImportBackend):
             # 8 bytes long)
             mjrf_bytes_read += hardpt_chunk["length"] + 8
 
-            hardpt_data = struct.unpack_from(
-                "<ffffffffffff", hardpt_chunk["data"], 0)
+            hardpt = iff_mesh.Hardpoint.from_chunk(hardpt_chunk["data"])
 
-            hardpt_name_ofs = 48
-            hardpt_name = self.read_cstring(
-                hardpt_chunk["data"], hardpt_name_ofs)
-
-            hardpt = Hardpoint(hardpt_data, hardpt_name)
             bl_ob = hardpt.to_bl_obj()
             bl_ob.parent = self.bl_pob
 
@@ -531,13 +482,11 @@ class IFFImporter(ImportBackend):
             bl_obj.parent = self.bl_pob
             bpy.context.scene.objects.link(bl_obj)
 
-    def read_cstring(self, data, ofs):
+    def read_cstring(data, ofs):
         cstring = bytearray()
-        the_byte = 1
-        while the_byte != 0:
-            the_byte = data[ofs]
-            if the_byte == 0: break
-            cstring.append(the_byte)
+        while data[ofs] != 0:
+            if data[ofs] == 0: break
+            cstring.append(data[ofs])
             ofs += 1
         return cstring.decode("ascii")
 
