@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 # Blender WCP IFF mesh import/export script by Kevin Caccamo
-# Copyright © 2013-2015 Kevin Caccamo
+# Copyright © 2013-2016 Kevin Caccamo
 # E-mail: kevin@ciinet.org
 #
 # This program is free software; you can redistribute it and/or
@@ -197,16 +197,21 @@ class ExportIFF(Operator, ExportHelper):
     #               ),
     #         default='Binary',
     #         )
-    
-    output_version = EnumProperty(
-        name="Mesh version",
-        items=(("11", "Mesh version 11", "Use mesh version 11"),
-               ("12", "Mesh version 12", "Use mesh version 12"),
-               ("13", "Mesh version 13", "Use mesh version 13")),
-        description="The mesh version to export the model(s) as. This "
-            "determines how the game loads and uses the model(s).",
-        default="12"
-    )
+
+    # output_version = EnumProperty(
+    #     name="Mesh version",
+    #     items=(("8", "Mesh version 8", "Use mesh version 8"),
+    #            ("9", "Mesh version 9", "Use mesh version 9"),
+    #            ("10", "Mesh version 10", "Use mesh version 10"),
+    #            ("11", "Mesh version 11", "Use mesh version 11"),
+    #            ("12", "Mesh version 12", "Use mesh version 12"),
+    #            ("13", "Mesh version 13", "Use mesh version 13")),
+    #     description="The mesh version to export the model(s) as. This "
+    #                 "determines how the game loads and uses the model(s). "
+    #                 "You should really leave this alone, unless you really "
+    #                 "know what you are doing.",
+    #     default="12"
+    # )
 
     backend_class_name = "IFFExporter"
 
@@ -229,10 +234,12 @@ class ExportIFF(Operator, ExportHelper):
         # As a fallback measure, I'm hard-coding this attribute for now.
         self.generate_bsp = False
 
+        self.output_version = "12"
+
         exporter = getattr(export_iff, self.backend_class_name)(
             self.filepath, self.texnum, self.apply_modifiers,
             self.active_as_lod0, self.use_facetex, wc_orientation_matrix,
-            self.include_far_chunk, self.generate_bsp
+            self.include_far_chunk, self.generate_bsp, self.output_version
         )
 
         exporter.export()

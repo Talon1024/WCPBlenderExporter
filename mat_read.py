@@ -106,7 +106,6 @@ class MATReader:
             cur_row_end = cur_row_start + self.img_width * 4
 
             img_rows.append(self.pixels[cur_row_start:cur_row_end])
-            print("img row length:", len(self.pixels[cur_row_start:cur_row_end]))
 
         self.pixels = array.array("B")
 

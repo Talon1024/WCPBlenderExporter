@@ -41,57 +41,6 @@ class TypeWarning(Warning):
     pass
 
 
-class IFFMetadata:
-
-    class Sphere:
-        def __init__(self, x, y, z, r):
-            if not isinstance(x, float):
-                raise TypeError("X Coordinate must be a float!")
-            if not isinstance(y, float):
-                raise TypeError("Y Coordinate must be a float!")
-            if not isinstance(z, float):
-                raise TypeError("Z Coordinate must be a float!")
-            if not isinstance(r, float):
-                raise TypeError("Radius must be a float!")
-
-            self.x = x
-            self.y = y
-            self.z = z
-            self.r = r
-
-        def to_tuple(self):
-            return (self.x, self.y, self.z, self.r)
-
-    class Hardpoint:
-
-        def __init__(self, matrix, name):
-            if not isinstance(matrix, mathutils.Matrix):
-                raise TypeError("matrix must be a Blender Matrix!")
-            if not isinstance(name, str):
-                raise TypeError("name must be a string!")
-
-            self.location = matrix.to_translation()
-            self.orientation = matrix.to_euler("XYZ").to_matrix()
-            self.name = name
-
-        def to_chunk(self):
-            iffc = iff.IffChunk("HARD")
-            iffc.add_member(self.orientation[0][0])
-            iffc.add_member(self.orientation[0][1])
-            iffc.add_member(self.orientation[0][2])
-            iffc.add_member(self.location[0])
-            iffc.add_member(self.orientation[2][0])
-            iffc.add_member(self.orientation[2][1])
-            iffc.add_member(self.orientation[2][2])
-            iffc.add_member(self.location[2])
-            iffc.add_member(self.orientation[1][0])
-            iffc.add_member(self.orientation[1][1])
-            iffc.add_member(self.orientation[1][2])
-            iffc.add_member(self.location[1])
-            iffc.add_member(self.name)
-            return iffc
-
-
 class ModelManager:
     # Manages the LODs for a mesh to export.
     # Scans for a base LOD 0 mesh and other related LODs in a given scene.
@@ -122,9 +71,9 @@ class ModelManager:
 
     def __init__(self, base_obj, scene=bpy.context.scene):
         if not isinstance(base_obj, bpy.types.Object):
-            raise TypeError("base_obj must be a mesh object!")
+            raise TypeError("base_obj must be a Blender mesh object!")
         if not isinstance(scene, bpy.types.Scene):
-            raise TypeError("scene must be a scene!")
+            raise TypeError("scene must be a Blender scene!")
 
         self.scene = scene
         self.base_name = ''
@@ -230,7 +179,7 @@ class ModelManager:
                         obj.type == "EMPTY" and
                         self.HARDPOINT_RE.match(obj.name)):
                     hpname = self.HARDPOINT_RE.match(obj.name).group(1)
-                    hardpt = IFFMetadata.Hardpoint(obj.matrix_world, hpname)
+                    hardpt = iff_mesh.Hardpoint(obj.matrix_world, hpname)
 
     def get_dranges(self):
         if self.lods[0] is None:
@@ -253,7 +202,7 @@ class ModelManager:
                 else:
                     self.dranges.append(None)
 
-        # Calculate LOD ranges that don't exist
+        # Fill in blank LOD ranges
         for dr_idxa in range(len(self.dranges)):
             if self.dranges[dr_idxa] is None:
                 drange_before = self.dranges[dr_idxa - 1]
@@ -269,14 +218,22 @@ class ModelManager:
                 try:
                     drange_after = self.dranges[dr_idxa + empty_dranges]
                 except IndexError:
+                    # There's no known detail ranges after this one,
+                    # so generate them
                     drange_after = 500.0 * (empty_dranges + 1) + drange_before
 
+                if drange_after < drange_before:
+                    raise ValueError("drange_after must be greater than "
+                                     "drange_before!")
+
+                # Find interval and index of last detail range
                 drange_interval = (
                     (drange_after - drange_before) /
                     (empty_dranges + 1))
 
                 dridx_end = dr_idxa + empty_dranges
 
+                # Fill in the missing values
                 # Best list comprehension ever LOL.
                 self.dranges[dr_idxa:dridx_end] = [
                     x * n + drange_before for x, n in zip(
@@ -297,7 +254,8 @@ class ExportBackend:
                  use_facetex=False,
                  wc_orientation_matrix=None,
                  include_far_chunk=True,
-                 generate_bsp=False):
+                 generate_bsp=False,
+                 output_version="12"):
         self.filepath = filepath
         self.start_texnum = start_texnum
         self.apply_modifiers = apply_modifiers
@@ -306,174 +264,7 @@ class ExportBackend:
         self.wc_orientation_matrix = wc_orientation_matrix
         self.include_far_chunk = include_far_chunk
         self.generate_bsp = generate_bsp
-
-    def calc_rot_matrix(self, rx, ry, rz):
-        """
-        Calculate a rotation matrix from a set of rotations
-        on the x, y, and z axes.
-
-        Calculates a rotation matrix for each axis,
-        and then multiplies the results together.
-        Blender's rotation matrix multiplication doesn't work correctly...
-        Rotations are in eulers (radians).
-        """
-
-        cx = cos(rx)
-        sx = sin(rx)
-        cy = cos(ry)
-        sy = sin(ry)
-        cz = cos(rz)
-        sz = sin(rz)
-
-        # Thanks to Wikipedia (Rotation matrix) and
-        # http://www.idomaths.com/linear_transformation_3d.php
-        matrix_x = [[1, 0, 0],
-                    [0, cx, sx],
-                    [0, -sx, cx]]
-        matrix_y = [[cy, 0, -sy],
-                    [0, 1, 0],
-                    [sy, 0, cy]]
-        matrix_z = [[cz, sz, 0],
-                    [-sz, cz, 0],
-                    [0, 0, 1]]
-
-        # From http://nghiaho.com/?page_id=846: R = ZYX
-        rot_matrix = ExportBackend.multiply_3x3_matrices(matrix_z, matrix_y)
-        rot_matrix = ExportBackend.multiply_3x3_matrices(rot_matrix, matrix_x)
-        return rot_matrix
-
-    @staticmethod
-    def multiply_3x3_matrices(matrix1, matrix2):
-        """
-        Multiplies two 3x3 matrices together and
-        returns the resulting matrix.
-        """
-        result_matrix = [
-
-            # First row
-            # First row of matrix1 * first column of matrix2
-            [matrix1[0][0] * matrix2[0][0] +
-             matrix1[0][1] * matrix2[1][0] +
-             matrix1[0][2] * matrix2[2][0],
-
-             # First row of matrix1 * second column of matrix2
-             matrix1[0][0] * matrix2[0][1] +
-             matrix1[0][1] * matrix2[1][1] +
-             matrix1[0][2] * matrix2[2][1],
-
-             # First row of matrix1 * third column of matrix2
-             matrix1[0][0] * matrix2[0][2] +
-             matrix1[0][1] * matrix2[1][2] +
-             matrix1[0][2] * matrix2[2][2]],
-
-            # Second row
-            # Second row of matrix1 * first column of matrix2
-            [matrix1[1][0] * matrix2[0][0] +
-             matrix1[1][1] * matrix2[1][0] +
-             matrix1[1][2] * matrix2[2][0],
-
-             # Second row of matrix1 * second column of matrix2
-             matrix1[1][0] * matrix2[0][1] +
-             matrix1[1][1] * matrix2[1][1] +
-             matrix1[1][2] * matrix2[2][1],
-
-             # Second row of matrix1 * third column of matrix2
-             matrix1[1][0] * matrix2[0][2] +
-             matrix1[1][1] * matrix2[1][2] +
-             matrix1[1][2] * matrix2[2][2]],
-
-            # Third row
-            # Third row of matrix1 * first column of matrix2
-            [matrix1[2][0] * matrix2[0][0] +
-             matrix1[2][1] * matrix2[1][0] +
-             matrix1[2][2] * matrix2[2][0],
-
-             # Third row of matrix1 * second column of matrix2
-             matrix1[2][0] * matrix2[0][1] +
-             matrix1[2][1] * matrix2[1][1] +
-             matrix1[2][2] * matrix2[2][1],
-
-             # Third row of matrix1 * third column of matrix2
-             matrix1[2][0] * matrix2[0][2] +
-             matrix1[2][1] * matrix2[1][2] +
-             matrix1[2][2] * matrix2[2][2]]
-        ]
-        return result_matrix
-
-    def get_lod_data(self, for_object=bpy.context.active_object):
-        """Get the level of detail data pertinent to the game engine
-
-        Positional arguments:
-        for_object -- the object for which to get the LOD data."""
-
-        # Get the LOD data
-        lod_data = []
-        for lod in range(MAX_NUM_LODS):
-            ob = None
-            lod_ob_name = LOD_NAMES[lod]
-            if lod == 0:    # LOD 0 can either be the active object or detail-0
-                # If the user wants to use the active object...
-                ob = bpy.context.active_object
-                if (self.active_obj_as_lod0 and
-                        ob.name != lod_ob_name):
-                    if ob.type == "MESH":
-                        ob = bpy.context.active_object
-                        lod_data.append(ob)
-                    else:
-                        error_msg = "Object " + ob.name + " is not a mesh!"
-                        warnings.warn(error_msg, TypeWarning)
-                        ob = bpy.data.objects[lod_ob_name]
-                        try:
-                            lod_data.append(ob)
-                            if ob.type != "MESH":
-                                error_msg = lod_ob_name + " is not a mesh!"
-                                raise TypeError(error_msg)
-                        except KeyError:
-                            error_msg = ("Cannot find an object named " +
-                                         lod_ob_name + "!")
-                            raise KeyError(error_msg)
-                else:    # Otherwise, use the detail-0 object
-                    ob = bpy.data.objects[lod_ob_name]
-                    try:
-                        lod_data.append(ob)
-                        if ob.type != "MESH":
-                            error_msg = lod_ob_name + " is not a mesh!"
-                            raise TypeError(error_msg)
-                    except KeyError:
-                        error_msg = ("Cannot find an object named " +
-                                     lod_ob_name + "!")
-                        raise KeyError(error_msg)
-            else:   # Other LODs
-                try:
-                    ob = bpy.data.objects[lod_ob_name]
-                    lod_data.append(ob)
-                except KeyError:
-                    error_msg = "Unable to find a mesh for LOD " + str(lod)
-                    warnings.warn(error_msg, KeyWarning)
-        return lod_data
-
-    def get_hardpoints(self):
-        """
-        For all empties named "hp-xxxx" in the scene,
-        converts them to hardpoint dictionaries.
-        Returns a list of hardpoint dictionaries.
-        """
-        hardpoints = []
-        for o in bpy.data.objects:
-            if o.type == "EMPTY" and o.name.startswith("hp-") and not o.hide:
-                rot_matrix = self.calc_rot_matrix(
-                    o.rotation_euler.x,
-                    o.rotation_euler.z,
-                    o.rotation_euler.y
-                )
-                hardpoints.append(
-                    {"x": o.location.x,
-                     "y": o.location.z,
-                     "z": o.location.y,
-                     "rot_matrix": rot_matrix,
-                     "name": o.name[3:]}
-                )
-        return hardpoints
+        self.output_version = int(output_version)
 
     def calc_radius(self, dim):
         """Calculate the radius of the model.

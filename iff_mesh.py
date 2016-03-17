@@ -23,6 +23,102 @@ from . import iff
 import warnings
 
 
+class Sphere:
+    # CNTR/RADI chunks for each LOD
+
+    def __init__(self, x, y, z, r):
+        if not isinstance(x, float):
+            raise TypeError("X Coordinate must be a float!")
+        if not isinstance(y, float):
+            raise TypeError("Y Coordinate must be a float!")
+        if not isinstance(z, float):
+            raise TypeError("Z Coordinate must be a float!")
+        if not isinstance(r, float):
+            raise TypeError("Radius must be a float!")
+
+        self.x = x
+        self.y = y
+        self.z = z
+        self.r = r
+
+    def to_tuple(self):
+        return (self.x, self.y, self.z, self.r)
+
+    def to_cntr_chunk(self):
+        cntr_chunk = iff.IffChunk("CNTR")
+        cntr_chunk.add_member(self.x)
+        cntr_chunk.add_member(self.z)
+        cntr_chunk.add_member(self.y)
+        return cntr_chunk
+
+    def to_radi_chunk(self):
+        radi_chunk = iff.IffChunk("RADI")
+        radi_chunk.add_member(self.r)
+        return radi_chunk
+
+    def to_bl_obj(self):
+        import bpy
+        bl_obj = bpy.data.objects.new("cntradi", None)
+        bl_obj.empty_draw_type = "SPHERE"
+
+        bl_obj.location.x = self.x
+        bl_obj.location.y = self.y
+        bl_obj.location.z = self.z
+        bl_obj.scale = self.r, self.r, self.r
+
+        return bl_obj
+
+
+class Hardpoint:
+    # Hardpoints
+
+    def __init__(self, matrix, name):
+        import mathutils
+        if not isinstance(matrix, mathutils.Matrix):
+            raise TypeError("matrix must be a Blender Matrix!")
+        if not isinstance(name, str):
+            raise TypeError("name must be a string!")
+
+        self.location = matrix.to_translation()
+        self.orientation = matrix.to_euler("XYZ").to_matrix()
+        self.name = name
+
+    def to_chunk(self):
+        hard_chunk = iff.IffChunk("HARD")
+        hard_chunk.add_member(self.orientation[0][0])
+        hard_chunk.add_member(self.orientation[0][1])
+        hard_chunk.add_member(self.orientation[0][2])
+        hard_chunk.add_member(self.location[0])
+        hard_chunk.add_member(self.orientation[2][0])
+        hard_chunk.add_member(self.orientation[2][1])
+        hard_chunk.add_member(self.orientation[2][2])
+        hard_chunk.add_member(self.location[2])
+        hard_chunk.add_member(self.orientation[1][0])
+        hard_chunk.add_member(self.orientation[1][1])
+        hard_chunk.add_member(self.orientation[1][2])
+        hard_chunk.add_member(self.location[1])
+        hard_chunk.add_member(self.name)
+        return hard_chunk
+
+    def to_bl_obj(self):
+        import bpy
+        bl_obj = bpy.data.objects.new("hp-" + self._name, None)
+        bl_obj.empty_draw_type = "ARROWS"
+
+        matrix_rot = Matrix(self._rot_matrix).to_4x4()
+
+        # Convert position/rotation from WC
+        euler_rot = matrix_rot.to_euler("XYZ")
+        euler_rot.y, euler_rot.z = -euler_rot.z, -euler_rot.y
+        euler_rot.x *= -1
+
+        matrix_rot = euler_rot.to_matrix().to_4x4()
+        matrix_loc = Matrix.Translation((self._x, self._z, self._y))
+
+        bl_obj.matrix_basis = matrix_loc * matrix_rot
+        return bl_obj
+
+
 class MeshLODForm(iff.IffForm):
     def __init__(self, LOD, version=12):
         # No call to superclass constructor because we set the same values

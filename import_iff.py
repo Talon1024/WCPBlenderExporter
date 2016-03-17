@@ -35,6 +35,10 @@ mfilepath = None  # These are Initialized in ImportBackend constructor
 texmats = None
 
 
+class ValueWarning(Warning):
+    pass
+
+
 def register_texture(texnum, mat_name=None, read_mats=True):
     """Add a texture to the texture reference if it isn't already there.
 
@@ -353,6 +357,7 @@ class Hardpoint:
     def __init__(self, pos_data, name):
         # Initialize rotation matrix data structure
         # so we don't get access violations.
+        warnings.warn("Use Hardpoint from iff_mesh.", DeprecationWarning)
         self._rot_matrix = [
             [None, None, None],
             [None, None, None],
@@ -392,13 +397,20 @@ class Hardpoint:
 
 class IFFImporter(ImportBackend):
 
+    def read_rang_chunk(self, rang_chunk):
+        if rang_chunk["length"] % 4 != 0:
+            raise ValueError("RANG chunk has an invalid length!")
+        num_dranges = rang_chunk["length"] // 4
+        dranges = struct.unpack("<" + ("f" * num_dranges), rang_chunk["data"])
+        self.dranges = dranges
+
     def read_lod_data(self, major_form):
         mjrf_bytes_read = 4
         # Read all LODs
         while mjrf_bytes_read < major_form["length"]:
             lod_form = self.iff_reader.read_data()
             mjrf_bytes_read += 12
-            lod_lev = lod_form["name"].decode("iso-8859-1").lstrip("0")
+            lod_lev = lod_form["name"].decode("ascii").lstrip("0")
             if lod_lev == "": lod_lev = 0
             else: lod_lev = int(lod_lev)
 
@@ -418,7 +430,7 @@ class IFFImporter(ImportBackend):
         geom = self.iff_reader.read_data()
         geom_bytes_read = 4
         # Mesh version. In most cases, it will be 12
-        mvers = geom["name"].decode("iso-8859-1").lstrip("0")
+        mvers = geom["name"].decode("ascii").lstrip("0")
         if mvers == "": mvers = 0
         else: mvers = int(mvers)
 
@@ -480,8 +492,8 @@ class IFFImporter(ImportBackend):
             bl_mesh = lodm.to_bl_mesh()
             if isinstance(self.reorient_matrix, Matrix):
                 bl_mesh.transform(self.reorient_matrix)
-            bl_ob = bpy.data.objects.new(LOD_NAMES[lod_level], bl_mesh)
-            bpy.context.scene.objects.link(bl_ob)
+            self.bl_pob = bpy.data.objects.new(LOD_NAMES[lod_level], bl_mesh)
+            bpy.context.scene.objects.link(self.bl_ob)
         except AssertionError:
             lodm.debug_info()
         geom_bytes_read += 8  # This function used to return mjrf_bytes_read
@@ -504,6 +516,7 @@ class IFFImporter(ImportBackend):
 
             hardpt = Hardpoint(hardpt_data, hardpt_name)
             bl_ob = hardpt.to_bl_obj()
+            bl_ob.parent = self.bl_pob
 
             bpy.context.scene.objects.link(bl_ob)
 
@@ -515,6 +528,7 @@ class IFFImporter(ImportBackend):
             x, y, z, r = struct.unpack("<ffff", coll_data["data"])
             bl_obj.scale = r, r, r
             bl_obj.location = -x, z, y
+            bl_obj.parent = self.bl_pob
             bpy.context.scene.objects.link(bl_obj)
 
     def read_cstring(self, data, ofs):
@@ -525,7 +539,7 @@ class IFFImporter(ImportBackend):
             if the_byte == 0: break
             cstring.append(the_byte)
             ofs += 1
-        return cstring.decode("iso-8859-1")
+        return cstring.decode("ascii")
 
     def load(self):
         self.iff_reader = iff_read.IffReader(mfilepath)
@@ -561,6 +575,6 @@ class IFFImporter(ImportBackend):
             else:
                 raise TypeError(
                     "This file isn't a mesh! (root form is {})".format(
-                        root_form["name"].decode("iso-8859-1")))
+                        root_form["name"].decode("ascii")))
         else:
             raise TypeError("This file isn't a mesh! (root is not a form)")
