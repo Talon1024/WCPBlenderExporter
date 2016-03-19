@@ -90,6 +90,7 @@ class ModelManager:
         self.hardpoints = []
         self.dranges = [float(0)]
         self.dsphrs = [None for x in range(self.MAX_NUM_LODS)]
+        self.collsphr = None
 
     def _get_lod(self, lod_obj, base=False):
         lod = self.MAIN_LOD_RE.match(lod_obj.name)
@@ -259,8 +260,33 @@ class ModelManager:
                         obj.name.lower().startswith(self.CNTRADI_PFX) and
                         obj.type == "EMPTY" and
                         obj.empty_draw_type == "SPHERE"):
+                    # Convert Blender to VISION coordinates.
+                    x, z, y = obj.location
                     self.dsphrs[lod_idx] = iff_mesh.Sphere(
-                        *obj.location, max(obj.scale))
+                        x, y, z, max(obj.scale)
+                    )
+                    break
+            else:
+                # Generate CNTR/RADI sphere
+                pass
+
+    def get_collsphr(self):
+        for lod_idx in reversed(range(len(self.lods))):
+            for obj in self.scene.objects:
+                if (obj.parent == self.lods[lod_idx] and
+                        obj.name.lower().startswith(self.COLLSPHR_PFX) and
+                        obj.type == "EMPTY" and
+                        obj.empty_draw_type == "SPHERE"):
+                    x, z, y = obj.location
+                    self.collsphr = iff_mesh.Sphere(
+                        x, y, z, max(obj.scale)
+                    )
+                    break
+        else:
+            # Generate collsphr
+            x, z, y = self.lods[0].location
+            r = max(self.lods[0].bound_box)
+            self.collsphr = iff_mesh.Sphere(x, y, z, r)
 
 
 class ExportBackend:
