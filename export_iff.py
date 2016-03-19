@@ -268,7 +268,9 @@ class ModelManager:
                     break
             else:
                 # Generate CNTR/RADI sphere
-                pass
+                x, z, y = self.lods[lod_idx]
+                r = max(self.lods[lod_idx].bound_box)
+                self.dsphrs[lod_idx] = iff_mesh.Sphere(x, y, z, r)
 
     def get_collsphr(self):
         for lod_idx in reversed(range(len(self.lods))):
