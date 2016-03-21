@@ -270,8 +270,10 @@ class ModelManager:
                 # Generate CNTR/RADI sphere
                 x, z, y = self.lods[lod_idx]
                 r = max(self.lods[lod_idx].dimensions) / 2
-                print("X, Y, Z, radius: {x}, {y}, {z}, {r}".format())
                 self.dsphrs[lod_idx] = iff_mesh.Sphere(x, y, z, r)
+
+            print("LOD {lod} X, Y, Z, radius: {x}, {y}, {z}, {r}".format({
+                lod: lod_idx, x: x, y: y, z: z, r: r}))
 
     def get_collsphr(self):
         for lod_idx in reversed(range(len(self.lods))):
@@ -303,8 +305,7 @@ class ExportBackend:
                  use_facetex=False,
                  wc_orientation_matrix=None,
                  include_far_chunk=True,
-                 generate_bsp=False,
-                 output_version="12"):
+                 generate_bsp=False):
         self.filepath = filepath
         self.start_texnum = start_texnum
         self.apply_modifiers = apply_modifiers
@@ -313,7 +314,6 @@ class ExportBackend:
         self.wc_orientation_matrix = wc_orientation_matrix
         self.include_far_chunk = include_far_chunk
         self.generate_bsp = generate_bsp
-        self.output_version = int(output_version)
 
     def calc_radius(self, dim):
         """Calculate the radius of the model.

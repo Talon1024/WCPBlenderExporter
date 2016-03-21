@@ -234,12 +234,12 @@ class ExportIFF(Operator, ExportHelper):
         # As a fallback measure, I'm hard-coding this attribute for now.
         self.generate_bsp = False
 
-        self.output_version = "12"
+        # self.output_version = "12"
 
         exporter = getattr(export_iff, self.backend_class_name)(
             self.filepath, self.texnum, self.apply_modifiers,
             self.active_as_lod0, self.use_facetex, wc_orientation_matrix,
-            self.include_far_chunk, self.generate_bsp, self.output_version
+            self.include_far_chunk, self.generate_bsp
         )
 
         exporter.export()
