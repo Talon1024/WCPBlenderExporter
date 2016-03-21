@@ -23,6 +23,30 @@ from . import iff
 import warnings
 
 
+class Collider:
+    # Collision sphere or BSP tree
+
+    collide_types = ["sphere", "bsp"]
+
+    def __init__(self, type, data):
+        if type not in collide_types:
+            raise ValueError("Invalid collider type %s!" % type)
+
+        if type == "sphere" and not isinstance(data, Sphere):
+            raise TypeError("Collider data for a sphere collider must match "
+                            "its type!")
+
+        # if type == "bsp" and not isinstance(data, bsp.BSPTree):
+        #     raise TypeError("Collider data for a BSP collider must match "
+        #                     "its type!")
+
+        if type == "bsp":
+            raise TypeError("BSP trees are not yet supported!")
+
+        self.type = type
+        self.data = data
+
+
 class Sphere:
     # CNTR/RADI chunks for each LOD
 

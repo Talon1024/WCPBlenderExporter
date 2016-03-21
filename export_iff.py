@@ -89,8 +89,9 @@ class ModelManager:
         self.lods[base_lod] = base_obj
         self.hardpoints = []
         self.dranges = [float(0)]
-        self.dsphrs = [None for x in range(self.MAX_NUM_LODS)]
-        self.collsphr = None
+        self.dsphrs = []  # will contain CNTR/RADI Sphere objects.
+        self.collider = None
+        self.textures = []  # Texture lists for each LOD
 
     def _get_lod(self, lod_obj, base=False):
         lod = self.MAIN_LOD_RE.match(lod_obj.name)
@@ -262,9 +263,9 @@ class ModelManager:
                         obj.empty_draw_type == "SPHERE"):
                     # Convert Blender to VISION coordinates.
                     x, z, y = obj.location
-                    self.dsphrs[lod_idx] = iff_mesh.Sphere(
+                    self.dsphrs.append(iff_mesh.Sphere(
                         x, y, z, max(obj.scale)
-                    )
+                    ))
                     break
             else:
                 # Generate CNTR/RADI sphere
@@ -275,24 +276,33 @@ class ModelManager:
             print("LOD {lod} X, Y, Z, radius: {x}, {y}, {z}, {r}".format({
                 lod: lod_idx, x: x, y: y, z: z, r: r}))
 
-    def get_collsphr(self):
-        for lod_idx in reversed(range(len(self.lods))):
-            for obj in self.scene.objects:
-                if (obj.parent == self.lods[lod_idx] and
-                        obj.name.lower().startswith(self.COLLSPHR_PFX) and
-                        obj.type == "EMPTY" and
-                        obj.empty_draw_type == "SPHERE"):
-                    x, z, y = obj.location
-                    self.collsphr = iff_mesh.Sphere(
-                        x, y, z, max(obj.scale)
-                    )
-                    break
+    def get_collider(self):
+        if not self.bsp_tree:
+            for lod_idx in reversed(range(len(self.lods))):
+                for obj in self.scene.objects:
+                    if (obj.parent == self.lods[lod_idx] and
+                            obj.name.lower().startswith(self.COLLSPHR_PFX) and
+                            obj.type == "EMPTY" and
+                            obj.empty_draw_type == "SPHERE"):
+                        x, z, y = obj.location
+                        radius = max(obj.scale)
+                        self.collider = iff_mesh.Collider(
+                            "sphere", iff_mesh.Sphere(x, y, z, radius)
+                        )
+                        break
 
-        if self.collsphr is None:
-            # Generate collsphr
-            x, z, y = self.lods[0].location
-            r = max(self.lods[0].dimensions) / 2
-            self.collsphr = iff_mesh.Sphere(x, y, z, r)
+            if self.collsphr is None:
+                # Generate collsphr
+                x, z, y = self.lods[0].location
+                radius = max(self.lods[0].dimensions) / 2
+                self.collider = iff_mesh.Collider(
+                    "sphere", iff_mesh.Sphere(x, y, z, radius)
+                )
+        else:
+            raise TypeError("BSP Tree generation is not yet supported!")
+
+    def get_textures(self):
+        pass
 
 
 class ExportBackend:
