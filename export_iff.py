@@ -269,7 +269,8 @@ class ModelManager:
             else:
                 # Generate CNTR/RADI sphere
                 x, z, y = self.lods[lod_idx]
-                r = max(self.lods[lod_idx].bound_box)
+                r = max(self.lods[lod_idx].dimensions) / 2
+                print("X, Y, Z, radius: {x}, {y}, {z}, {r}".format())
                 self.dsphrs[lod_idx] = iff_mesh.Sphere(x, y, z, r)
 
     def get_collsphr(self):
@@ -284,10 +285,11 @@ class ModelManager:
                         x, y, z, max(obj.scale)
                     )
                     break
-        else:
+
+        if self.collsphr is None:
             # Generate collsphr
             x, z, y = self.lods[0].location
-            r = max(self.lods[0].bound_box)
+            r = max(self.lods[0].dimensions) / 2
             self.collsphr = iff_mesh.Sphere(x, y, z, r)
 
 
