@@ -291,7 +291,7 @@ class ModelManager:
                         )
                         break
 
-            if self.collsphr is None:
+            if self.collider is None:
                 # Generate collsphr
                 x, z, y = self.lods[0].location
                 radius = max(self.lods[0].dimensions) / 2
