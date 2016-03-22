@@ -72,8 +72,11 @@ class ModelManager:
     # prefix for CNTR/RADI spheres
     CNTRADI_PFX = "cntradi"
 
-    # prefix for COLL->SPHR spheres
+    # prefix for spherical collider definition objects
     COLLSPHR_PFX = "collsphr"
+
+    # TODO: All methods of this class should either return their relevant
+    # values, or return nothing.
 
     def __init__(self, base_obj, scene=bpy.context.scene):
         if not isinstance(base_obj, bpy.types.Object):
@@ -86,6 +89,7 @@ class ModelManager:
         self.base_class = 0
         base_lod = self._get_lod(base_obj, True)
         self.lods = [None for x in range(self.MAX_NUM_LODS)]
+        self.lodms = []
         self.lods[base_lod] = base_obj
         self.hardpoints = []
         self.dranges = [float(0)]
@@ -111,6 +115,10 @@ class ModelManager:
 
         return 0
 
+    def ensure_lod_0_exists(self):
+        if self.lods[0] is None:
+            raise TypeError("The first LOD (LOD 0) of the model must exist!")
+
     def scan_lods(self):
         for lod in range(self.MAX_NUM_LODS):
             lod_name = ""
@@ -133,9 +141,6 @@ class ModelManager:
 
     def trim_lods(self):
         # Ensure the LODs array is consistent
-
-        if self.lods[0] is None:
-            raise TypeError("The first LOD (LOD 0) of the model must exist!")
 
         no_lod_idx = None  # Index for first blank LOD
 
@@ -178,10 +183,6 @@ class ModelManager:
         return used_mtls
 
     def get_hardpoints(self):
-        if self.lods[0] is None:
-            raise TypeError(
-                "The first LOD (LOD 0) of the model must exist!")
-
         for lod_idx in range(len(self.lods)):
             for obj in self.scene.objects:
                 if (obj.parent is self.lods[lod_idx] and
@@ -193,10 +194,6 @@ class ModelManager:
                     self.hardpoints.append(hardpt)
 
     def get_dranges(self):
-        if self.lods[0] is None:
-            raise TypeError(
-                "The first LOD (LOD 0) of the model must exist!")
-
         # Get existing LOD ranges
         for lod_idx in range(len(self.lods)):
             if lod_idx > 0:
@@ -252,8 +249,6 @@ class ModelManager:
                         range(1, empty_dranges + 1)
                     )]
 
-        return self.dranges
-
     def get_dspheres(self):
         for lod_idx in range(len(self.lods)):
             for obj in self.scene.objects:
@@ -299,10 +294,24 @@ class ModelManager:
                     "sphere", iff_mesh.Sphere(x, y, z, radius)
                 )
         else:
-            raise TypeError("BSP Tree generation is not yet supported!")
+            raise NotImplementedError(
+                "BSP Tree generation is not yet supported!")
+
+    def get_meshes(self):
+        for lod in self.lods:
+            self.lodms.append(lod.to_mesh(self.scene, True, "PREVIEW"))
+            self.textures.append({})
 
     def get_textures(self):
-        pass
+        for lodmi in range(len(self.lodms)):
+            self.lodms[lodmi].calc_tessface()
+            for tf in self.lodms[lodmi].tessfaces:
+                tfmtl = None
+                try:
+                    tfmtl = self.lodms[lodmi].materials[tf.material_index]
+                except IndexError:
+                    raise TypeError("You must have a valid material assigned "
+                                    "to each face!")
 
 
 class ExportBackend:
