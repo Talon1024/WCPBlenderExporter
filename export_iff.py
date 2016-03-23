@@ -78,7 +78,8 @@ class ModelManager:
     # TODO: All methods of this class should either return their relevant
     # values, or return nothing.
 
-    def __init__(self, base_obj, scene=bpy.context.scene):
+    def __init__(self, base_obj, use_facetex=False, gen_bsp=False,
+                 scene=bpy.context.scene):
         if not isinstance(base_obj, bpy.types.Object):
             raise TypeError("base_obj must be a Blender mesh object!")
         if not isinstance(scene, bpy.types.Scene):
@@ -94,7 +95,9 @@ class ModelManager:
         self.hardpoints = []
         self.dranges = [float(0)]
         self.dsphrs = []  # will contain CNTR/RADI Sphere objects.
+        self.gen_bsp = gen_bsp
         self.collider = None
+        self.use_mtltex = not use_facetex
         self.textures = []  # Texture lists for each LOD
 
     def _get_lod(self, lod_obj, base=False):
@@ -300,18 +303,46 @@ class ModelManager:
     def get_meshes(self):
         for lod in self.lods:
             self.lodms.append(lod.to_mesh(self.scene, True, "PREVIEW"))
-            self.textures.append({})
+            self.textures.append([])
 
     def get_textures(self):
         for lodmi in range(len(self.lodms)):
             self.lodms[lodmi].calc_tessface()
-            for tf in self.lodms[lodmi].tessfaces:
-                tfmtl = None
-                try:
-                    tfmtl = self.lodms[lodmi].materials[tf.material_index]
-                except IndexError:
-                    raise TypeError("You must have a valid material assigned "
-                                    "to each face!")
+            if self.use_mtltex:
+                # Material textures
+                for tf in self.lodms[lodmi].tessfaces:
+
+                    # Ensure material for this face exists
+                    tfmtl = None
+                    try:
+                        tfmtl = self.lodms[lodmi].materials[tf.material_index]
+                    except IndexError:
+                        raise ValueError("You must have a valid material "
+                                         "assigned to each face!")
+
+                    # Ensure there is at least one valid texture slot in
+                    # this material.
+                    if len(tfmtl.texture_slots) == 0:
+                        raise ValueError("You must have at least one "
+                                         "UV-mapped image texture assigned to "
+                                         "each material that the mesh uses!")
+
+                    # Use first valid texture slot
+                    for tfmtx in tfmtl.texture_slots:
+                        if (tfmtx.texture_coords == "UV" and
+                            isinstance(tfmtx.texture, bpy.types.ImageTexture)
+                                tfmtx.texture.image is not None):
+                            self.textures[lodmi].append(tfmtx.texture.image)
+                            break
+                    else:
+                        raise ValueError(
+                            "Found no valid texture slots! You must have at "
+                            "least one UV-mapped image texture assigned to "
+                            "each material that the mesh uses.")
+            else:
+                # Face textures (visible in Multitexture viewport render mode)
+                # for tf
+                pass
 
 
 class ExportBackend:
