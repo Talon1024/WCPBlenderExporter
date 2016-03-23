@@ -331,9 +331,9 @@ class ModelManager:
                     for tfmtx in tfmtl.texture_slots:
                         if (tfmtx.texture_coords == "UV" and
                             isinstance(tfmtx.texture, bpy.types.ImageTexture)
-                            and tfmtx.texture.image not in self.textures
                                 and tfmtx.texture.image is not None):
-                            self.textures.append(tfmtx.texture.image)
+                            if tfmtx.texture.image not in self.textures:
+                                self.textures.append(tfmtx.texture.image)
                             break
                     else:
                         raise ValueError(
