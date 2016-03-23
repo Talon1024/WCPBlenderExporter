@@ -80,6 +80,7 @@ class ModelManager:
 
     def __init__(self, base_obj, use_facetex=False, gen_bsp=False,
                  scene=bpy.context.scene):
+
         if not isinstance(base_obj, bpy.types.Object):
             raise TypeError("base_obj must be a Blender mesh object!")
         if not isinstance(scene, bpy.types.Scene):
@@ -303,7 +304,6 @@ class ModelManager:
     def get_meshes(self):
         for lod in self.lods:
             self.lodms.append(lod.to_mesh(self.scene, True, "PREVIEW"))
-            self.textures.append([])
 
     def get_textures(self):
         for lodmi in range(len(self.lodms)):
@@ -331,8 +331,9 @@ class ModelManager:
                     for tfmtx in tfmtl.texture_slots:
                         if (tfmtx.texture_coords == "UV" and
                             isinstance(tfmtx.texture, bpy.types.ImageTexture)
-                                tfmtx.texture.image is not None):
-                            self.textures[lodmi].append(tfmtx.texture.image)
+                            and tfmtx.texture.image not in self.textures
+                                and tfmtx.texture.image is not None):
+                            self.textures.append(tfmtx.texture.image)
                             break
                     else:
                         raise ValueError(
@@ -341,8 +342,13 @@ class ModelManager:
                             "each material that the mesh uses.")
             else:
                 # Face textures (visible in Multitexture viewport render mode)
-                # for tf
-                pass
+                for tfuv in self.lodms[lodmi].tessface_uv_textures.active.data:
+                    if tfuv.image is None:
+                        raise ValueError(
+                            "Each face must have an image assigned to it!")
+
+                    if tfuv.image not in self.textures:
+                        self.textures.append(tfuv.image)
 
 
 class ExportBackend:
