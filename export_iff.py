@@ -75,9 +75,6 @@ class ModelManager:
     # prefix for spherical collider definition objects
     COLLSPHR_PFX = "collsphr"
 
-    # TODO: All methods of this class should either return their relevant
-    # values, or return nothing.
-
     def __init__(self, base_obj, use_facetex=False, gen_bsp=False,
                  scene=bpy.context.scene):
 
@@ -121,7 +118,9 @@ class ModelManager:
 
     def ensure_lod_0_exists(self):
         if self.lods[0] is None:
-            raise TypeError("The first LOD (LOD 0) of the model must exist!")
+            return False
+
+        return True
 
     def scan_lods(self):
         for lod in range(self.MAX_NUM_LODS):
@@ -142,6 +141,7 @@ class ModelManager:
                     raise ValueError(
                         "Tried to set LOD %d to object %s, but it was already "
                         "set to object %s!" % lod, lod_name, self.lods[lod])
+        return self.lods
 
     def trim_lods(self):
         # Ensure the LODs array is consistent
@@ -159,32 +159,33 @@ class ModelManager:
                         "%d (%s)." % (no_lod_idx, lod_obj.name))
 
         self.lods = self.lods[:no_lod_idx]
+        return self.lods
 
-    def get_mats(self):
-        used_mtls = []
-
-        for lod_obj in self.lods:
-            lod_mesh = lod_obj.to_mesh(
-                self.scene, self.apply_modifiers, "PREVIEW")
-
-            if self.use_facetex:
-                active_tm_idx = None
-                for idx, texmap in enumerate(lod_mesh.tessface_uv_textures):
-                    if texmap.active:
-                        active_tm_idx = idx
-                        break
-                for f in mesh.tessface_uv_textures[active_tm_idx].data:
-                    cur_mtl = get_bname(f.image.filepath)
-                    if cur_mtl not in used_mtls:
-                        used_mtls.append(cur_mtl)
-
-            else:
-                for f in lod_mesh.tessfaces:
-                    cur_mtl = lod_mesh.materials[f.material_index].name
-                    if cur_mtl not in used_mtls:
-                        used_mtls.append(cur_mtl)
-
-        return used_mtls
+    # def get_mats(self):
+    #     used_mtls = []
+    #
+    #     for lod_obj in self.lods:
+    #         lod_mesh = lod_obj.to_mesh(
+    #             self.scene, self.apply_modifiers, "PREVIEW")
+    #
+    #         if self.use_facetex:
+    #             active_tm_idx = None
+    #             for idx, texmap in enumerate(lod_mesh.tessface_uv_textures):
+    #                 if texmap.active:
+    #                     active_tm_idx = idx
+    #                     break
+    #             for f in mesh.tessface_uv_textures[active_tm_idx].data:
+    #                 cur_mtl = get_bname(f.image.filepath)
+    #                 if cur_mtl not in used_mtls:
+    #                     used_mtls.append(cur_mtl)
+    #
+    #         else:
+    #             for f in lod_mesh.tessfaces:
+    #                 cur_mtl = lod_mesh.materials[f.material_index].name
+    #                 if cur_mtl not in used_mtls:
+    #                     used_mtls.append(cur_mtl)
+    #
+    #     return used_mtls
 
     def get_hardpoints(self):
         for lod_idx in range(len(self.lods)):
@@ -193,9 +194,10 @@ class ModelManager:
                         obj.type == "EMPTY" and
                         self.HARDPOINT_RE.match(obj.name)):
                     hpname = self.HARDPOINT_RE.match(obj.name).group(1)
-                    hardpt = iff_mesh.Hardpoint(
-                        obj.rotation_euler.to_matrix(), obj.location, hpname)
+                    hpmatrix = obj.rotation_euler.to_matrix().to_3x3()
+                    hardpt = iff_mesh.Hardpoint(hpmatrix, obj.location, hpname)
                     self.hardpoints.append(hardpt)
+        return self.hardpoints
 
     def get_dranges(self):
         # Get existing LOD ranges
@@ -252,6 +254,7 @@ class ModelManager:
                         repeat(drange_interval, empty_dranges),
                         range(1, empty_dranges + 1)
                     )]
+        return self.dranges
 
     def get_dspheres(self):
         for lod_idx in range(len(self.lods)):
@@ -274,6 +277,7 @@ class ModelManager:
 
             print("LOD {lod} X, Y, Z, radius: {x}, {y}, {z}, {r}".format({
                 lod: lod_idx, x: x, y: y, z: z, r: r}))
+        return self.dsphrs
 
     def get_collider(self):
         if not self.bsp_tree:
@@ -300,10 +304,12 @@ class ModelManager:
         else:
             raise NotImplementedError(
                 "BSP Tree generation is not yet supported!")
+        return self.collider
 
     def get_meshes(self):
         for lod in self.lods:
             self.lodms.append(lod.to_mesh(self.scene, True, "PREVIEW"))
+        return self.lodms
 
     def get_textures(self):
         for lodmi in range(len(self.lodms)):
@@ -349,6 +355,7 @@ class ModelManager:
 
                     if tfuv.image not in self.textures:
                         self.textures.append(tfuv.image)
+        return self.textures
 
 
 class ExportBackend:
