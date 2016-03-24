@@ -133,11 +133,11 @@ class Hardpoint:
         hard_chunk.add_member(self.rot_matrix[1][0])
         hard_chunk.add_member(self.rot_matrix[1][1])
         hard_chunk.add_member(self.rot_matrix[1][2])
-        hard_chunk.add_member(self.location[2])  # Z in VISION is front/back
+        hard_chunk.add_member(self.location[1])
         hard_chunk.add_member(self.rot_matrix[2][0])
         hard_chunk.add_member(self.rot_matrix[2][1])
         hard_chunk.add_member(self.rot_matrix[2][2])
-        hard_chunk.add_member(self.location[1])
+        hard_chunk.add_member(self.location[2])
         hard_chunk.add_member(self.name)
         return hard_chunk
 
