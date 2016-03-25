@@ -25,16 +25,19 @@ from sys import path
 import json
 path.append(os.path.abspath(getcwd() + "/.."))
 from iff_read import IffReader
+import iff_mesh
 
 
 class IffMeshReader:
 
     FACE_FMT = "<ifiiiii"
+    HARD_FMT = "<ffffffffffff"
 
     def __init__(self, iff_fname, out_mode):
         self.iff = IffReader(iff_fname)
         self.out_mode = out_mode
         self.lods = {}
+        self.hardpoints = []
 
     def parse_rang_chunk(self, rang_data):
         # The RANG chunk is just a bunch of floats
@@ -52,10 +55,10 @@ class IffMeshReader:
 
             lod_form = self.iff.read_data()
             lod_lev = int(lod_form["name"].decode("ascii"))
-            self.iff.read_data()
+            self.iff.read_data()  # Minor MESH form
             vers_form = self.iff.read_data()
             mesh_vers = int(vers_form["name"].decode("ascii"))
-            mjrmsh_read += 36
+            mjrmsh_read += 36  # LOD, minor MESH, and version form total bytes
 
             mdat_len = vers_form["length"]
             mdat_read = 4
@@ -77,6 +80,9 @@ class IffMeshReader:
                     self.lods[lod_lev]["name"] = (
                         self.parse_cstr(mdat["data"], 0))
                 elif mdat["name"] == b"FACE":
+
+                    # This isn't part of Wing Blender, so I'm using features
+                    # from newer versions of Python 3.
                     for f in struct.iter_unpack(self.FACE_FMT, mdat["data"]):
                         if f[2] not in self.lods[lod_lev]["mats"]:
                             self.lods[lod_lev]["mats"].append(f[2])
@@ -91,7 +97,26 @@ class IffMeshReader:
         return cstr.decode("ascii", "ignore")
 
     def parse_hard_form(self, hard_form):
-        pass
+        hard_read = 4
+        while hard_read < hard_form["length"]:
+            hard_chunk = self.iff.read_data()
+
+            hard_name_offset = struct.calcsize(self.HARD_FMT)
+
+            hard_read += 8 + hard_chunk["length"]
+            hard_read += 1 if hard_chunk["length"] % 2 == 1 else 0
+
+            hard_name = self.parse_cstr(hard_chunk["data"], hard_name_offset)
+            hard_xfm = struct.unpack_from(self.HARD_FMT, hard_chunk["data"])
+
+            hard_matrix = (
+                (hard_xfm[0], hard_xfm[1], hard_xfm[2]),
+                (hard_xfm[4], hard_xfm[5], hard_xfm[6]),
+                (hard_xfm[8], hard_xfm[9], hard_xfm[10])
+            )
+            hard_loc = (hard_xfm[3], hard_xfm[7], hard_xfm[11])
+            self.hardpoints.append(
+                iff_mesh.Hardpoint(hard_matrix, hard_loc, hard_name))
 
     def read(self):
         root_form = self.iff.read_data()
