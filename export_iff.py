@@ -75,6 +75,9 @@ class ModelManager:
     # prefix for spherical collider definition objects
     COLLSPHR_PFX = "collsphr"
 
+    # prefix for BSP collider definition objects
+    COLLMESH_PFX = "collmesh"
+
     def __init__(self, base_obj, use_facetex=False, gen_bsp=False,
                  scene=bpy.context.scene):
 
@@ -116,13 +119,7 @@ class ModelManager:
 
         return 0
 
-    def ensure_lod_0_exists(self):
-        if self.lods[0] is None:
-            return False
-
-        return True
-
-    def scan_lods(self):
+    def setup(self):
         for lod in range(self.MAX_NUM_LODS):
             lod_name = ""
             if self.base_class == self.LOD_BASE_MAIN:
@@ -141,10 +138,10 @@ class ModelManager:
                     raise ValueError(
                         "Tried to set LOD %d to object %s, but it was already "
                         "set to object %s!" % lod, lod_name, self.lods[lod])
-        return self.lods
 
-    def trim_lods(self):
         # Ensure the LODs array is consistent
+        if self.lods[0] is None:
+            raise TypeError("The first LOD (LOD 0) of the model must exist!")
 
         no_lod_idx = None  # Index for first blank LOD
 
@@ -158,36 +155,10 @@ class ModelManager:
                         "Inconsistent LODs. A LOD object was found after lod "
                         "%d (%s)." % (no_lod_idx, lod_obj.name))
 
-        self.lods = self.lods[:no_lod_idx]
-        return self.lods
+        if no_lod_idx is not None:
+            self.lods = self.lods[:no_lod_idx]
 
-    # def get_mats(self):
-    #     used_mtls = []
-    #
-    #     for lod_obj in self.lods:
-    #         lod_mesh = lod_obj.to_mesh(
-    #             self.scene, self.apply_modifiers, "PREVIEW")
-    #
-    #         if self.use_facetex:
-    #             active_tm_idx = None
-    #             for idx, texmap in enumerate(lod_mesh.tessface_uv_textures):
-    #                 if texmap.active:
-    #                     active_tm_idx = idx
-    #                     break
-    #             for f in mesh.tessface_uv_textures[active_tm_idx].data:
-    #                 cur_mtl = get_bname(f.image.filepath)
-    #                 if cur_mtl not in used_mtls:
-    #                     used_mtls.append(cur_mtl)
-    #
-    #         else:
-    #             for f in lod_mesh.tessfaces:
-    #                 cur_mtl = lod_mesh.materials[f.material_index].name
-    #                 if cur_mtl not in used_mtls:
-    #                     used_mtls.append(cur_mtl)
-    #
-    #     return used_mtls
-
-    def get_hardpoints(self):
+        # Get the hardpoints associated with this model
         for lod_idx in range(len(self.lods)):
             for obj in self.scene.objects:
                 if (obj.parent is self.lods[lod_idx] and
@@ -197,10 +168,8 @@ class ModelManager:
                     hpmatrix = obj.rotation_euler.to_matrix().to_3x3()
                     hardpt = iff_mesh.Hardpoint(hpmatrix, obj.location, hpname)
                     self.hardpoints.append(hardpt)
-        return self.hardpoints
 
-    def get_dranges(self):
-        # Get existing LOD ranges
+        # Get LOD ranges for this model
         for lod_idx in range(len(self.lods)):
             if lod_idx > 0:
                 # LOD Ranges are only valid for LODs greater than 0
@@ -254,9 +223,8 @@ class ModelManager:
                         repeat(drange_interval, empty_dranges),
                         range(1, empty_dranges + 1)
                     )]
-        return self.dranges
 
-    def get_dspheres(self):
+        # Get CNTR/RADI data for each LOD
         for lod_idx in range(len(self.lods)):
             for obj in self.scene.objects:
                 if (obj.parent == self.lods[lod_idx] and
@@ -277,9 +245,8 @@ class ModelManager:
 
             print("LOD {lod} X, Y, Z, radius: {x}, {y}, {z}, {r}".format({
                 lod: lod_idx, x: x, y: y, z: z, r: r}))
-        return self.dsphrs
 
-    def get_collider(self):
+        # Get the collider for this model
         if not self.bsp_tree:
             for lod_idx in reversed(range(len(self.lods))):
                 for obj in self.scene.objects:
@@ -304,14 +271,12 @@ class ModelManager:
         else:
             raise NotImplementedError(
                 "BSP Tree generation is not yet supported!")
-        return self.collider
 
-    def get_meshes(self):
+        # Convert all LOD objects to meshes to populate the LOD mesh list.
         for lod in self.lods:
             self.lodms.append(lod.to_mesh(self.scene, True, "PREVIEW"))
-        return self.lodms
 
-    def get_textures(self):
+        # Get the textures used by all LODs for this model
         for lodmi in range(len(self.lodms)):
             self.lodms[lodmi].calc_tessface()
             if self.use_mtltex:
@@ -355,7 +320,6 @@ class ModelManager:
 
                     if tfuv.image not in self.textures:
                         self.textures.append(tfuv.image)
-        return self.textures
 
 
 class ExportBackend:
