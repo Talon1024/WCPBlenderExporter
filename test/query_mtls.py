@@ -103,9 +103,9 @@ class IffMeshReader:
                         if f[2] not in self.lods[lod_lev]["mats"]:
                             self.lods[lod_lev]["mats"].append(f[2])
                         if f[6] not in self.lods[lod_lev]["altmats"]:
-                            self.lods[lod_lev]["altmats"].append(f[2])
+                            self.lods[lod_lev]["altmats"].append(f[6])
 
-            mjrmsh_read += lod_form["length"]
+            mjrmsh_read += lod_form["length"]  # Bytes for LOD form data
             # print("mjrmsh_read:", mjrmsh_read, "of", mesh_form["length"])
 
     def parse_cstr(self, data, offset):
@@ -182,6 +182,8 @@ if __name__ == '__main__':
 
     for cur_model, modelf in enumerate(modelfs):
 
+        model_data = []
+
         if out_mode == "tty":
             print("--- Model: %s ---" % modelf)
         elif out_mode == "json":
@@ -192,4 +194,14 @@ if __name__ == '__main__':
 
         if out_mode == "tty":
             for lod_lev, lod_dat in model_reader.lods.items():
-                print ("--- LOD %d (version %d) ---"  % (lod_lev, lod_dat["version"]))
+                print ("--- LOD %d (%s, version %d) ---" % (
+                       lod_lev, lod_dat["name"], lod_dat["version"]))
+
+                print("MATs:", ", ".join([str(x) for x in lod_dat["mats"]]))
+
+                print("Alternate MATs:",
+                      ", ".join(["{0:d} ({0:#x})".format(x)
+                                 for x in lod_dat["altmats"]]))
+        else:
+            model_data[cur_model]["data"] = model_reader.lods
+            print(json.dumps(model_data))
