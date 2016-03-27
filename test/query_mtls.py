@@ -53,7 +53,7 @@ class IffMeshReader:
             if mdata["type"] == "chunk" and mdata["name"] == b"RANG":
                 self.parse_rang_chunk(mdata)
             elif mdata["type"] == "form" and mdata["name"] == b"MESH":
-                self.parse_mesh_form(mdata)
+                self.parse_major_mesh_form(mdata)
             elif mdata["type"] == "form" and mdata["name"] == b"HARD":
                 self.parse_hard_form(mdata)
             elif mdata["type"] == "form" and mdata["name"] == b"COLL":
@@ -63,7 +63,7 @@ class IffMeshReader:
             # Don't add bytes read if type of data is form
             if mdata["type"] == "chunk": deta_read += 8
 
-    def parse_mesh_form(self, mesh_form):
+    def parse_major_mesh_form(self, mesh_form):
         mjrmsh_read = 4
 
         while mjrmsh_read < mesh_form["length"]:
@@ -73,40 +73,52 @@ class IffMeshReader:
             # print("LOD FORM name:", lod_form["name"])
             # print("LOD FORM length:", lod_form["length"])
             lod_lev = int(lod_form["name"].decode("ascii"))
-            self.iff.read_data()  # Minor MESH form
-            vers_form = self.iff.read_data()
-            mesh_vers = int(vers_form["name"].decode("ascii"))
+            mnrmsh = self.iff.read_data()  # Minor MESH form
             mjrmsh_read += 8  # Bytes for LOD form header
-
-            mdat_len = vers_form["length"]
-            mdat_read = 4
 
             self.lods[lod_lev] = {}
             self.lods[lod_lev]["mats"] = []
             self.lods[lod_lev]["altmats"] = []
-            self.lods[lod_lev]["name"] = ""
-            self.lods[lod_lev]["version"] = mesh_vers
-            while mdat_read < mdat_len:
-                mdat = self.iff.read_data()
 
-                if mdat["type"] == "chunk":
-                    mdat_read += 8 + mdat["length"]
-
-                if mdat["name"] == b"NAME":
-                    self.lods[lod_lev]["name"] = (
-                        self.parse_cstr(mdat["data"], 0))
-                elif mdat["name"] == b"FACE":
-
-                    # This isn't part of Wing Blender, so I'm using features
-                    # from newer versions of Python 3.
-                    for f in struct.iter_unpack(self.FACE_FMT, mdat["data"]):
-                        if f[2] not in self.lods[lod_lev]["mats"]:
-                            self.lods[lod_lev]["mats"].append(f[2])
-                        if f[6] not in self.lods[lod_lev]["altmats"]:
-                            self.lods[lod_lev]["altmats"].append(f[6])
+            self.parse_minor_mesh_form(mnrmsh, lod_lev)
 
             mjrmsh_read += lod_form["length"]  # Bytes for LOD form data
             # print("mjrmsh_read:", mjrmsh_read, "of", mesh_form["length"])
+
+    def parse_minor_mesh_form(self, mesh_form, lod_lev=0):
+
+        if lod_lev not in self.lods:
+            self.lods[lod_lev] = {}
+            self.lods[lod_lev]["mats"] = []
+            self.lods[lod_lev]["altmats"] = []
+
+        mnrmsh_read = 4
+
+        vers_form = self.iff.read_data()
+        mesh_vers = int(vers_form["name"].decode("ascii"))
+        self.lods[lod_lev]["version"] = mesh_vers
+        mnrmsh_read += 8  # Bytes for version form header
+
+        vers_read = 4
+        while vers_read < vers_form["length"]:
+            mdat = self.iff.read_data()
+
+            vers_read += 8 + mdat["length"]
+
+            if mdat["name"] == b"NAME":
+                self.lods[lod_lev]["name"] = (
+                    self.parse_cstr(mdat["data"], 0))
+            elif mdat["name"] == b"FACE":
+
+                # This isn't part of Wing Blender, so I'm using features
+                # from newer versions of Python 3.
+                for f in struct.iter_unpack(self.FACE_FMT, mdat["data"]):
+                    if f[2] not in self.lods[lod_lev]["mats"]:
+                        self.lods[lod_lev]["mats"].append(f[2])
+                    if f[6] not in self.lods[lod_lev]["altmats"]:
+                        self.lods[lod_lev]["altmats"].append(f[6])
+
+        mnrmsh_read += vers_form["length"]  # Version form length
 
     def parse_cstr(self, data, offset):
         cstr = bytearray()
@@ -147,7 +159,7 @@ class IffMeshReader:
         if root_form["name"] == b"DETA":
             self.parse_deta_form(root_form)
         elif root_form["name"] == b"MESH":
-            self.parse_mesh_form(root_form)
+            self.parse_minor_mesh_form(root_form)
 
 
 def print_iff_data(iffthing):
@@ -197,7 +209,9 @@ if __name__ == '__main__':
                 print ("--- LOD %d (%s, version %d) ---" % (
                        lod_lev, lod_dat["name"], lod_dat["version"]))
 
-                print("MATs:", ", ".join([str(x) for x in lod_dat["mats"]]))
+                print("MATs:",
+                      ", ".join(["{0:d} ({0:#x})".format(x)
+                                 for x in lod_dat["mats"]]))
 
                 print("Alternate MATs:",
                       ", ".join(["{0:d} ({0:#x})".format(x)
