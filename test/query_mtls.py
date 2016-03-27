@@ -56,25 +56,27 @@ class IffMeshReader:
                 self.parse_mesh_form(mdata)
             elif mdata["type"] == "form" and mdata["name"] == b"HARD":
                 self.parse_hard_form(mdata)
+            elif mdata["type"] == "form" and mdata["name"] == b"COLL":
+                self.parse_coll_form(mdata)
 
             deta_read += mdata["length"]
+            # Don't add bytes read if type of data is form
+            if mdata["type"] == "chunk": deta_read += 8
 
     def parse_mesh_form(self, mesh_form):
-        mjrmsh_read = 0
+        mjrmsh_read = 4
 
         while mjrmsh_read < mesh_form["length"]:
 
-            print("mjrmsh_read:", mjrmsh_read, "of", mesh_form["length"])
-
             lod_form = self.iff.read_data()
-            print("LOD FORM offset:", lod_form["offset"])
-            print("LOD FORM name:", lod_form["name"])
-            print("LOD FORM length:", lod_form["length"])
+            # print("LOD FORM offset:", lod_form["offset"])
+            # print("LOD FORM name:", lod_form["name"])
+            # print("LOD FORM length:", lod_form["length"])
             lod_lev = int(lod_form["name"].decode("ascii"))
             self.iff.read_data()  # Minor MESH form
             vers_form = self.iff.read_data()
             mesh_vers = int(vers_form["name"].decode("ascii"))
-            mjrmsh_read += 36  # LOD, minor MESH, and version form total bytes
+            mjrmsh_read += 8  # Bytes for LOD form header
 
             mdat_len = vers_form["length"]
             mdat_read = 4
@@ -89,8 +91,6 @@ class IffMeshReader:
 
                 if mdat["type"] == "chunk":
                     mdat_read += 8 + mdat["length"]
-                elif mdat["type"] == "form":
-                    mdat_read += 12
 
                 if mdat["name"] == b"NAME":
                     self.lods[lod_lev]["name"] = (
@@ -106,6 +106,7 @@ class IffMeshReader:
                             self.lods[lod_lev]["altmats"].append(f[2])
 
             mjrmsh_read += lod_form["length"]
+            # print("mjrmsh_read:", mjrmsh_read, "of", mesh_form["length"])
 
     def parse_cstr(self, data, offset):
         cstr = bytearray()
@@ -135,6 +136,9 @@ class IffMeshReader:
             hard_loc = (hard_xfm[3], hard_xfm[7], hard_xfm[11])
             self.hardpoints.append(
                 iff_mesh.Hardpoint(hard_matrix, hard_loc, hard_name))
+
+    def parse_coll_form(self, coll_form):
+        pass
 
     def read(self):
         root_form = self.iff.read_data()
@@ -185,3 +189,7 @@ if __name__ == '__main__':
 
         model_reader = IffMeshReader(modelf)
         model_reader.read()
+
+        if out_mode == "tty":
+            for lod_lev, lod_dat in model_reader.lods.items():
+                print ("--- LOD %d (version %d) ---"  % (lod_lev, lod_dat["version"]))
