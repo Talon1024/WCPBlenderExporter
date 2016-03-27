@@ -20,10 +20,10 @@
 import argparse
 import struct
 from os import getcwd
-import os.path
+from os.path import abspath
 from sys import path
 import json
-path.append(os.path.abspath(getcwd() + "/.."))
+path.append(abspath(getcwd() + "/.."))
 from iff_read import IffReader
 import iff_mesh
 
@@ -33,27 +33,43 @@ class IffMeshReader:
     FACE_FMT = "<ifiiiii"
     HARD_FMT = "<ffffffffffff"
 
-    def __init__(self, iff_fname, out_mode):
+    def __init__(self, iff_fname):
         self.iff = IffReader(iff_fname)
-        self.out_mode = out_mode
+        # self.out_mode = out_mode
         self.lods = {}
         self.hardpoints = []
 
     def parse_rang_chunk(self, rang_data):
         # The RANG chunk is just a bunch of floats
         num_ranges = len(rang_data["data"]) // 4
-        ranges = struct.unpack("<" + ("f" * num_ranges), mdata["data"])
+        ranges = struct.unpack("<" + ("f" * num_ranges), rang_data["data"])
         return ranges
 
     def parse_deta_form(self, deta_form):
-        pass
+        deta_read = 4
+        while deta_read < deta_form["length"]:
+
+            mdata = self.iff.read_data()
+            if mdata["type"] == "chunk" and mdata["name"] == b"RANG":
+                self.parse_rang_chunk(mdata)
+            elif mdata["type"] == "form" and mdata["name"] == b"MESH":
+                self.parse_mesh_form(mdata)
+            elif mdata["type"] == "form" and mdata["name"] == b"HARD":
+                self.parse_hard_form(mdata)
+
+            deta_read += mdata["length"]
 
     def parse_mesh_form(self, mesh_form):
-        mjrmsh_read = 4
+        mjrmsh_read = 0
 
         while mjrmsh_read < mesh_form["length"]:
 
+            print("mjrmsh_read:", mjrmsh_read, "of", mesh_form["length"])
+
             lod_form = self.iff.read_data()
+            print("LOD FORM offset:", lod_form["offset"])
+            print("LOD FORM name:", lod_form["name"])
+            print("LOD FORM length:", lod_form["length"])
             lod_lev = int(lod_form["name"].decode("ascii"))
             self.iff.read_data()  # Minor MESH form
             vers_form = self.iff.read_data()
@@ -88,6 +104,8 @@ class IffMeshReader:
                             self.lods[lod_lev]["mats"].append(f[2])
                         if f[6] not in self.lods[lod_lev]["altmats"]:
                             self.lods[lod_lev]["altmats"].append(f[2])
+
+            mjrmsh_read += lod_form["length"]
 
     def parse_cstr(self, data, offset):
         cstr = bytearray()
@@ -137,7 +155,6 @@ def print_iff_data(iffthing):
     print("data:", iffthing.get("data", "None"))
 
 if __name__ == '__main__':
-    face_struct = "<ifiiiii"
 
     argp = argparse.ArgumentParser(
         description="Find out what materials a WCP/SO mesh uses.",
@@ -159,85 +176,12 @@ if __name__ == '__main__':
     modelfs = getattr(args, 'mesh', None)
     out_mode = getattr(args, 'out_fmt', "tty")
 
-    if out_mode == "json":
-        model_data = []
-
     for cur_model, modelf in enumerate(modelfs):
-        used_mtls = []
-        used_altmtls = []
 
         if out_mode == "tty":
             print("--- Model: %s ---" % modelf)
         elif out_mode == "json":
             model_data.append({"name": modelf})
 
-        model = iff_read.IffReader(modelf)
-
-        mroot = model.read_data()
-        bytes_read = 4  # NOTE: See iff_read.py for more info
-
-        while bytes_read < mroot["length"]:
-            mdata = model.read_data()
-            if mdata["type"] == "chunk":
-                bytes_read += mdata["length"] + 8  # data + ID and length
-            elif mdata["type"] == "form":
-                bytes_read += 12  # Type, length, and name
-            # print("mroot length: %d, mdata length: %d, bytes_read: %d" % (
-            #     mroot["length"], mdata["length"], bytes_read))
-            # print_iff_data(mdata)
-
-            if mdata["type"] == "chunk" and mdata["name"] == b"RANG":
-                num_lods = len(mdata["data"]) // 4
-                lods = struct.unpack("<" + ("f" * num_lods), mdata["data"])
-                if out_mode == "json":
-                    model_data[cur_model]["lod_ranges"] = lods
-                elif out_mode == "tty":
-                    print("LOD Distances:", end=" ")
-                    print(*lods, sep=", ")
-
-            if mdata["type"] == "form" and mdata["name"] == b"MESH":
-                if out_mode == "json":
-                    model_data[cur_model]["lods"] = {}
-                mjrmsh_bytes = mdata["length"]
-                mjrmsh_bytes_read = 4
-                numeric_forms_read = 0
-                lod_level = None
-                mesh_version = None
-                while mjrmsh_bytes_read < mjrmsh_bytes:
-                    mmdata = model.read_data()
-                    mmname = mmdata["name"].decode("ascii", "replace")
-                    # Increment byte counter
-                    if mmdata["type"] == "form":
-                        mjrmsh_bytes_read += 12
-                    elif mmdata["type"] == "chunk":
-                        mjrmsh_bytes_read += 8 + mmdata["length"]
-
-                    # Process data
-                    # Numeric FORMs (LOD number and version)
-                    if mmdata["type"] == "form" and mmname.isnumeric():
-                        if numeric_forms_read % 2 == 0:
-                            lod_level = int(mmname)
-                            print("LOD level:", lod_level)
-                        elif numeric_forms_read % 2 == 1:
-                            mesh_version = int(mmname)
-                            print("Mesh version:", mesh_version)
-                        numeric_forms_read += 1
-
-                    # Faces
-                    if mmdata["type"] == "chunk" and mmname == "FACE":
-                        for f in struct.iter_unpack(
-                                face_struct, mmdata["data"]):
-                            if f[2] not in used_mtls:
-                                used_mtls.append(f[2])
-                            if f[6] not in used_altmtls:
-                                used_altmtls.append(f[6])
-
-                if out_mode == "json":
-                    model_data[cur_model]["lods"].setdefault(
-                        lod_level, {"version": mesh_version})
-                elif out_mode == "tty":
-                    print("--- LOD %d (version %d) ---" %
-                          (lod_level, mesh_version))
-
-        if out_mode == "json":
-            json.dumps(model_data)
+        model_reader = IffMeshReader(modelf)
+        model_reader.read()
