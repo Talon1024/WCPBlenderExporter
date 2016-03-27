@@ -99,7 +99,7 @@ class ModelManager:
         self.gen_bsp = gen_bsp
         self.collider = None
         self.use_mtltex = not use_facetex
-        self.textures = []  # Texture lists for each LOD
+        self.materials = []  # Materials for all LODs
 
     def _get_lod(self, lod_obj, base=False):
         lod = self.MAIN_LOD_RE.match(lod_obj.name)
@@ -303,8 +303,8 @@ class ModelManager:
                         if (tfmtx.texture_coords == "UV" and
                             isinstance(tfmtx.texture, bpy.types.ImageTexture)
                                 and tfmtx.texture.image is not None):
-                            if tfmtx.texture.image not in self.textures:
-                                self.textures.append(tfmtx.texture.image)
+                            if tfmtl not in self.materials:
+                                self.materials.append(tfmtl)
                             break
                     else:
                         raise ValueError(
@@ -318,8 +318,8 @@ class ModelManager:
                         raise ValueError(
                             "Each face must have an image assigned to it!")
 
-                    if tfuv.image not in self.textures:
-                        self.textures.append(tfuv.image)
+                    if tfuv.image not in self.materials:
+                        self.materials.append(tfuv.image)
 
 
 class ExportBackend:
@@ -342,15 +342,6 @@ class ExportBackend:
         self.include_far_chunk = include_far_chunk
         self.generate_bsp = generate_bsp
 
-    def calc_radius(self, dim):
-        """Calculate the radius of the model.
-
-        Radius is calculated by dividing the highest dimension (diameter) by 2.
-        """
-        max_bb = max(dim)
-        radius = max_bb / 2
-        return radius
-
     def calc_dplane(self, vert, facenrm):
         """Calculate the D-Plane of the face.
 
@@ -364,14 +355,7 @@ class ExportBackend:
                    (facenrm[2] * vert[2]))
         return dplane
 
-    def get_first_texture_slot(self, mtl):
-        for mtex in reversed(mtl.texture_slots):
-            if mtex:
-                return mtex
-        else:
-            return None
-
-    def get_materials(self, lod_data):
+    def get_materials(self):
         """Convert all of the named material textures to
         texture indices.
 
