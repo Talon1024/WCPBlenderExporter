@@ -28,8 +28,8 @@ path.append(abspath(getcwd() + "/.."))
 
 class IffMeshReader:
 
-    FACE_FMT = "<ifiiiii"
-    HARD_FMT = "<ffffffffffff"
+    FACE_FMT = "<if5i"
+    HARD_FMT = "<12f"
 
     def __init__(self, iff_fname):
         from iff_read import IffReader
