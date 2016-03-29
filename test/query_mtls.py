@@ -75,10 +75,6 @@ class IffMeshReader:
             mnrmsh = self.iff.read_data()  # Minor MESH form
             mjrmsh_read += 8  # Bytes for LOD form header
 
-            self.lods[lod_lev] = {}
-            self.lods[lod_lev]["mats"] = []
-            self.lods[lod_lev]["altmats"] = []
-
             self.parse_minor_mesh_form(mnrmsh, lod_lev)
 
             mjrmsh_read += lod_form["length"]  # Bytes for LOD form data
@@ -90,6 +86,7 @@ class IffMeshReader:
             self.lods[lod_lev] = {}
             self.lods[lod_lev]["mats"] = []
             self.lods[lod_lev]["altmats"] = []
+            self.lods[lod_lev]["lightflags"] = []
 
         mnrmsh_read = 4
 
@@ -113,6 +110,8 @@ class IffMeshReader:
                 for f in struct.iter_unpack(self.FACE_FMT, mdat["data"]):
                     if f[2] not in self.lods[lod_lev]["mats"]:
                         self.lods[lod_lev]["mats"].append(f[2])
+                    if f[5] not in self.lods[lod_lev]["lightflags"]:
+                        self.lods[lod_lev]["lightflags"].append(f[5])
                     if f[6] not in self.lods[lod_lev]["altmats"]:
                         self.lods[lod_lev]["altmats"].append(f[6])
 
@@ -207,12 +206,16 @@ if __name__ == '__main__':
                        lod_lev, lod_dat["name"], lod_dat["version"]))
 
                 print("MATs:",
-                      ", ".join(["{0:d} ({0:#x})".format(x)
+                      ", ".join(["{0:d} ({0:#010x})".format(x)
                                  for x in lod_dat["mats"]]))
 
                 print("Alternate MATs:",
-                      ", ".join(["{0:d} ({0:#x})".format(x)
+                      ", ".join(["{0:d} ({0:#010x})".format(x)
                                  for x in lod_dat["altmats"]]))
+
+                print("Lighting flags:",
+                      ", ".join(["{0:d} ({0:#033b})".format(x)
+                                 for x in lod_dat["lightflags"]]))
         else:
             model_data[cur_model]["data"] = model_reader.lods
             print(json.dumps(model_data))
