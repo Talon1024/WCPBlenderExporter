@@ -24,8 +24,6 @@ from os.path import abspath
 from sys import path
 import json
 path.append(abspath(getcwd() + "/.."))
-from iff_read import IffReader
-import iff_mesh
 
 
 class IffMeshReader:
@@ -34,6 +32,7 @@ class IffMeshReader:
     HARD_FMT = "<ffffffffffff"
 
     def __init__(self, iff_fname):
+        from iff_read import IffReader
         self.iff = IffReader(iff_fname)
         # self.out_mode = out_mode
         self.lods = {}
@@ -97,13 +96,12 @@ class IffMeshReader:
         vers_form = self.iff.read_data()
         mesh_vers = int(vers_form["name"].decode("ascii"))
         self.lods[lod_lev]["version"] = mesh_vers
-        mnrmsh_read += 8  # Bytes for version form header
+        mnrmsh_read += 12  # Bytes for version form header
 
-        vers_read = 4
-        while vers_read < vers_form["length"]:
+        while mnrmsh_read < mesh_form["length"]:
             mdat = self.iff.read_data()
 
-            vers_read += 8 + mdat["length"]
+            mnrmsh_read += 8 + mdat["length"]
 
             if mdat["name"] == b"NAME":
                 self.lods[lod_lev]["name"] = (
@@ -146,8 +144,7 @@ class IffMeshReader:
                 (hard_xfm[8], hard_xfm[9], hard_xfm[10])
             )
             hard_loc = (hard_xfm[3], hard_xfm[7], hard_xfm[11])
-            self.hardpoints.append(
-                iff_mesh.Hardpoint(hard_matrix, hard_loc, hard_name))
+            self.hardpoints.append({"rot": hard_matrix, "loc": hard_loc})
 
     def parse_coll_form(self, coll_form):
         pass
