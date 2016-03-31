@@ -111,7 +111,7 @@ def register_texture(texnum, mat_name=None, read_mats=True):
             textureRefDoc = bpy.data.texts["textureRefDoc"]
         else:
             textureRefDoc = bpy.data.texts.new("textureRefDoc")
-        textureRefDoc.write("{0:0>8d}.mat -> {}\n".format(texnum, mat_name))
+        textureRefDoc.write("{0:0>8d}.mat -> {1}\n".format(texnum, mat_name))
 
     if mat_name is None:
         mat_name = mfilepath[mfilepath.rfind(dirsep) + 1:mfilepath.rfind(".")]
