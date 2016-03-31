@@ -75,7 +75,10 @@ class IffMeshReader:
             mnrmsh = self.iff.read_data()  # Minor MESH form
             mjrmsh_read += 8  # Bytes for LOD form header
 
-            self.parse_minor_mesh_form(mnrmsh, lod_lev)
+            if mnrmsh["type"] == "form" and mnrmsh["name"] == b"MESH":
+                self.parse_minor_mesh_form(mnrmsh, lod_lev)
+            else:
+                print_iff_data(mnrmsh)
 
             mjrmsh_read += lod_form["length"]  # Bytes for LOD form data
             # print("mjrmsh_read:", mjrmsh_read, "of", mesh_form["length"])
