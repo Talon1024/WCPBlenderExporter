@@ -4,14 +4,14 @@
 
 homedir=`echo $HOME | sed 's/\ /\\\ /g'`
 
-if [ -n "$(uname -s | grep -oi 'MINGW\|CYGWIN\|MSYS')" ]; then
+if [ -n "$(uname -s | grep -i 'MINGW\|CYGWIN\|MSYS')" ]; then
   # We're using Bash on Windows!
   homedir="$homedir/Documents"
 fi
 
 vers=''
 
-if [ $# -gt 0 -a $1 = '-d' ]; then # Copy to development folder
+if [ "$#" -gt 0 -a "$1" = '-d' ]; then # Copy to development folder
   vers='development'
   blender_scripts_folder="$homedir/BlenderScriptsDev/addons/io_scene_wcp" # Development script folder
 else # Copy to production folder

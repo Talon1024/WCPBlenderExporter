@@ -392,41 +392,37 @@ class Hardpoint:
 
 class IFFImporter(ImportBackend):
 
-    def read_lod_data(self, major_form):
-        mjrf_bytes_read = 4
+    def parse_major_mesh_form(self, mesh_form):
+        mjrmsh_read = 4
         # Read all LODs
-        while mjrf_bytes_read < major_form["length"]:
+        while mjrmsh_read < mesh_form["length"]:
             lod_form = self.iff_reader.read_data()
-            mjrf_bytes_read += 12
-            lod_lev = lod_form["name"].decode("iso-8859-1").lstrip("0")
-            if lod_lev == "": lod_lev = 0
-            else: lod_lev = int(lod_lev)
+            lod_lev = int(lod_form["name"].decode("ascii"))
 
-            self.iff_reader.skip_data()
-            mjrf_bytes_read += 12
+            mnrmsh = self.iff_reader.read_data()
+            if mnrmsh["type"] == "form" and mnrmsh["name"] == b"MESH":
+                self.parse_minor_mesh_form(mnrmsh, lod_lev)
 
-            mjrf_bytes_read += self.read_mesh_data(lod_lev)
+            mjrmsh_read += 8 + lod_form["length"]
+            print("mjrmsh_read:", mjrmsh_read, "of", mesh_form["length"])
 
-            print(
-                "mjr form length:", major_form["length"],
-                "mjr form read:", mjrf_bytes_read
-            )
-
-    def read_mesh_data(self, lod_level):
+    def parse_minor_mesh_form(self, mesh_form, lod_lev=0):
         lodm = LODMesh(self.texname)
 
-        geom = self.iff_reader.read_data()
-        geom_bytes_read = 4
-        # Mesh version. In most cases, it will be 12
-        mvers = geom["name"].decode("iso-8859-1").lstrip("0")
-        if mvers == "": mvers = 0
-        else: mvers = int(mvers)
+        mnrmsh_read = 4
 
-        print("Mesh format is", mvers)
+        vers_form = self.iff_reader.read_data()
+        mesh_vers = int(vers_form["name"].decode("ascii"))
+        mnrmsh_read += 12
 
-        while geom_bytes_read < geom["length"]:
+        print("---------- LOD {} (version {}) ----------".format(
+            lod_lev, mesh_vers
+        ))
+
+        while mnrmsh_read < mesh_form["length"]:
             geom_data = self.iff_reader.read_data()
-            geom_bytes_read += geom_data["length"] + 8
+            mnrmsh_read += 8 + geom_data["length"]
+            print("mnrmsh_read:", mnrmsh_read, "of", mesh_form["length"])
 
             # RADI and NORM chunks are ignored
 
@@ -480,12 +476,10 @@ class IFFImporter(ImportBackend):
             bl_mesh = lodm.to_bl_mesh()
             if isinstance(self.reorient_matrix, Matrix):
                 bl_mesh.transform(self.reorient_matrix)
-            bl_ob = bpy.data.objects.new(LOD_NAMES[lod_level], bl_mesh)
+            bl_ob = bpy.data.objects.new(LOD_NAMES[lod_lev], bl_mesh)
             bpy.context.scene.objects.link(bl_ob)
         except AssertionError:
             lodm.debug_info()
-        geom_bytes_read += 8  # This function used to return mjrf_bytes_read
-        return geom_bytes_read
 
     def read_hard_data(self, major_form):
         mjrf_bytes_read = 4
@@ -541,7 +535,7 @@ class IFFImporter(ImportBackend):
                     if major_form["name"] == b"RANG":
                         pass  # RANG data is useless to Blender.
                     elif major_form["name"] == b"MESH":
-                        self.read_lod_data(major_form)
+                        self.parse_major_mesh_form(major_form)
                     elif major_form["name"] == b"HARD":
                         self.read_hard_data(major_form)
                     elif major_form["name"] == b"COLL":
@@ -557,7 +551,7 @@ class IFFImporter(ImportBackend):
                     #     "root form bytes read:", mjrfs_read
                     # )
             elif root_form["name"] == b"MESH":
-                self.read_mesh_data(0)
+                self.parse_minor_mesh_form(root_form)
             else:
                 raise TypeError(
                     "This file isn't a mesh! (root form is {})".format(
