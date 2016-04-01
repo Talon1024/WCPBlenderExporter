@@ -38,17 +38,12 @@ class IffMeshReader:
         self.lods = {}
         self.hardpoints = []
 
-    def parse_rang_chunk(self, rang_data):
-        # The RANG chunk is just a bunch of floats
-        num_ranges = len(rang_data["data"]) // 4
-        ranges = struct.unpack("<" + ("f" * num_ranges), rang_data["data"])
-        return ranges
-
     def parse_deta_form(self, deta_form):
         deta_read = 4
         while deta_read < deta_form["length"]:
 
             mdata = self.iff.read_data()
+
             if mdata["type"] == "chunk" and mdata["name"] == b"RANG":
                 self.parse_rang_chunk(mdata)
             elif mdata["type"] == "form" and mdata["name"] == b"MESH":
@@ -57,10 +52,21 @@ class IffMeshReader:
                 self.parse_hard_form(mdata)
             elif mdata["type"] == "form" and mdata["name"] == b"COLL":
                 self.parse_coll_form(mdata)
+            elif mdata["type"] == "chunk" and mdata["name"] == b"FAR ":
+                self.parse_far_chunk(mdata)
 
-            deta_read += mdata["length"]
+            deta_read += 8 + mdata["length"]
             # Don't add bytes read if type of data is form
-            if mdata["type"] == "chunk": deta_read += 8
+            # if mdata["type"] == "chunk": deta_read += 8
+
+    def parse_rang_chunk(self, rang_data):
+        if rang_data["length"] % 4 != 0:
+            raise TypeError("RANG chunk length must be a multiple of 4!")
+
+        # The RANG chunk is just a bunch of floats
+        num_ranges = rang_data["length"] // 4
+        ranges = struct.unpack("<" + ("f" * num_ranges), rang_data["data"])
+        return ranges
 
     def parse_major_mesh_form(self, mesh_form):
         mjrmsh_read = 4
@@ -73,14 +79,13 @@ class IffMeshReader:
             # print("LOD FORM length:", lod_form["length"])
             lod_lev = int(lod_form["name"].decode("ascii"))
             mnrmsh = self.iff.read_data()  # Minor MESH form
-            mjrmsh_read += 8  # Bytes for LOD form header
 
             if mnrmsh["type"] == "form" and mnrmsh["name"] == b"MESH":
                 self.parse_minor_mesh_form(mnrmsh, lod_lev)
             else:
                 print_iff_data(mnrmsh)
 
-            mjrmsh_read += lod_form["length"]  # Bytes for LOD form data
+            mjrmsh_read += 8 + lod_form["length"]  # Header and data bytes
             # print("mjrmsh_read:", mjrmsh_read, "of", mesh_form["length"])
 
     def parse_minor_mesh_form(self, mesh_form, lod_lev=0):
@@ -91,17 +96,16 @@ class IffMeshReader:
             self.lods[lod_lev]["altmats"] = []
             self.lods[lod_lev]["lightflags"] = []
 
-        mnrmsh_read = 4
-
         vers_form = self.iff.read_data()
         mesh_vers = int(vers_form["name"].decode("ascii"))
         self.lods[lod_lev]["version"] = mesh_vers
-        mnrmsh_read += 12  # Bytes for version form header
+        mnrmsh_read = 16  # Bytes for version form header
 
         while mnrmsh_read < mesh_form["length"]:
             mdat = self.iff.read_data()
 
             mnrmsh_read += 8 + mdat["length"]
+            mnrmsh_read += 1 if mdat["length"] % 2 == 1 else 0
 
             if mdat["name"] == b"NAME":
                 self.lods[lod_lev]["name"] = (
@@ -117,15 +121,6 @@ class IffMeshReader:
                         self.lods[lod_lev]["lightflags"].append(f[5])
                     if f[6] not in self.lods[lod_lev]["altmats"]:
                         self.lods[lod_lev]["altmats"].append(f[6])
-
-        mnrmsh_read += vers_form["length"]  # Version form length
-
-    def parse_cstr(self, data, offset):
-        cstr = bytearray()
-        while data[offset] != 0:
-            cstr.append(data[offset])
-            offset += 1
-        return cstr.decode("ascii", "ignore")
 
     def parse_hard_form(self, hard_form):
         hard_read = 4
@@ -148,8 +143,18 @@ class IffMeshReader:
             hard_loc = (hard_xfm[3], hard_xfm[7], hard_xfm[11])
             self.hardpoints.append({"rot": hard_matrix, "loc": hard_loc})
 
+    def parse_far_chunk(self, far_data):
+        pass
+
     def parse_coll_form(self, coll_form):
         pass
+
+    def parse_cstr(self, data, offset):
+        cstr = bytearray()
+        while data[offset] != 0:
+            cstr.append(data[offset])
+            offset += 1
+        return cstr.decode("ascii", "ignore")
 
     def read(self):
         root_form = self.iff.read_data()
