@@ -40,6 +40,8 @@ class TestIFF(unittest.TestCase):
         self.iffc_gone = iff.IffChunk("GONE")
         self.iffc_gone.add_member(42)
         self.ifff.add_member(self.iffc_gone)
+        self.ifff_empty = iff.IffForm("EMPT")
+        self.ifff.add_member(self.ifff_empty)
 
     def test_iff_form(self):
         import iff
@@ -82,10 +84,11 @@ class TestIFF(unittest.TestCase):
 
     def test_form(self):
         """Check root form length and content"""
-        self.assertEqual(50, self.ifff._length, 'Form FONG is wrong length!')
+        self.assertEqual(62, self.ifff._length, 'Form FONG is wrong length!')
         self.assertEqual(
-            b'FORM\x00\x00\x002FONGPONF\x00\x00\x00\x19\x1f\x85EAI am poncho '
-            b'man!\x0090\x00\x00\x00GONE\x00\x00\x00\x04*\x00\x00\x00',
+            b'FORM\x00\x00\x00>FONGPONF\x00\x00\x00\x19\x1f\x85EAI am poncho '
+            b'man!\x0090\x00\x00\x00GONE\x00\x00\x00\x04*\x00\x00\x00FORM\x00'
+            b'\x00\x00\x04EMPT',
             self.ifff.to_bytes(), 'Form FONG is outputting incorrectly!')
 
 
