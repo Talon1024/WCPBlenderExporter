@@ -53,6 +53,8 @@ def register_texture(texnum, mat_name=None, read_mats=True):
     mesh filename is used.
     """
 
+    bl_mat = ""
+
     def get_teximgs(texnum, mat_name):
         img_extns = ["bmp", "png", "jpg", "jpeg", "tga", "gif", "dds"]
 
@@ -121,9 +123,16 @@ def register_texture(texnum, mat_name=None, read_mats=True):
         # print("mat_name:", mat_name)
         bl_mat = bpy.data.materials.new(mat_name)
 
-        # Last element in this list will become the image file path
         texmats[texnum] = [mat_name, bl_mat, None]
-        get_teximgs(texnum, mat_name)
+        if (texnum & 0x7f000000) == 0x7f000000:
+            # Flat colour material
+            bl_mat.diffuse_color = [
+                float(x + 1) / 256 for x in
+                struct.unpack_from("<BBB", texnum.to_bytes(4, 'big'), 1)
+            ]
+        else:
+            # Last element in this list will become the image file path
+            get_teximgs(texnum, mat_name)
     else:
         mat_name += str(len(texmats))
         # print("mat_name:", mat_name)
