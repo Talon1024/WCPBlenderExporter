@@ -138,8 +138,8 @@ class ExportIFF(Operator, ExportHelper):
     )
 
     active_as_lod0 = BoolProperty(
-        name="Active object is LOD0",
-        description="Use the active object as the LOD 0 mesh",
+        name="Export only active object",
+        description="Only export the active object and its LODs.",
         default=True
     )
 
@@ -183,7 +183,7 @@ class ExportIFF(Operator, ExportHelper):
 
     include_far_chunk = BoolProperty(
         name="Include FAR Chunk",
-        description="Include the 'FAR ' CHUNK when exporting to IFF. Only "
+        description="Include the 'FAR' CHUNK when exporting to IFF. Only "
         "required if the mesh being exported is a fighter mesh.",
         default=False
     )

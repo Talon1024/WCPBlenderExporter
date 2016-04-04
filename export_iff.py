@@ -328,7 +328,7 @@ class ExportBackend:
                  filepath,
                  start_texnum=22000,
                  apply_modifiers=True,
-                 active_obj_as_lod0=True,
+                 export_active_only=True,
                  use_facetex=False,
                  wc_orientation_matrix=None,
                  include_far_chunk=True,
@@ -336,7 +336,7 @@ class ExportBackend:
         self.filepath = filepath
         self.start_texnum = start_texnum
         self.apply_modifiers = apply_modifiers
-        self.active_obj_as_lod0 = active_obj_as_lod0
+        self.export_active_only = export_active_only
         self.use_facetex = use_facetex
         self.wc_orientation_matrix = wc_orientation_matrix
         self.include_far_chunk = include_far_chunk
@@ -496,202 +496,6 @@ class IFFExporter(ExportBackend):
         # Get directory path of output file, plus filename without extension
         filename = self.filepath[:self.filepath.rfind(".")]
         modelname = get_fname(self.filepath)
-
-        # Create an IFF mesh object
-        imesh = iff_mesh.MeshIff(filename, self.include_far_chunk)
-
-        # Get LOD data and number of LODs
-        lod_data = self.get_lod_data()
-        if type(lod_data) == tuple:  # tuple means error
-            return lod_data
-        num_lods = lod_data["num_lods"]
-
-        # Get the hardpoints
-        hardpoints = self.get_hardpoints()
-
-        # Get texture indices for each material
-        mtl_texnums = self.get_materials(lod_data)
-
-        mtl_info_file = open(filename + ".txt", 'w', encoding='utf-8')
-
-        print(self.get_txinfo(mtl_texnums), file=mtl_info_file)
-
-        for lod in range(num_lods):
-            bl_mesh = lod_data["LOD-" + str(lod)].to_mesh(
-                bpy.context.scene, self.apply_modifiers, "PREVIEW")
-
-            bl_mesh.transform(lod_data["LOD-" + str(lod)].matrix_local)
-            if self.wc_orientation_matrix is not None:
-                bl_mesh.transform(self.wc_orientation_matrix)
-
-            # Required for using tesselated faces (squares and triangles).
-            # I decided to use tessfaces for now to keep it simple,
-            # but later I may change my mind, since WCSO supports n-gons.
-            bl_mesh.calc_tessface()
-
-            bl_mesh.calc_normals()
-
-            # Get unique normals
-            unique_normals = set()
-
-            for f in bl_mesh.tessfaces:
-                if f.use_smooth:
-                    for v in f.vertices:
-                        # If smoothing is enabled, add the vertex normals
-                        nx, ny, nz = bl_mesh.vertices[v].normal
-                        unique_normals.add((nx, ny, nz))
-                # Add the face normal
-                nx, ny, nz = f.normal
-                unique_normals.add((nx, ny, nz))
-
-            unique_normals = tuple(unique_normals)
-
-            # Get the references to the normals
-            fnrmrefs = list()
-            vnrmrefs = list()
-
-            # Face normal indices
-            for f in bl_mesh.tessfaces:
-                nx, ny, nz = f.normal
-                fnrmrefs.append(unique_normals.index((nx, ny, nz)))
-
-            # Vertex normal indices
-            for v in bl_mesh.vertices:
-                nx, ny, nz = v.normal
-                try:
-                    vnrmrefs.append(unique_normals.index((nx, ny, nz)))
-                except ValueError:
-                    vnrmrefs.append(0)
-
-            # Create an IFF mesh LOD object for this LOD
-            imeshl = iff_mesh.MeshLODForm(lod)
-
-            # Name
-            imeshl.set_name(modelname)
-
-            # Vertices
-            for v in bl_mesh.vertices:
-                vx, vy, vz = v.co[:]
-                imeshl.add_vertex(float(-vx), float(vy), float(vz))
-
-            # Normals
-            for n in unique_normals:
-                nx, ny, nz = n[:]
-                imeshl.add_normal(float(-nx), float(ny), float(nz))
-
-            # Vertices on each face
-            fnrm_idx = 0
-            uv_map = bl_mesh.tessface_uv_textures.active.data
-            for f, u in zip(bl_mesh.tessfaces, uv_map):
-                for v, uv in zip(reversed(f.vertices), reversed(u.uv)):
-                    if f.use_smooth:
-                        # If smoothing is enabled, use the vertex normal
-                        vtnm_idx = vnrmrefs[v]
-                    else:
-                        # Otherwise, use the face normal
-                        vtnm_idx = fnrmrefs[fnrm_idx]
-                    vert_idx = v
-                    uv_x, uv_y = uv
-                    # 1 - uv_y allows textures to be converted without the
-                    # modder having to vertically flip them.
-                    imeshl.add_fvrt(vert_idx, vtnm_idx, uv_x, 1 - uv_y)
-                fnrm_idx += 1
-
-            # Faces
-            fvrt_idx = 0
-            for cur_face_idx, cur_face in enumerate(bl_mesh.tessfaces):
-
-                light_flags = 0
-                # If the face has a material with an image texture,
-                # get the corresponding texture number
-                if self.use_facetex:
-                    active_idx = None
-                    mesh_uvtex = bl_mesh.tessface_uv_textures
-                    for idx, texmap in enumerate(mesh_uvtex):
-                        if texmap.active:
-                            active_idx = idx
-                            break
-                    facetex = mesh_uvtex[active_idx].data[cur_face_idx]
-                    matfilename = get_bname(facetex.image.filepath)
-                    texnum = mtl_texnums[matfilename]
-                else:
-                    facemtl = bl_mesh.materials[cur_face.material_index]
-                    facetex = facemtl.active_texture
-                    if facetex.type == "IMAGE":
-                        matfilename = get_bname(facetex.image.filepath)
-                        texnum = mtl_texnums[matfilename]
-                    else:
-                        # Otherwise, use the default texture number
-                        texnum = start_texnum
-
-                    # If the material on the face is shadeless,
-                    # set the corresponding lighting bitflag.
-                    # More bitflags will be added as they are discovered.
-                    # This will not work if you are using facetex, as special
-                    # lighting can only be done using materials.
-                    if facemtl.use_shadeless:
-                        light_flags |= LFLAG_FULLBRIGHT
-                    if "light_flags" in facemtl:
-                        # If the user has defined a custom value to
-                        # use for the lighting bitflag, override the
-                        # calculated value with the custom value.
-                        try:
-                            light_flags = int(facemtl["light_flags"])
-                        except ValueError:
-                            light_flags = 0
-                            print("Cannot convert", facemtl["light_flags"],
-                                  "to an integer value!")
-
-                num_verts = len(cur_face.vertices)
-
-                vtnm_idx = fnrmrefs[cur_face_idx]
-
-                # Vertex coordinates and normals are needed
-                # in order to calculate the D-Plane.
-                first_vert = bl_mesh.vertices[cur_face.vertices[0]].co
-                face_nrm = cur_face.normal
-                dplane = self.calc_dplane(first_vert, face_nrm)
-
-                imeshl.add_face(vtnm_idx, dplane, texnum, fvrt_idx,
-                                num_verts, light_flags)
-
-                fvrt_idx += num_verts
-
-            # Location, radius metadata for this LOD
-            loc = lod_data["LOD-" + str(lod)].location
-            radius = self.calc_radius(lod_data["LOD-" + str(lod)].dimensions)
-
-            # Center of object
-            imeshl.set_center(loc[0], -loc[1], loc[2])
-
-            # Radius
-            imeshl.set_radius(radius)
-
-            imesh.add_lod(imeshl)
-
-        # Hardpoints - These will be created from empties prefixed with "hp-"
-        for h in hardpoints:
-            imesh.add_hardpt(**h)
-
-        # Collision, LOD distance metadata
-        try:
-            # If there is an object named "collsphr" in the scene,
-            # use it for the object's collision sphere.
-            collsphr = bpy.data.objects["collsphr"]
-            if collsphr.type == "EMPTY":
-                print("collsphr object found")
-                loc = collsphr.location
-                radius = max(collsphr.scale) * collsphr.empty_draw_size
-            else:
-                print("collsphr object must be an empty")
-                loc = lod_data["LOD-0"].location
-                radius = self.calc_radius(lod_data["LOD-0"].dimensions)
-        except KeyError:
-            print("collsphr object not found")
-            loc = lod_data["LOD-0"].location
-            radius = self.calc_radius(lod_data["LOD-0"].dimensions)
-        imesh.make_coll_sphr(loc[0], loc[1], loc[2], radius)
-        imesh.write_file_bin()
 
 
 class XMFExporter(ExportBackend):
