@@ -28,7 +28,17 @@ from math import sin, cos
 from collections import OrderedDict
 from itertools import repeat
 
+LFLAG_UNKNOWN1 = 1
 LFLAG_FULLBRIGHT = 2
+LFLAG_UNKNOWN2 = 8
+
+# Name pattern for main LODs.
+# Group 1 is the LOD level number.
+MAIN_LOD_RE = re.compile(r"^detail-(\d+)$")
+# Name pattern for child LODs, and main LODs if active object is used as a
+# main LOD.
+# Group 1 is the child object name, group 2 is the LOD level number.
+CHLD_LOD_RE = re.compile(r"^(\w+)-lod(\d+)$")
 
 # Non-critical warnings will be reported to Blender. Critical errors will be
 # exceptions.
@@ -495,12 +505,37 @@ class IFFExporter(ExportBackend):
         # Aliases to long function names
         # Filename without extension
         get_fname = bpy.path.display_name_from_filepath
-        # Filename with extension
-        get_bname = bpy.path.basename
 
         # Get directory path of output file, plus filename without extension
-        filename = self.filepath[:self.filepath.rfind(dirsep)]
+        modeldir = self.filepath[:self.filepath.rfind(dirsep)]
         modelname = get_fname(self.filepath)
+
+        managers = []
+        main_lod_used = False
+        used_names = set()
+
+        if self.export_active_only:
+            managers.append(ModelManager(
+                modelname, bpy.context.active_object, self.use_facetex,
+                self.generate_bsp, bpy.context.scene
+            ))
+        else:
+            for obj in bpy.context.scene:
+                if obj.parent is None and not obj.hide:
+                    if MAIN_LOD_RE.match(obj.name) and not main_lod_used:
+                        managers.append(ModelManager(
+                            modelname, obj, self.use_facetex,
+                            self.generate_bsp, bpy.context.scene
+                        ))
+                        main_lod_used = True
+                    else:
+                        obj_match = CHLD_LOD_RE.match(obj.name)
+                        if obj_match.group(1) not in used_names:
+                            managers.append(ModelManager(
+                                modelname, obj, self.use_facetex,
+                                self.generate_bsp, bpy.context.scene
+                            ))
+                            used_names.add(obj_match.group(1))
 
 
 class XMFExporter(ExportBackend):
