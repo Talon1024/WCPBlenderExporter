@@ -22,6 +22,7 @@ import bpy
 import mathutils
 import warnings
 import re
+from os import sep as dirsep
 from . import iff_mesh
 from math import sin, cos
 from collections import OrderedDict
@@ -48,7 +49,7 @@ class ModelManager:
     MAX_NUM_LODS = 5
 
     # The LOD base object is a LOD for the main model.
-    LOD_BASE_MAIN = 0
+    LOD_NSCHEME_DETAIL = 0
 
     # Name pattern for main LODs.
     # Group 1 is the LOD level number.
@@ -56,7 +57,7 @@ class ModelManager:
 
     # The LOD base object is a LOD for a child model, or the main model if user
     # decides to set the active object as LOD 0.
-    LOD_BASE_CHLD = 1
+    LOD_NSCHEME_CHLD = 1
 
     # Name pattern for child LODs, and main LODs if active object is used as a
     # main LOD.
@@ -78,18 +79,20 @@ class ModelManager:
     # prefix for BSP collider definition objects
     COLLMESH_PFX = "collmesh"
 
-    def __init__(self, base_obj, use_facetex=False, gen_bsp=False,
+    def __init__(self, exp_fname, base_obj, use_facetex=False, gen_bsp=False,
                  scene=bpy.context.scene):
 
+        if not isinstance(exp_fname, str):
+            raise TypeError("Export filename must be a string!")
         if not isinstance(base_obj, bpy.types.Object):
             raise TypeError("base_obj must be a Blender mesh object!")
         if not isinstance(scene, bpy.types.Scene):
             raise TypeError("scene must be a Blender scene!")
 
         self.scene = scene
-        self.base_name = ''
-        self.base_class = 0
-        base_lod = self._get_lod(base_obj, True)
+        self.base_name = exp_fname
+        self.name_scheme = 0
+        base_lod = self._get_lod(base_obj, True)  # Determine base object LOD
         self.lods = [None for x in range(self.MAX_NUM_LODS)]
         self.lodms = []
         self.lods[base_lod] = base_obj
@@ -105,14 +108,14 @@ class ModelManager:
         lod = self.MAIN_LOD_RE.match(lod_obj.name)
         if lod:
             if base:
-                self.base_class = self.LOD_BASE_MAIN
+                self.name_scheme = self.LOD_NSCHEME_DETAIL
             lod = int(lod.group(1))
             return lod
 
         lod = self.CHLD_LOD_RE.match(lod_obj.name)
         if lod:
             if base:
-                self.base_class = self.LOD_BASE_CHLD
+                self.name_scheme = self.LOD_NSCHEME_CHLD
                 self.base_name = lod.group(1)
             lod = int(lod.group(2))
             return lod
@@ -120,15 +123,16 @@ class ModelManager:
         return 0
 
     def setup(self):
+        # Scan for valid LOD objects related to the base LOD object
         for lod in range(self.MAX_NUM_LODS):
             lod_name = ""
-            if self.base_class == self.LOD_BASE_MAIN:
+            if self.name_scheme == self.LOD_NSCHEME_DETAIL:
                 lod_name = "detail-%d" % lod
-            elif self.base_class == self.LOD_BASE_CHLD:
+            elif self.name_scheme == self.LOD_NSCHEME_CHLD:
                 lod_name = "%s-lod%d" % (self.base_name, lod)
 
-            if lod_name in self.scene.objects:
-                if self.lods[lod] is None:
+            if self.lods[lod] is None:
+                if lod_name in self.scene.objects:
                     if self.scene.objects[lod_name].type == 'MESH':
                         self.lods[lod] = self.scene.objects[lod_name]
                     else:
@@ -285,6 +289,7 @@ class ModelManager:
 
                     # Ensure material for this face exists
                     tfmtl = None
+                    tfmtl_flat = False
                     try:
                         tfmtl = self.lodms[lodmi].materials[tf.material_index]
                     except IndexError:
@@ -294,9 +299,9 @@ class ModelManager:
                     # Ensure there is at least one valid texture slot in
                     # this material.
                     if len(tfmtl.texture_slots) == 0:
-                        raise ValueError("You must have at least one "
-                                         "UV-mapped image texture assigned to "
-                                         "each material that the mesh uses!")
+                        tfmtl_flat = True
+                        if tfmtl not in self.materials:
+                            self.materials.append(tfmtl)
 
                     # Use first valid texture slot
                     for tfmtx in tfmtl.texture_slots:
@@ -494,7 +499,7 @@ class IFFExporter(ExportBackend):
         get_bname = bpy.path.basename
 
         # Get directory path of output file, plus filename without extension
-        filename = self.filepath[:self.filepath.rfind(".")]
+        filename = self.filepath[:self.filepath.rfind(dirsep)]
         modelname = get_fname(self.filepath)
 
 
