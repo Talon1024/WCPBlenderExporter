@@ -35,6 +35,7 @@ LFLAG_UNKNOWN2 = 8
 # Name pattern for main LODs.
 # Group 1 is the LOD level number.
 MAIN_LOD_RE = re.compile(r"^detail-(\d+)$")
+
 # Name pattern for child LODs, and main LODs if active object is used as a
 # main LOD.
 # Group 1 is the child object name, group 2 is the LOD level number.
@@ -61,18 +62,9 @@ class ModelManager:
     # The LOD base object is a LOD for the main model.
     LOD_NSCHEME_DETAIL = 0
 
-    # Name pattern for main LODs.
-    # Group 1 is the LOD level number.
-    MAIN_LOD_RE = re.compile(r"^detail-(\d+)$")
-
     # The LOD base object is a LOD for a child model, or the main model if user
     # decides to set the active object as LOD 0.
     LOD_NSCHEME_CHLD = 1
-
-    # Name pattern for child LODs, and main LODs if active object is used as a
-    # main LOD.
-    # Group 1 is the child object name, group 2 is the LOD level number.
-    CHLD_LOD_RE = re.compile(r"^(\w+)-lod(\d+)$")
 
     # Name pattern for hardpoints
     HARDPOINT_RE = re.compile(r"^hp-(\w+)(?:\.\d*)?$")
@@ -115,14 +107,14 @@ class ModelManager:
         self.materials = []  # Materials for all LODs
 
     def _get_lod(self, lod_obj, base=False):
-        lod = self.MAIN_LOD_RE.match(lod_obj.name)
+        lod = MAIN_LOD_RE.match(lod_obj.name)
         if lod:
             if base:
                 self.name_scheme = self.LOD_NSCHEME_DETAIL
             lod = int(lod.group(1))
             return lod
 
-        lod = self.CHLD_LOD_RE.match(lod_obj.name)
+        lod = CHLD_LOD_RE.match(lod_obj.name)
         if lod:
             if base:
                 self.name_scheme = self.LOD_NSCHEME_CHLD
