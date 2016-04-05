@@ -223,13 +223,6 @@ class ExportIFF(Operator, ExportHelper):
             self.axis_forward, self.axis_up, "Z", "Y"
         ).to_4x4()
 
-        # Create the output file if it doesn't already exist
-        try:
-            outfile = open(self.filepath, "x")
-            outfile.close()
-        except FileExistsError:
-            self.report({"INFO"}, "File already exists!")
-
         # NOTE: BSP Tree generation is not implemented!
         # As a fallback measure, I'm hard-coding this attribute for now.
         self.generate_bsp = False
