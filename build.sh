@@ -21,8 +21,12 @@ else # Copy to production folder
   blender_scripts_folder="$homedir/BlenderScripts/addons/io_scene_wcp" # Production script folder
 fi
 
+for pyf in {__init__,export_iff,iff,iff_mesh,iff_read,mat_read,import_iff}.py; do
+  if eval [ -f $blender_scripts_folder/$pyf ]; then rm $blender_scripts_folder/$pyf; fi
+done
+
 eval cp --target-directory=$blender_scripts_folder {__init__,export_iff,iff,iff_mesh,iff_read,mat_read,import_iff}.py
-cat $blender_scripts_folder/__init__.py | sed "s/%\\x7BGIT_COMMIT\\x7D/$gvers/g" > $blender_scripts_folder/__init__.py
+sed -i -e "s/%\\x7BGIT_COMMIT\\x7D/$gvers/g" $blender_scripts_folder/__init__.py
 echo "Scripts copied to $vers folder."
 
 if eval [ -d $blender_scripts_folder/__pycache__ ]; then
