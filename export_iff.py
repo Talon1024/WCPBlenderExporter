@@ -32,12 +32,12 @@ LFLAG_UNKNOWN1 = 1
 LFLAG_FULLBRIGHT = 2
 LFLAG_UNKNOWN2 = 8
 
-# Name pattern for main LODs.
+# Name pattern for LOD objects. Largely deprecated in favour of named LOD
+# object models. Mostly present for backwards compatibility.
 # Group 1 is the LOD level number.
 MAIN_LOD_RE = re.compile(r"^detail-(\d+)$")
 
-# Name pattern for child LODs, and main LODs if active object is used as a
-# main LOD.
+# Name pattern for LOD objects, grouped by name.
 # Group 1 is the child object name, group 2 is the LOD level number.
 CHLD_LOD_RE = re.compile(r"^(\w+)-lod(\d+)$")
 
@@ -143,7 +143,7 @@ class ModelManager:
                 else:
                     raise ValueError(
                         "Tried to set LOD %d to object %s, but it was already "
-                        "set to object %s!" % lod, lod_name, self.lods[lod])
+                        "set to object %s!" % (lod, lod_name, self.lods[lod]))
 
         # Ensure the LODs array is consistent
         if self.lods[0] is None:
@@ -528,6 +528,9 @@ class IFFExporter(ExportBackend):
                                 self.generate_bsp, bpy.context.scene
                             ))
                             used_names.add(obj_match.group(1))
+
+        for manager in managers:
+            manager.setup()
 
 
 class XMFExporter(ExportBackend):
