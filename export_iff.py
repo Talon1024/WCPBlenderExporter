@@ -22,6 +22,7 @@ import bpy
 import mathutils
 import warnings
 import re
+import array
 from os import sep as dirsep
 from . import iff_mesh
 from math import sin, cos
@@ -95,6 +96,7 @@ class ModelManager:
         self.base_name = exp_fname
         self.name_scheme = 0
         base_lod = self._get_lod(base_obj, True)  # Determine base object LOD
+        self.base_obj = base_obj
         self.lods = [None for x in range(self.MAX_NUM_LODS)]
         self.lodms = []
         self.lods[base_lod] = base_obj
@@ -105,6 +107,7 @@ class ModelManager:
         self.collider = None
         self.use_mtltex = not use_facetex
         self.materials = []  # Materials for all LODs
+        self.unique_normals = []
 
     def _get_lod(self, lod_obj, base=False):
         lod = MAIN_LOD_RE.match(lod_obj.name)
@@ -122,7 +125,8 @@ class ModelManager:
             lod = int(lod.group(2))
             return lod
 
-        return 0
+        raise ValueError("Base object name matches neither detail nor X-lodY"
+                         "name schemes!")
 
     def setup(self):
         # Scan for valid LOD objects related to the base LOD object
@@ -133,13 +137,22 @@ class ModelManager:
             elif self.name_scheme == self.LOD_NSCHEME_CHLD:
                 lod_name = "%s-lod%d" % (self.base_name, lod)
 
-            if self.lods[lod] is None:
-                if lod_name in self.scene.objects:
-                    if self.scene.objects[lod_name].type == 'MESH':
-                        self.lods[lod] = self.scene.objects[lod_name]
-                    else:
-                        raise TypeError("Object %s is not a mesh!" % lod_name)
-
+            if (lod_name in self.scene.objects and self.scene.objects[lod_name]
+                    is not self.base_obj):
+                print(
+                    "lod_name:", lod_name,
+                    "self.scene.objects[lod_name]:", self.scene.objects[lod_name],
+                    "self.base_obj", self.base_obj,
+                    "base_obj conflict:",
+                    self.base_obj is self.scene.objects[lod_name]
+                )
+                if self.lods[lod] is None:
+                    if self.scene.objects[lod_name].hide is False:
+                        if self.scene.objects[lod_name].type == 'MESH':
+                            self.lods[lod] = self.scene.objects[lod_name]
+                        else:
+                            raise TypeError("Object %s is not a mesh!" %
+                                            lod_name)
                 else:
                     raise ValueError(
                         "Tried to set LOD %d to object %s, but it was already "
@@ -489,9 +502,16 @@ class IFFExporter(ExportBackend):
 
     def export(self):
         """
-        Export a .iff file from the Blender scene.
+        Export .iff files from the Blender scene.
         The model is exported as an .iff file, which can be used in
         Wing Commander: Prophecy/Secret Ops.
+
+        Preconditions for a model to be exported:
+        1. It must be named according to MAIN_LOD_RE or CHLD_LOD_RE
+        2. All of its LODs must be Blender mesh objects.
+        3. It must have a LOD 0
+        4. All LODs that are to be exported, especially LOD 0, must be visible
+           in Blender's viewport.
         """
 
         # Aliases to long function names
