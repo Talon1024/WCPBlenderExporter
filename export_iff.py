@@ -141,27 +141,16 @@ class ModelManager:
                 lod_name = "%s-lod%d" % (self.base_name, lod)
 
             if (lod_name in bpy.data.scenes[self.scene].objects and
-                bpy.data.scenes[self.scene].objects[lod_name]
-                    is not bpy.data.scenes[self.scene].objects[self.base_obj]):
-                print(
-                    "lod_name:", lod_name,
-                    "scene.objects[lod_name]:",
-                    bpy.data.scenes[self.scene].objects[lod_name],
-                    "self.base_obj",
-                    bpy.data.scenes[self.scene].objects[self.base_obj],
-                    "base_obj conflict:",
-                    bpy.data.scenes[self.scene].objects[self.base_obj] is
-                    bpy.data.scenes[self.scene].objects[lod_name]
-                )
+                    lod_name != self.base_obj):
                 if self.lods[lod] is None:
                     if (bpy.data.scenes[self.scene]
-                            .objects[lod_name].hide is False):
+                            .objects[lod_name].type == 'MESH'):
                         if (bpy.data.scenes[self.scene]
-                                .objects[lod_name].type == 'MESH'):
-                            self.lods[lod] = lod_name
-                        else:
-                            raise TypeError("Object %s is not a mesh!" %
-                                            lod_name)
+                                    .objects[lod_name].hide is False):
+                                self.lods[lod] = lod_name
+                    else:
+                        raise TypeError("Object %s is not a mesh!" %
+                                        lod_name)
                 else:
                     raise ValueError(
                         "Tried to set LOD %d to object %s, but it was already "
