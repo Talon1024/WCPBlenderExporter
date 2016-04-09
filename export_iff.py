@@ -87,10 +87,11 @@ class ModelManager:
 
         if not isinstance(exp_fname, str):
             raise TypeError("Export filename must be a string!")
-        if not isinstance(base_obj, bpy.types.Object):
-            raise TypeError("base_obj must be a Blender mesh object!")
         if scene not in bpy.data.scenes:
             raise TypeError("scene must be the name of a Blender scene!")
+        if base_obj not in bpy.data.scenes[scene].objects:
+            raise TypeError(
+                "base_obj must be a Blender mesh object in the current scene!")
 
         self.scene = scene
         self.base_name = exp_fname
@@ -139,14 +140,15 @@ class ModelManager:
 
             if (lod_name in bpy.data.scenes[self.scene].objects and
                 bpy.data.scenes[self.scene].objects[lod_name]
-                    is not self.base_obj):
+                    is not bpy.data.scenes[self.scene].objects[self.base_obj]):
                 print(
                     "lod_name:", lod_name,
                     "scene.objects[lod_name]:",
                     bpy.data.scenes[self.scene].objects[lod_name],
-                    "self.base_obj", self.base_obj,
+                    "self.base_obj",
+                    bpy.data.scenes[self.scene].objects[self.base_obj],
                     "base_obj conflict:",
-                    self.base_obj is
+                    bpy.data.scenes[self.scene].objects[self.base_obj] is
                     bpy.data.scenes[self.scene].objects[lod_name]
                 )
                 if self.lods[lod] is None:
