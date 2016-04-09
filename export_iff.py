@@ -539,7 +539,7 @@ class IFFExporter(ExportBackend):
                 self.generate_bsp, bpy.context.scene.name
             ))
         else:
-            for obj in bpy.context.scene:
+            for obj in bpy.context.scene.objects:
                 if obj.parent is None and not obj.hide:
                     if MAIN_LOD_RE.match(obj.name) and not main_lod_used:
                         managers.append(ModelManager(
