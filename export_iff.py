@@ -83,14 +83,14 @@ class ModelManager:
     COLLMESH_PFX = "collmesh"
 
     def __init__(self, exp_fname, base_obj, use_facetex=False, gen_bsp=False,
-                 scene=bpy.context.scene):
+                 scene=bpy.context.scene.name):
 
         if not isinstance(exp_fname, str):
             raise TypeError("Export filename must be a string!")
         if not isinstance(base_obj, bpy.types.Object):
             raise TypeError("base_obj must be a Blender mesh object!")
-        if not isinstance(scene, bpy.types.Scene):
-            raise TypeError("scene must be a Blender scene!")
+        if scene not in bpy.data.scenes:
+            raise TypeError("scene must be the name of a Blender scene!")
 
         self.scene = scene
         self.base_name = exp_fname
@@ -137,19 +137,25 @@ class ModelManager:
             elif self.name_scheme == self.LOD_NSCHEME_CHLD:
                 lod_name = "%s-lod%d" % (self.base_name, lod)
 
-            if (lod_name in self.scene.objects and self.scene.objects[lod_name]
+            if (lod_name in bpy.data.scenes[self.scene].objects and
+                bpy.data.scenes[self.scene].objects[lod_name]
                     is not self.base_obj):
                 print(
                     "lod_name:", lod_name,
-                    "self.scene.objects[lod_name]:", self.scene.objects[lod_name],
+                    "scene.objects[lod_name]:",
+                    bpy.data.scenes[self.scene].objects[lod_name],
                     "self.base_obj", self.base_obj,
                     "base_obj conflict:",
-                    self.base_obj is self.scene.objects[lod_name]
+                    self.base_obj is
+                    bpy.data.scenes[self.scene].objects[lod_name]
                 )
                 if self.lods[lod] is None:
-                    if self.scene.objects[lod_name].hide is False:
-                        if self.scene.objects[lod_name].type == 'MESH':
-                            self.lods[lod] = self.scene.objects[lod_name]
+                    if (bpy.data.scenes[self.scene]
+                            .objects[lod_name].hide is False):
+                        if (bpy.data.scenes[self.scene]
+                                .objects[lod_name].type == 'MESH'):
+                            self.lods[lod] = (
+                                bpy.data.scenes[self.scene].objects[lod_name])
                         else:
                             raise TypeError("Object %s is not a mesh!" %
                                             lod_name)
@@ -179,7 +185,7 @@ class ModelManager:
 
         # Get the hardpoints associated with this model
         for lod_idx in range(len(self.lods)):
-            for obj in self.scene.objects:
+            for obj in bpy.data.scenes[self.scene].objects:
                 if (obj.parent is self.lods[lod_idx] and
                         obj.type == "EMPTY" and
                         self.HARDPOINT_RE.match(obj.name)):
@@ -192,7 +198,7 @@ class ModelManager:
         for lod_idx in range(len(self.lods)):
             if lod_idx > 0:
                 # LOD Ranges are only valid for LODs greater than 0
-                for obj in self.scene.objects:
+                for obj in bpy.data.scenes[self.scene].objects:
                     if (obj.parent is self.lods[lod_idx] and
                             obj.type == "EMPTY" and
                             self.DRANGE_RE.match(obj.name)):
@@ -245,7 +251,7 @@ class ModelManager:
 
         # Get CNTR/RADI data for each LOD
         for lod_idx in range(len(self.lods)):
-            for obj in self.scene.objects:
+            for obj in bpy.data.scenes[self.scene].objects:
                 if (obj.parent == self.lods[lod_idx] and
                         obj.name.lower().startswith(self.CNTRADI_PFX) and
                         obj.type == "EMPTY" and
@@ -268,7 +274,7 @@ class ModelManager:
         # Get the collider for this model
         if not self.bsp_tree:
             for lod_idx in reversed(range(len(self.lods))):
-                for obj in self.scene.objects:
+                for obj in bpy.data.scenes[self.scene].objects:
                     if (obj.parent == self.lods[lod_idx] and
                             obj.name.lower().startswith(self.COLLSPHR_PFX) and
                             obj.type == "EMPTY" and
@@ -293,7 +299,8 @@ class ModelManager:
 
         # Convert all LOD objects to meshes to populate the LOD mesh list.
         for lod in self.lods:
-            self.lodms.append(lod.to_mesh(self.scene, True, "PREVIEW"))
+            self.lodms.append(lod.to_mesh(
+                bpy.data.scenes[self.scene], True, "PREVIEW"))
 
         # Get the textures used by all LODs for this model
         for lodmi in range(len(self.lodms)):
@@ -529,7 +536,7 @@ class IFFExporter(ExportBackend):
         if self.export_active_only:
             managers.append(ModelManager(
                 modelname, bpy.context.active_object, self.use_facetex,
-                self.generate_bsp, bpy.context.scene
+                self.generate_bsp, bpy.context.scene.name
             ))
         else:
             for obj in bpy.context.scene:
@@ -537,7 +544,7 @@ class IFFExporter(ExportBackend):
                     if MAIN_LOD_RE.match(obj.name) and not main_lod_used:
                         managers.append(ModelManager(
                             modelname, obj, self.use_facetex,
-                            self.generate_bsp, bpy.context.scene
+                            self.generate_bsp, bpy.context.scene.name
                         ))
                         main_lod_used = True
                     else:
@@ -545,7 +552,7 @@ class IFFExporter(ExportBackend):
                         if obj_match.group(1) not in used_names:
                             managers.append(ModelManager(
                                 modelname, obj, self.use_facetex,
-                                self.generate_bsp, bpy.context.scene
+                                self.generate_bsp, bpy.context.scene.name
                             ))
                             used_names.add(obj_match.group(1))
 
