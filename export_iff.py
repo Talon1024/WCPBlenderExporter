@@ -111,14 +111,14 @@ class ModelManager:
         self.unique_normals = []
 
     def _get_lod(self, lod_obj, base=False):
-        lod = MAIN_LOD_RE.match(lod_obj.name)
+        lod = MAIN_LOD_RE.match(lod_obj)
         if lod:
             if base:
                 self.name_scheme = self.LOD_NSCHEME_DETAIL
             lod = int(lod.group(1))
             return lod
 
-        lod = CHLD_LOD_RE.match(lod_obj.name)
+        lod = CHLD_LOD_RE.match(lod_obj)
         if lod:
             if base:
                 self.name_scheme = self.LOD_NSCHEME_CHLD
@@ -126,8 +126,10 @@ class ModelManager:
             lod = int(lod.group(2))
             return lod
 
-        raise ValueError("Base object name matches neither detail nor X-lodY"
-                         "name schemes!")
+        # Assume LOD 0, and "child" LOD naming scheme
+        return 0
+        # raise ValueError("Base object name matches neither detail nor X-lodY"
+        #                  "name schemes!")
 
     def setup(self):
         # Scan for valid LOD objects related to the base LOD object
@@ -156,8 +158,7 @@ class ModelManager:
                             .objects[lod_name].hide is False):
                         if (bpy.data.scenes[self.scene]
                                 .objects[lod_name].type == 'MESH'):
-                            self.lods[lod] = (
-                                bpy.data.scenes[self.scene].objects[lod_name])
+                            self.lods[lod] = lod_name
                         else:
                             raise TypeError("Object %s is not a mesh!" %
                                             lod_name)
@@ -180,7 +181,7 @@ class ModelManager:
                 if lod_obj is not None:
                     raise TypeError(
                         "Inconsistent LODs. A LOD object was found after lod "
-                        "%d (%s)." % (no_lod_idx, lod_obj.name))
+                        "%d (%s)." % (no_lod_idx, lod_obj))
 
         if no_lod_idx is not None:
             self.lods = self.lods[:no_lod_idx]
@@ -537,7 +538,7 @@ class IFFExporter(ExportBackend):
 
         if self.export_active_only:
             managers.append(ModelManager(
-                modelname, bpy.context.active_object, self.use_facetex,
+                modelname, bpy.context.active_object.name, self.use_facetex,
                 self.generate_bsp, bpy.context.scene.name
             ))
         else:
@@ -545,7 +546,7 @@ class IFFExporter(ExportBackend):
                 if obj.parent is None and not obj.hide:
                     if MAIN_LOD_RE.match(obj.name) and not main_lod_used:
                         managers.append(ModelManager(
-                            modelname, obj, self.use_facetex,
+                            modelname, obj.name, self.use_facetex,
                             self.generate_bsp, bpy.context.scene.name
                         ))
                         main_lod_used = True
@@ -553,7 +554,7 @@ class IFFExporter(ExportBackend):
                         obj_match = CHLD_LOD_RE.match(obj.name)
                         if obj_match.group(1) not in used_names:
                             managers.append(ModelManager(
-                                modelname, obj, self.use_facetex,
+                                modelname, obj.name, self.use_facetex,
                                 self.generate_bsp, bpy.context.scene.name
                             ))
                             used_names.add(obj_match.group(1))
