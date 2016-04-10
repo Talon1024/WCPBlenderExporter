@@ -93,13 +93,16 @@ class ModelManager:
             raise TypeError(
                 "base_obj must be a Blender mesh object in the current scene!")
 
-        self.scene = scene
+        self.scene = scene  # Name of the scene to use
         self.base_name = exp_fname
         self.name_scheme = 0
         base_lod = self._get_lod(base_obj, True)  # Determine base object LOD
         self.base_obj = base_obj
+
+        # Names of LOD objects
         self.lods = [None for x in range(self.MAX_NUM_LODS)]
-        self.lodms = []
+
+        self.lodms = []  # LOD object meshes (converted from objects)
         self.lods[base_lod] = base_obj
         self.hardpoints = []
         self.dranges = [float(0)]
@@ -127,6 +130,8 @@ class ModelManager:
             return lod
 
         # Assume LOD 0, and "child" LOD naming scheme
+        if base:
+            self.name_scheme = self.LOD_NSCHEME_CHLD
         return 0
         # raise ValueError("Base object name matches neither detail nor X-lodY"
         #                  "name schemes!")
@@ -149,8 +154,7 @@ class ModelManager:
                                     .objects[lod_name].hide is False):
                                 self.lods[lod] = lod_name
                     else:
-                        raise TypeError("Object %s is not a mesh!" %
-                                        lod_name)
+                        raise TypeError("Object %s is not a mesh!" % lod_name)
                 else:
                     raise ValueError(
                         "Tried to set LOD %d to object %s, but it was already "
@@ -178,8 +182,8 @@ class ModelManager:
         # Get the hardpoints associated with this model
         for lod_idx in range(len(self.lods)):
             for obj in bpy.data.scenes[self.scene].objects:
-                if (obj.parent is self.lods[lod_idx] and
-                        obj.type == "EMPTY" and
+                if (obj.parent.name == self.lods[lod_idx] and
+                    obj.type == "EMPTY" and obj.hide is False and
                         self.HARDPOINT_RE.match(obj.name)):
                     hpname = self.HARDPOINT_RE.match(obj.name).group(1)
                     hpmatrix = obj.rotation_euler.to_matrix().to_3x3()
@@ -191,8 +195,8 @@ class ModelManager:
             if lod_idx > 0:
                 # LOD Ranges are only valid for LODs greater than 0
                 for obj in bpy.data.scenes[self.scene].objects:
-                    if (obj.parent is self.lods[lod_idx] and
-                            obj.type == "EMPTY" and
+                    if (obj.parent.name == self.lods[lod_idx] and
+                        obj.type == "EMPTY" and obj.hide is False and
                             self.DRANGE_RE.match(obj.name)):
                         drange = self.DRANGE_RE.match(obj.name).group(1)
                         drange = drange.translate({44: 46})  # Comma to period
@@ -244,9 +248,9 @@ class ModelManager:
         # Get CNTR/RADI data for each LOD
         for lod_idx in range(len(self.lods)):
             for obj in bpy.data.scenes[self.scene].objects:
-                if (obj.parent == self.lods[lod_idx] and
-                        obj.name.lower().startswith(self.CNTRADI_PFX) and
-                        obj.type == "EMPTY" and
+                if (obj.parent.name == self.lods[lod_idx] and
+                    obj.name.lower().startswith(self.CNTRADI_PFX) and
+                    obj.type == "EMPTY" and obj.hide is False and
                         obj.empty_draw_type == "SPHERE"):
                     # Convert Blender to VISION coordinates.
                     x, z, y = obj.location
@@ -260,8 +264,11 @@ class ModelManager:
                 r = max(self.lods[lod_idx].dimensions) / 2
                 self.dsphrs[lod_idx] = iff_mesh.Sphere(x, y, z, r)
 
-            print("LOD {lod} X, Y, Z, radius: {x}, {y}, {z}, {r}".format({
-                lod: lod_idx, x: x, y: y, z: z, r: r}))
+            print("""LOD {}
+X: {},
+Y: {},
+Z: {},
+radius: {}""".format(lod_idx, x, y, z, r))
 
         # Get the collider for this model
         if not self.bsp_tree:
