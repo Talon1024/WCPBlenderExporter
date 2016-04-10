@@ -87,6 +87,26 @@ class IffReader:
             # time to take the FORM/CHUNK header into account!! (The 4 bytes
             # representing the length of the FORM as a 32-bit unsigned integer
             # is counted as part of the inside of the FORM)
+            #
+            # LIKE THIS
+            #
+            # form = iff.read_data()
+            # ...
+            # # Initialize bytes read counter at 4
+            # form_read = 4
+            # while form_read < form["length"]:
+            #     data = iff.read_data()  # Read the data
+            #
+            #     # Parse the data
+            #     if data["type"] == 'chunk' and data["name"] == b"BLAH":
+            #         parse(data)
+            #     elif:
+            #         ...
+            #     else:
+            #         ...
+            #
+            #     # Add to bytes read counter.
+            #     form_read += 8 + data["length"]
 
         elif self.id_isvalid(head):
             name = head
