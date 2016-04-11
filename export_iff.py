@@ -90,8 +90,8 @@ class ModelManager:
         if scene not in bpy.data.scenes:
             raise TypeError("scene must be the name of a Blender scene!")
         if base_obj not in bpy.data.scenes[scene].objects:
-            raise TypeError(
-                "base_obj must be a Blender mesh object in the current scene!")
+            raise TypeError("base_obj must be the name of a Blender mesh "
+                            "object in the given scene!")
 
         self.scene = scene  # Name of the scene to use
         self.base_name = exp_fname
@@ -179,10 +179,13 @@ class ModelManager:
         if no_lod_idx is not None:
             self.lods = self.lods[:no_lod_idx]
 
+        print("self.lods:", self.lods)
+
         # Get the hardpoints associated with this model
         for lod_idx in range(len(self.lods)):
             for obj in bpy.data.scenes[self.scene].objects:
-                if (obj.parent.name == self.lods[lod_idx] and
+                if (obj.parent is not None and
+                    obj.parent.name == self.lods[lod_idx] and
                     obj.type == "EMPTY" and obj.hide is False and
                         self.HARDPOINT_RE.match(obj.name)):
                     hpname = self.HARDPOINT_RE.match(obj.name).group(1)
@@ -195,7 +198,8 @@ class ModelManager:
             if lod_idx > 0:
                 # LOD Ranges are only valid for LODs greater than 0
                 for obj in bpy.data.scenes[self.scene].objects:
-                    if (obj.parent.name == self.lods[lod_idx] and
+                    if (obj.parent is not None and
+                        obj.parent.name == self.lods[lod_idx] and
                         obj.type == "EMPTY" and obj.hide is False and
                             self.DRANGE_RE.match(obj.name)):
                         drange = self.DRANGE_RE.match(obj.name).group(1)
@@ -248,7 +252,8 @@ class ModelManager:
         # Get CNTR/RADI data for each LOD
         for lod_idx in range(len(self.lods)):
             for obj in bpy.data.scenes[self.scene].objects:
-                if (obj.parent.name == self.lods[lod_idx] and
+                if (obj.parent is not None and
+                    obj.parent.name == self.lods[lod_idx] and
                     obj.name.lower().startswith(self.CNTRADI_PFX) and
                     obj.type == "EMPTY" and obj.hide is False and
                         obj.empty_draw_type == "SPHERE"):
@@ -260,8 +265,11 @@ class ModelManager:
                     break
             else:
                 # Generate CNTR/RADI sphere
-                x, z, y = self.lods[lod_idx]
-                r = max(self.lods[lod_idx].dimensions) / 2
+                lod_obj = (
+                    bpy.data.scenes[self.scene].objects[self.lods[lod_idx]])
+
+                x, z, y = lod_obj.location
+                r = max(lod_obj.dimensions) / 2
                 self.dsphrs[lod_idx] = iff_mesh.Sphere(x, y, z, r)
 
             print("""LOD {}
@@ -271,12 +279,13 @@ Z: {},
 radius: {}""".format(lod_idx, x, y, z, r))
 
         # Get the collider for this model
-        if not self.bsp_tree:
+        if not self.gen_bsp:
             for lod_idx in reversed(range(len(self.lods))):
                 for obj in bpy.data.scenes[self.scene].objects:
-                    if (obj.parent == self.lods[lod_idx] and
-                            obj.name.lower().startswith(self.COLLSPHR_PFX) and
-                            obj.type == "EMPTY" and
+                    if (obj.parent is not None and
+                        obj.parent.name == self.lods[lod_idx] and
+                        obj.name.lower().startswith(self.COLLSPHR_PFX) and
+                        obj.type == "EMPTY" and obj.hide is False and
                             obj.empty_draw_type == "SPHERE"):
                         x, z, y = obj.location
                         radius = max(obj.scale)
@@ -287,8 +296,9 @@ radius: {}""".format(lod_idx, x, y, z, r))
 
             if self.collider is None:
                 # Generate collsphr
-                x, z, y = self.lods[0].location
-                radius = max(self.lods[0].dimensions) / 2
+                lod_obj = bpy.data.scenes[self.scene].objects[self.lods[0]]
+                x, z, y = lod_obj.location
+                radius = max(lod_obj.dimensions) / 2
                 self.collider = iff_mesh.Collider(
                     "sphere", iff_mesh.Sphere(x, y, z, radius)
                 )
@@ -298,7 +308,7 @@ radius: {}""".format(lod_idx, x, y, z, r))
 
         # Convert all LOD objects to meshes to populate the LOD mesh list.
         for lod in self.lods:
-            self.lodms.append(lod.to_mesh(
+            self.lodms.append(bpy.data.scenes[self.scene].objects[lod].to_mesh(
                 bpy.data.scenes[self.scene], True, "PREVIEW"))
 
         # Get the textures used by all LODs for this model
