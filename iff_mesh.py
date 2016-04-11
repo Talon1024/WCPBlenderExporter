@@ -26,10 +26,10 @@ import warnings
 class Collider:
     # Collision sphere or BSP tree
 
-    collide_types = ["sphere", "bsp"]
+    COLLIDER_TYPES = ["sphere", "bsp"]
 
     def __init__(self, col_type, data, xdata=None):
-        if col_type not in collide_types:
+        if col_type not in self.COLLIDER_TYPES:
             raise ValueError("Invalid collider type %s!" % col_type)
 
         if col_type == "sphere" and not isinstance(data, Sphere):
@@ -37,12 +37,12 @@ class Collider:
                             "its type!")
 
         # if col_type == "bsp" and not isinstance(data, Sphere):
-        #     raise TypeError("Collider data for a BSP collider must match "
-        #                     "its type!")
+        #     raise TypeError("Collider data for a BSP collider must have a "
+        #                     "sphere and a BSP tree!")
         #
         # if col_type == "bsp" and not isinstance(xdata, bsp.BSPTree):
-        #     raise TypeError("Collider data for a BSP collider must match "
-        #                     "its type!")
+        #     raise TypeError("Collider data for a BSP collider must have a "
+        #                     "sphere and a BSP tree!")
 
         if col_type == "bsp":
             raise TypeError("BSP trees are not yet supported!")
