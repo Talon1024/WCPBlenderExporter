@@ -179,19 +179,11 @@ class ModelManager:
         if no_lod_idx is not None:
             self.lods = self.lods[:no_lod_idx]
 
+        del no_lod_idx
+
         print("self.lods:", self.lods)
 
-        # Get the hardpoints associated with this model
-        for lod_idx in range(len(self.lods)):
-            for obj in bpy.data.scenes[self.scene].objects:
-                if (obj.parent is not None and
-                    obj.parent.name == self.lods[lod_idx] and
-                    obj.type == "EMPTY" and obj.hide is False and
-                        self.HARDPOINT_RE.match(obj.name)):
-                    hpname = self.HARDPOINT_RE.match(obj.name).group(1)
-                    hpmatrix = obj.rotation_euler.to_matrix().to_3x3()
-                    hardpt = iff_mesh.Hardpoint(hpmatrix, obj.location, hpname)
-                    self.hardpoints.append(hardpt)
+        # Initialize lists that should be the same length as self.lods
 
         # Get LOD ranges for this model
         for lod_idx in range(len(self.lods)):
@@ -210,6 +202,8 @@ class ModelManager:
                 else:
                     self.dranges.append(None)
 
+        print("dranges:", self.dranges)
+
         # Fill in blank LOD ranges
         for dr_idxa in range(len(self.dranges)):
             if self.dranges[dr_idxa] is None:
@@ -218,7 +212,7 @@ class ModelManager:
 
                 # Find closest value for drange_after
                 for dr_idxb in range(dr_idxa, len(self.dranges)):
-                    if dr_idxb is not None:
+                    if self.dranges[dr_idxb] is not None:
                         break
                     else:
                         empty_dranges += 1
@@ -231,8 +225,8 @@ class ModelManager:
                     drange_after = 500.0 * (empty_dranges + 1) + drange_before
 
                 if drange_after < drange_before:
-                    raise ValueError("drange_after must be greater than "
-                                     "drange_before!")
+                    raise ValueError("Each detail range must be greater than "
+                                     "the one before it!")
 
                 # Find interval and index of last detail range
                 drange_interval = (
@@ -270,13 +264,25 @@ class ModelManager:
 
                 x, z, y = lod_obj.location
                 r = max(lod_obj.dimensions) / 2
-                self.dsphrs[lod_idx] = iff_mesh.Sphere(x, y, z, r)
+                self.dsphrs.append(iff_mesh.Sphere(x, y, z, r))
 
             print("""LOD {}
 X: {},
 Y: {},
 Z: {},
 radius: {}""".format(lod_idx, x, y, z, r))
+
+        # Get the hardpoints associated with this model
+        for lod_idx in range(len(self.lods)):
+            for obj in bpy.data.scenes[self.scene].objects:
+                if (obj.parent is not None and
+                    obj.parent.name == self.lods[lod_idx] and
+                    obj.type == "EMPTY" and obj.hide is False and
+                        self.HARDPOINT_RE.match(obj.name)):
+                    hpname = self.HARDPOINT_RE.match(obj.name).group(1)
+                    hpmatrix = obj.rotation_euler.to_matrix().to_3x3()
+                    hardpt = iff_mesh.Hardpoint(hpmatrix, obj.location, hpname)
+                    self.hardpoints.append(hardpt)
 
         # Get the collider for this model
         if not self.gen_bsp:
