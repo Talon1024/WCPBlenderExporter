@@ -80,6 +80,8 @@ class IffReader:
                 "offset": orig_pos
             }
 
+            # =================================================================
+            #
             # NOTE: This method (as well as the similar skip_data method)
             # doesn't read everything inside a form, and if you're counting the
             # number of bytes to determine whether you've read the FORM
@@ -88,7 +90,7 @@ class IffReader:
             # representing the length of the FORM as a 32-bit unsigned integer
             # is counted as part of the inside of the FORM)
             #
-            # LIKE THIS
+            # ========================= LIKE THIS =============================
             #
             # form = iff.read_data()
             # ...
