@@ -543,6 +543,10 @@ class IFFExporter(ExportBackend):
         used_names = set()
 
         if self.export_active_only:
+            if bpy.context.active_object is None:
+                raise TypeError("You must have an object selected to export "
+                                "only the active object!")
+
             managers.append(ModelManager(
                 modelname, bpy.context.active_object.name, self.use_facetex,
                 self.generate_bsp, bpy.context.scene.name
