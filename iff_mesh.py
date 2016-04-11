@@ -28,7 +28,7 @@ class Collider:
 
     collide_types = ["sphere", "bsp"]
 
-    def __init__(self, col_type, data):
+    def __init__(self, col_type, data, xdata=None):
         if col_type not in collide_types:
             raise ValueError("Invalid collider type %s!" % col_type)
 
@@ -36,7 +36,11 @@ class Collider:
             raise TypeError("Collider data for a sphere collider must match "
                             "its type!")
 
-        # if type == "bsp" and not isinstance(data, bsp.BSPTree):
+        # if col_type == "bsp" and not isinstance(data, Sphere):
+        #     raise TypeError("Collider data for a BSP collider must match "
+        #                     "its type!")
+        #
+        # if col_type == "bsp" and not isinstance(xdata, bsp.BSPTree):
         #     raise TypeError("Collider data for a BSP collider must match "
         #                     "its type!")
 
@@ -45,6 +49,21 @@ class Collider:
 
         self.col_type = col_type
         self.data = data
+        self.xdata = xdata
+
+    def to_coll_form(self):
+        coll_form = iff.IffForm("COLL")
+        sphr_chnk = iff.IffChunk("SPHR")
+        sphr_chnk.add_member(self.data)
+        coll_form.add_member(sphr_chnk)
+
+        if self.col_type == "bsp":
+            if self.xdata is not None:
+                coll_form.add_member(self.xdata.to_form())
+            else:
+                raise TypeError("xdata must not be None!")
+
+        return coll_form
 
 
 class Sphere:
