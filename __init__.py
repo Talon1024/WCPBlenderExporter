@@ -26,7 +26,8 @@ from . import export_iff
 # ExportHelper is a helper class, defines filename and
 # invoke() function which calls the file selector.
 from bpy_extras.io_utils import ImportHelper, ExportHelper, axis_conversion
-from bpy.props import StringProperty, IntProperty, BoolProperty, EnumProperty
+from bpy.props import (StringProperty, IntProperty, BoolProperty, EnumProperty,
+                       FloatProperty)
 from bpy.types import Operator
 
 bl_info = {
@@ -143,13 +144,15 @@ class ExportIFF(Operator, ExportHelper):
         default=True
     )
 
-    # Not implemented as of now
-    # generate_bsp = BoolProperty(
-    #         name = "Generate BSP",
-    #         description = "Generate a BSP tree "
-    #         "(for corvette and capship hull/component meshes)",
-    #         default = False
-    #     )
+    # NOTE: BSP Tree generation is not implemented!
+    # As a fallback measure, I'm hard-coding this attribute for now.
+    generate_bsp = BoolProperty(
+        name="Generate BSP",
+        description="Generate a BSP tree "
+        "(for corvette and capship hull/component meshes)",
+        default=False,
+        options={"HIDDEN"}
+    )
 
     axis_forward = EnumProperty(
         name="Forward Axis",
@@ -188,6 +191,17 @@ class ExportIFF(Operator, ExportHelper):
         default=False
     )
 
+    drang_increment = FloatProperty(
+        name="LOD Range increment",
+        description="The default increment value for LOD ranges, if the user "
+        "did not supply LOD ranges.",
+        subtype="UNSIGNED",
+        unit="LENGTH",
+        min=0.0,
+        max=10000.0,
+        default=500.0
+    )
+
     # Useless. Other exporters for Blender use separate classes for other
     # formats.
     # output_format = EnumProperty(
@@ -223,16 +237,12 @@ class ExportIFF(Operator, ExportHelper):
             self.axis_forward, self.axis_up, "Z", "Y"
         ).to_4x4()
 
-        # NOTE: BSP Tree generation is not implemented!
-        # As a fallback measure, I'm hard-coding this attribute for now.
-        self.generate_bsp = False
-
         # self.output_version = "12"
 
         exporter = getattr(export_iff, self.backend_class_name)(
             self.filepath, self.texnum, self.apply_modifiers,
             self.active_as_lod0, self.use_facetex, wc_orientation_matrix,
-            self.include_far_chunk, self.generate_bsp
+            self.include_far_chunk, self.drang_increment, self.generate_bsp
         )
 
         exporter.export()
