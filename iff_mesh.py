@@ -64,6 +64,10 @@ class Collider:
 
         return coll_form
 
+    def __str__(self):
+        return "{0} collider: ({1!s}, {2!s})".format(
+            self.col_type, self.data, self.xdata)
+
 
 class Sphere:
     # CNTR/RADI chunks for each LOD
@@ -129,6 +133,10 @@ class Sphere:
         r = struct.unpack("<f", radi_chunk)[0]
 
         return Sphere(x, y, z, r)
+
+    def __str__(self):
+        return "Sphere ({0.x:.4f}, {0.y:.4f}, {0.z:.4f}:{0.r:.4f})".format(
+            self)
 
 
 class Hardpoint:
@@ -204,6 +212,11 @@ class Hardpoint:
         hardpt_name = read_cstring(chunk_data, hardpt_name_ofs)
 
         return Hardpoint(hardpt_rot, hardpt_loc, hardpt_name)
+
+    def __str__(self):
+        return "Hardpoint \"{0}\" ({1.x:.4f}, {1.y:.4f}, {1.z:.4f})".format(
+            self.name, self.location
+        )
 
 
 class MeshLODForm(iff.IffForm):
