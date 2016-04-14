@@ -267,9 +267,9 @@ class ModelManager:
                 self.dsphrs.append(iff_mesh.Sphere(x, y, z, r))
 
             print("""LOD {}
-X: {},
-Y: {},
-Z: {},
+X: {}
+Y: {}
+Z: {}
 radius: {}""".format(lod_idx, x, y, z, r))
 
         # Get the hardpoints associated with this model
@@ -339,20 +339,21 @@ radius: {}""".format(lod_idx, x, y, z, r))
                         tfmtl_flat = True
                         if tfmtl not in self.materials:
                             self.materials.append(tfmtl)
-
-                    # Use first valid texture slot
-                    for tfmtx in tfmtl.texture_slots:
-                        if (tfmtx.texture_coords == "UV" and
-                            isinstance(tfmtx.texture, bpy.types.ImageTexture)
-                                and tfmtx.texture.image is not None):
-                            if tfmtl not in self.materials:
-                                self.materials.append(tfmtl)
-                            break
                     else:
-                        raise ValueError(
-                            "Found no valid texture slots! You must have at "
-                            "least one UV-mapped image texture assigned to "
-                            "each material that the mesh uses.")
+                        # Use first valid texture slot
+                        for tfmtx in tfmtl.texture_slots:
+                            if (tfmtx.texture_coords == "UV" and
+                                isinstance(tfmtx.texture,
+                                           bpy.types.ImageTexture)
+                                    and tfmtx.texture.image is not None):
+                                if tfmtl not in self.materials:
+                                    self.materials.append(tfmtl)
+                                break
+                        else:
+                            raise ValueError(
+                                "Found no valid texture slots! You must have "
+                                "at least one UV-mapped image texture assigned"
+                                " to each material that the mesh uses.")
             else:
                 # Face textures (visible in Multitexture viewport render mode)
                 for tfuv in self.lodms[lodmi].tessface_uv_textures.active.data:
@@ -362,6 +363,8 @@ radius: {}""".format(lod_idx, x, y, z, r))
 
                     if tfuv.image not in self.materials:
                         self.materials.append(tfuv.image)
+
+        print("Materials used by this model:", repr(self.materials))
 
 
 class ExportBackend:
