@@ -82,18 +82,18 @@ class ModelManager:
     # prefix for BSP collider definition objects
     COLLMESH_PFX = "collmesh"
 
-    def __init__(self, exp_fname, base_obj, use_facetex=False, gen_bsp=False,
-                 scene=bpy.context.scene.name):
+    def __init__(self, exp_fname, base_obj, use_facetex, drang_increment,
+                 gen_bsp, scene_name):
 
         if not isinstance(exp_fname, str):
             raise TypeError("Export filename must be a string!")
-        if scene not in bpy.data.scenes:
+        if scene_name not in bpy.data.scenes:
             raise TypeError("scene must be the name of a Blender scene!")
-        if base_obj not in bpy.data.scenes[scene].objects:
+        if base_obj not in bpy.data.scenes[scene_name].objects:
             raise TypeError("base_obj must be the name of a Blender mesh "
                             "object in the given scene!")
 
-        self.scene = scene  # Name of the scene to use
+        self.scene = scene_name  # Name of the scene to use
         self.base_name = exp_fname
         self.name_scheme = 0
         base_lod = self._get_lod(base_obj, True)  # Determine base object LOD
@@ -106,6 +106,7 @@ class ModelManager:
         self.lods[base_lod] = base_obj
         self.hardpoints = []
         self.dranges = [float(0)]
+        self.drang_increment = drang_increment
         self.dsphrs = []  # will contain CNTR/RADI Sphere objects.
         self.gen_bsp = gen_bsp
         self.collider = None
@@ -202,7 +203,7 @@ class ModelManager:
                 else:
                     self.dranges.append(None)
 
-        print("dranges:", self.dranges)
+        print("dranges (b4):", self.dranges)
 
         # Fill in blank LOD ranges
         for dr_idxa in range(len(self.dranges)):
@@ -222,7 +223,8 @@ class ModelManager:
                 except IndexError:
                     # There's no known detail ranges after this one,
                     # so generate them
-                    drange_after = 500.0 * (empty_dranges + 1) + drange_before
+                    drange_after = (self.drang_increment *
+                                    (empty_dranges + 1) + drange_before)
 
                 if drange_after < drange_before:
                     raise ValueError("Each detail range must be greater than "
@@ -242,6 +244,8 @@ class ModelManager:
                         repeat(drange_interval, empty_dranges),
                         range(1, empty_dranges + 1)
                     )]
+
+        print("dranges (after):", self.dranges)
 
         # Get CNTR/RADI data for each LOD
         for lod_idx in range(len(self.lods)):
@@ -377,6 +381,7 @@ class ExportBackend:
                  use_facetex=False,
                  wc_orientation_matrix=None,
                  include_far_chunk=True,
+                 drang_increment=500.0,
                  generate_bsp=False):
         self.filepath = filepath
         self.start_texnum = start_texnum
@@ -385,6 +390,7 @@ class ExportBackend:
         self.use_facetex = use_facetex
         self.wc_orientation_matrix = wc_orientation_matrix
         self.include_far_chunk = include_far_chunk
+        self.drang_increment = drang_increment
         self.generate_bsp = generate_bsp
 
     def calc_dplane(self, vert, facenrm):
@@ -558,7 +564,7 @@ class IFFExporter(ExportBackend):
 
             managers.append(ModelManager(
                 modelname, bpy.context.active_object.name, self.use_facetex,
-                self.generate_bsp, bpy.context.scene.name
+                self.drang_increment, self.generate_bsp, bpy.context.scene.name
             ))
         else:
             for obj in bpy.context.scene.objects:
@@ -574,7 +580,8 @@ class IFFExporter(ExportBackend):
                         if obj_match.group(1) not in used_names:
                             managers.append(ModelManager(
                                 modelname, obj.name, self.use_facetex,
-                                self.generate_bsp, bpy.context.scene.name
+                                self.drang_increment, self.generate_bsp,
+                                bpy.context.scene.name
                             ))
                             used_names.add(obj_match.group(1))
 
