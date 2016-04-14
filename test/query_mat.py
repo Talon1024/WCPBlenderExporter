@@ -17,6 +17,7 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 # -*- coding: utf8 -*-
 
+import array
 import argparse
 import struct
 from os import getcwd
@@ -34,7 +35,10 @@ class IffMatReader:
         from iff_read import IffReader
         self.iff = IffReader(iff_fname)
         # self.out_mode = out_mode
-        self.pal = ''
+        self.pal = None
+        self.alfd = None
+        self.pald = array.array("B")
+        self.pxld = array.array("B")
         self.info = {}
         self.hots = []
 
@@ -47,6 +51,7 @@ class IffMatReader:
     def parse_pal_form(self, pal_form):
         pal_read = 4
         pal = ''
+        pald = array.array("B")
 
         while pal_read < pal_form["length"]:
             pal_chunk = self.iff.read_data()
@@ -54,17 +59,30 @@ class IffMatReader:
             if pal_chunk["type"] == 'chunk' and pal_chunk["name"] == b"NAME":
                 pal = 'external:{}'.format(self.parse_cstr(pal_chunk["data"]))
             elif pal_chunk["type"] == 'chunk' and pal_chunk["name"] == b"CMAP":
-                pass
-                # pal = 'embedded:{}'.format(", ".join([
-                #     "(r:{0}, g:{1}, b:{2})".format(
-                #         struct.unpack_from(self.PAL_FMT, pal_chunk["data"], x)
-                #         for x in range(0, pal_chunk["length"], 3)
-                #     )
-                # ]))
+                pal = 'embedded'
+                pald.frombytes(pal_chunk["data"])
 
             pal_read += 8 + pal_chunk["length"]
 
-        return pal
+        return pal, pald
+
+    def parse_pxls_chunk(self, pxls_chunk):
+        if self.pal == "embedded":
+            pxld = array.array("B")
+
+            for index in pxls_chunk["data"]:
+                bindex = index * 3
+                pxld.extend(self.pald[bindex:bindex + 3])
+
+            return pxld
+
+    def get_default_alpha(self, pxls_chunk):
+        alfd = array.array("B")
+
+        for index in pxls_chunk["data"]:
+            alfd.append(0 if index == 0 else 255)
+
+        return alfd
 
     def parse_cstr(self, data, offset=0):
         cstr = bytearray()
@@ -91,11 +109,14 @@ class IffMatReader:
                     elif mdata["type"] == 'chunk' and mdata["name"] == b'HOTS':
                         self.hots = self.parse_hots_chunk(mdata)
                     elif mdata["type"] == 'form' and mdata["name"] == b'PAL ':
-                        self.pal = self.parse_pal_form(mdata)
+                        self.pal, self.pald = self.parse_pal_form(mdata)
                     elif mdata["type"] == 'chunk' and mdata["name"] == b'PXLS':
-                        pass
+                        self.pxld = self.parse_pxls_chunk(mdata)
+                        self.alfd = self.get_default_alpha(mdata)
                     elif mdata["type"] == 'chunk' and mdata["name"] == b'ALPH':
-                        pass
+                        self.alfd = array.array("B")
+                        self.alfd.fromlist(
+                            [chr(255 - ord(x)) for x in mdata["data"]])
                     else:
                         print_iff_data(mdata)
 
@@ -108,6 +129,19 @@ class IffMatReader:
             print_iff_data(root_form)
             raise TypeError("Invalid MAT type! (no BITM form found! "
                             "Root form is: %s)" % root_form["name"])
+
+    def set_palette(self, pal_file):
+        from iff_read import IffReader
+        pal_reader = IffReader(pal_file)
+        pald = pal_reader.read_data()
+
+        if pald["type"] == 'form' and pald["name"] == b'PAL ':
+            cmap = pal_reader.read_data()
+            if cmap["type"] == 'chunk' and cmap["name"] == b'CMAP':
+                self.pald = cmap["data"]
+            else:
+                print_iff_data(cmap)
+                raise TypeError("Expected CMAP chunk in palette file!")
 
 
 def print_iff_data(iffthing):
@@ -123,13 +157,16 @@ if __name__ == '__main__':
     argp = argparse.ArgumentParser(
         description="Get information about a VISION engine MAT texture.")
 
-    argp.add_argument('mat', action='store', nargs='+', metavar='mesh.iff',
+    argp.add_argument('mat',
+                      action='store', nargs='+', metavar='mesh.iff',
                       help="The MAT to query.")
 
-    argp.add_argument('--out-format', action='store', nargs='?',
-                      metavar='FORMAT', dest='out_fmt', required=False,
-                      default='tty', const='tty', choices=['tty', 'json'],
-                      help="The format to output the data in.")
+    argp.add_argument('-o', '-of', '--out-format',
+                      action='store', nargs='?', metavar='FORMAT',
+                      dest='out_fmt', required=False, default='tty',
+                      const='tty', choices=['tty', 'json', 'gui'],
+                      help="The format to output the data in. Can be 'tty', "
+                      "'json', or 'gui'.")
 
     args = argp.parse_args()
 
@@ -138,14 +175,14 @@ if __name__ == '__main__':
 
     for cur_mat, matf in enumerate(matfs):
 
-        if out_mode == "tty":
-            print("--- MAT: %s ---" % matf)
-
         mat_reader = IffMatReader(matf)
+
         try:
             mat_reader.read()
 
             if out_mode == "tty":
+                print("--- MAT: %s ---" % matf)
+                print()
                 print("--- INFO ---")
                 print("Width: %d" % mat_reader.info["width"])
                 print("Height: %d" % mat_reader.info["height"])
@@ -156,7 +193,35 @@ if __name__ == '__main__':
 
                 if mat_reader.pal.startswith("external:"):
                     print("External palette: %s" % mat_reader.pal[9:])
+            elif out_mode == "gui":
+                import PySide
+                from PySide.QtCore import *
+                from PySide.QtGui import *
+                import sys
+                app = PySide.QtGui.QApplication(sys.argv)
+                layout_frame = PySide.QtGui.QFrame()
+                # layout_root = PySide.QtGui.QVBoxLayout(layout_frame)
+                # layout_top = PySide.QtGui.QHBoxLayout(layout_root)
+                # layout_btm = PySide.QtGui.QHBoxLayout(layout_root)
+                #
+                # prev_btn = PySide.QtGui.QPushButton(
+                #    "&Prev", layout_btm)
+                # pal_btn = PySide.QtGui.QPushButton(
+                #    "Load P&alette", layout_btm)
+                # next_btn = PySide.QtGui.QPushButton(
+                #    "&Next", layout_btm)
+                prev_btn = PySide.QtGui.QPushButton(
+                    "&Prev", layout_frame)
+                pal_btn = PySide.QtGui.QPushButton(
+                    "Load P&alette", layout_frame)
+                next_btn = PySide.QtGui.QPushButton(
+                    "&Next", layout_frame)
+
+                layout_frame.show()
+
+                app.exec_()
         except TypeError as te:
             print(str(te))
-        except:
-            print("Something happened while attempting to parse %s!" % matf)
+        except Exception as ex:
+            print("Something happened while attempting to parse %s!: %s" %
+                  (matf, ex))
