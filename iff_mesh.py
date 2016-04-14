@@ -53,8 +53,7 @@ class Collider:
 
     def to_coll_form(self):
         coll_form = iff.IffForm("COLL")
-        sphr_chnk = iff.IffChunk("SPHR")
-        sphr_chnk.add_member(self.data)
+        sphr_chnk = self.data.to_collsphr_chunk()
         coll_form.add_member(sphr_chnk)
 
         if self.col_type == "bsp":
