@@ -182,7 +182,7 @@ class ModelManager:
 
         del no_lod_idx
 
-        print("self.lods:", self.lods)
+        print("LOD object names:", self.lods)
 
         # Initialize lists that should be the same length as self.lods
 
@@ -288,6 +288,10 @@ radius: {}""".format(lod_idx, x, y, z, r))
                     hardpt = iff_mesh.Hardpoint(hpmatrix, obj.location, hpname)
                     self.hardpoints.append(hardpt)
 
+        print("========== Hardpoints ==========")
+        for hp in self.hardpoints:
+            print(hp)
+
         # Get the collider for this model
         if not self.gen_bsp:
             for lod_idx in reversed(range(len(self.lods))):
@@ -315,6 +319,8 @@ radius: {}""".format(lod_idx, x, y, z, r))
         else:
             raise NotImplementedError(
                 "BSP Tree generation is not yet supported!")
+
+        print("Collider:", self.collider)
 
         # Convert all LOD objects to meshes to populate the LOD mesh list.
         for lod in self.lods:
