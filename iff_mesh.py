@@ -313,6 +313,9 @@ class MeshLODForm(iff.IffForm):
         self._face_chunk.add_member(alt_mat)  # Unknown (alternate MAT?)
 
     def set_center(self, cx, cy, cz):
+        warnings.warn("set_center is deprecated! Use set_cntradi instead.",
+                      DeprecationWarning)
+
         if self._cntr_chunk.has_members():
             self._cntr_chunk.clear_members()
         if (isinstance(cx, float) and
@@ -326,12 +329,29 @@ class MeshLODForm(iff.IffForm):
                             " values!")
 
     def set_radius(self, radius):
+        warnings.warn("set_radius is deprecated! Use set_cntradi instead.",
+                      DeprecationWarning)
+
         if self._radi_chunk.has_members():
             self._radi_chunk.clear_members()
         if isinstance(radius, float):
             self._radi_chunk.add_member(radius)
         else:
             raise TypeError("Radius must be a floating point value!")
+
+    def set_cntradi(self, sphere):
+
+        if not isinstance(sphere, Sphere):
+            raise TypeError("You must use a valid Sphere object to set the "
+                            "center location and radius for this LOD.")
+
+        self._cntr_chunk.clear_members()
+        self._radi_chunk.clear_members()
+
+        self._cntr_chunk.add_member(sphere.x)
+        self._cntr_chunk.add_member(sphere.y)
+        self._cntr_chunk.add_member(sphere.z)
+        self._radi_chunk.add_member(sphere.r)
 
     # Do not use! These methods are only here for backwards compatibility
     def get_name_chunk(self):
@@ -417,8 +437,7 @@ class MeshIff(iff.IffFile):
             raise TypeError("collider must be a valid Collider in order to "
                             "use it for this model!")
 
-        if self._mcoll.has_members():
-            self._mcoll.clear_members()
+        self._mcoll.clear_members()
 
         if collider.col_type == 'sphere':
             self._mcoll.add_member(collider.data.to_collsphr_chunk())
