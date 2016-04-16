@@ -33,8 +33,7 @@ class Collider:
             raise ValueError("Invalid collider type %s!" % col_type)
 
         if col_type == "sphere" and not isinstance(data, Sphere):
-            raise TypeError("Collider data for a sphere collider must match "
-                            "its type!")
+            raise TypeError("A sphere collider must have a sphere!")
 
         # if col_type == "bsp" and not isinstance(data, Sphere):
         #     raise TypeError("Collider data for a BSP collider must have a "
@@ -398,6 +397,9 @@ class MeshIff(iff.IffFile):
             self.root_form.add_member(self._mfar)
 
     def make_coll_sphr(self, X, Y, Z, radius):
+        warnings.warn("make_coll_sphr is deprecated! "
+                      "Use set_collider instead.", DeprecationWarning)
+
         if self._mcoll.has_members():
             for mem in range(self._mcoll.get_num_members()):
                 self._mcoll.remove_member(mem)
@@ -409,8 +411,16 @@ class MeshIff(iff.IffFile):
         _mcollsphr.add_member(radius)
         self._mcoll.add_member(_mcollsphr)
 
-    def make_coll_tree(self):
-        return NotImplemented
+    def set_collider(self, collider):
+        if not isinstance(collider, Collider):
+            raise TypeError("collider must be a valid Collider in order to "
+                            "use it for this model!")
+
+        if collider.col_type == 'sphere':
+            self._mcoll.add_member(collider.data.to_collsphr_chunk())
+        elif collider.col_type == 'bsp':
+            self._mcoll.add_member(collider.data.to_collsphr_chunk())
+            self._mcoll.add_member(collider.xdata.to_tree_form())
 
     def add_hardpt(self, x, y, z, rot_matrix, name):
         hardpt = iff.IffChunk("HARD")
