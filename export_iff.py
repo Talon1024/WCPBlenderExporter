@@ -56,7 +56,8 @@ class TypeWarning(Warning):
 
 class ModelManager:
     # Manages the LODs for a mesh to export.
-    # Scans for a base LOD 0 mesh and other related LODs in a given scene.
+    # Each instance of this class should be exportable to a mesh IFF.
+    # Scans for a base LOD mesh and other related LODs in a given scene.
 
     MAX_NUM_LODS = 5
 
@@ -113,6 +114,7 @@ class ModelManager:
         self.use_mtltex = not use_facetex
         self.materials = []  # Materials for all LODs
         self.unique_normals = []
+        self.children = []
 
     def _get_lod(self, lod_obj, base=False):
         lod = MAIN_LOD_RE.match(lod_obj)
@@ -375,6 +377,14 @@ radius: {}""".format(lod_idx, x, y, z, r))
                         self.materials.append(tfuv.image)
 
         print("Materials used by this model:", repr(self.materials))
+
+        # Scan for direct child objects.
+        for obj in bpy.data.scenes[self.scene].objects:
+            child_basename = CHLD_LOD_RE.match(obj.name)
+            if (obj.parent.name in self.lods and obj.hide is False and
+                obj.type == "MESH" and child_basename is not None and
+                    child_basename.group(1) not in self.children):
+                self.children.append(child_basename.group(1))
 
 
 class ExportBackend:
