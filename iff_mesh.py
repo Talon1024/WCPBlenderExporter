@@ -364,8 +364,9 @@ class MeshLODForm(iff.IffForm):
 
 
 class MeshIff(iff.IffFile):
-    def __init__(self, filename, include_far_chunk,
-                 dranges=[float(0), float(400), float(800)]):
+    # Manages the IFF data for a VISION engine 3D model.
+
+    def __init__(self, filename, include_far_chunk, dranges):
 
         if not isinstance(include_far_chunk, bool):
             raise TypeError("include_far_chunk must be a boolean value!")
@@ -415,6 +416,9 @@ class MeshIff(iff.IffFile):
         if not isinstance(collider, Collider):
             raise TypeError("collider must be a valid Collider in order to "
                             "use it for this model!")
+
+        if self._mcoll.has_members():
+            self._mcoll.clear_members()
 
         if collider.col_type == 'sphere':
             self._mcoll.add_member(collider.data.to_collsphr_chunk())
