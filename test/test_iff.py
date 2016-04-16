@@ -63,7 +63,7 @@ class TestIFF(unittest.TestCase):
 
         # Exception testing.
         # Invalid Chunk ID
-        self.assertRaises(ValueError, iff.IffChunk, ("\x02Aéâ"))
+        self.assertRaises(ValueError, iff.IffChunk, ("\x02Aé\xFF"))
         # Invalid member types
         self.assertRaises(TypeError, iff.IffChunk, "META",
                           [iff.IffChunk("SETA"), iff.IffForm("ZETA")])
@@ -81,6 +81,17 @@ class TestIFF(unittest.TestCase):
             b'PONF\x00\x00\x00\x19\x1F\x85EAI am poncho man!\x0090\x00\x00'
             b'\x00',
             self.iffc_ponf.to_bytes(), 'chunk PONF is outputting incorrectly')
+
+        # Test clear_members method of IffChunk
+        void_chnk = iff.IffChunk("VOID")
+        void_chnk.add_member(42)
+        void_chnk.clear_members()
+
+        self.assertEqual(
+            0, void_chnk.get_length(),
+            'chunk VOID is wrong length after clearing its members!')
+        self.assertEqual("VOID\x00\x00\x00\x00", void_chnk.to_bytes(),
+                         'chunk VOID is outputting incorrectly!')
 
     def test_form(self):
         """Check root form length and content"""
