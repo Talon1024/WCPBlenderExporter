@@ -381,10 +381,13 @@ radius: {}""".format(lod_idx, x, y, z, r))
         # Scan for direct child objects.
         for obj in bpy.data.scenes[self.scene].objects:
             child_basename = CHLD_LOD_RE.match(obj.name)
-            if (obj.parent.name in self.lods and obj.hide is False and
-                obj.type == "MESH" and child_basename is not None and
+            if (obj.parent is not None and obj.parent.name in self.lods and
+                obj.hide is False and obj.type == "MESH" and
+                child_basename is not None and
                     child_basename.group(1) not in self.children):
                 self.children.append(child_basename.group(1))
+
+        print("Child base objects:", self.children)
 
 
 class ExportBackend:
