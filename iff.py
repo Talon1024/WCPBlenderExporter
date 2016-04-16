@@ -186,6 +186,11 @@ class IffChunk(IffForm):
             self._length -= len(memberToRemove)
         self._members.remove(memberToRemove)
 
+    def clear_members(self):
+        """Remove all members from this FORM"""
+        self._members = []
+        self._length = 0
+
     def to_xmf(self):
         """
         Returns an XMF string.
