@@ -145,9 +145,9 @@ class ModelManager:
         for lod in range(self.MAX_NUM_LODS):
             lod_name = ""
             if self.name_scheme == self.LOD_NSCHEME_DETAIL:
-                lod_name = "detail-%d" % lod
+                lod_name = "detail-{}".format(lod)
             elif self.name_scheme == self.LOD_NSCHEME_CHLD:
-                lod_name = "%s-lod%d" % (self.base_name, lod)
+                lod_name = "{}-lod{}".format(self.base_name, lod)
 
             if (lod_name in bpy.data.scenes[self.scene].objects and
                     lod_name != self.base_obj):
@@ -158,11 +158,13 @@ class ModelManager:
                                     .objects[lod_name].hide is False):
                                 self.lods[lod] = lod_name
                     else:
-                        raise TypeError("Object %s is not a mesh!" % lod_name)
+                        raise TypeError("Object {} is not a mesh!".format(
+                                        lod_name))
                 else:
                     raise ValueError(
-                        "Tried to set LOD %d to object %s, but it was already "
-                        "set to object %s!" % (lod, lod_name, self.lods[lod]))
+                        "Tried to set LOD {} to object {}, but it was already "
+                        "set to object {}!".format(
+                            lod, lod_name, self.lods[lod]))
 
         # Ensure the LODs array is consistent
         if self.lods[0] is None:
@@ -178,7 +180,7 @@ class ModelManager:
                 if lod_obj is not None:
                     raise TypeError(
                         "Inconsistent LODs. A LOD object was found after lod "
-                        "%d (%s)." % (no_lod_idx, lod_obj))
+                        "{} ({}).".format(no_lod_idx, lod_obj))
 
         if no_lod_idx is not None:
             self.lods = self.lods[:no_lod_idx]
