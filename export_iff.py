@@ -296,15 +296,17 @@ radius: {}""".format(lod_idx, x, y, z, r))
         hpnames = []
         for hp in self.hardpoints:
             if hp.name in hpnames:
-                raise ValueError("You must not have two or more hardpoints "
-                                 "with the same name! (Hardpoint name is "
-                                 "stripped of .0xx extension)")
+                raise ValueError("Two or more hardpoints of the object {} "
+                                 "have the same name ({})! (Hardpoint name is "
+                                 "stripped of numeric extension)".format(
+                                     self.base_name, hp.name
+                                 ))
             hpnames.append(hp.name)
         del hpnames
 
         print("========== Hardpoints ==========")
         for hp, hpob in zip(self.hardpoints, self.hpobnames):
-            print(hp, ": (%s)" % hpob)
+            print(hp, ": ({})".format(hpob))
 
         # Get the collider for this model
         if not self.gen_bsp:
