@@ -106,6 +106,7 @@ class ModelManager:
         self.lodms = []  # LOD object meshes (converted from objects)
         self.lods[base_lod] = base_obj
         self.hardpoints = []
+        self.hpobnames = []
         self.dranges = [float(0)]
         self.drang_increment = drang_increment
         self.dsphrs = []  # will contain CNTR/RADI Sphere objects.
@@ -289,10 +290,21 @@ radius: {}""".format(lod_idx, x, y, z, r))
                     hpmatrix = obj.rotation_euler.to_matrix().to_3x3()
                     hardpt = iff_mesh.Hardpoint(hpmatrix, obj.location, hpname)
                     self.hardpoints.append(hardpt)
+                    self.hpobnames.append(obj.name)
+
+        # Ensure there are no hardpoint name conflicts
+        hpnames = []
+        for hp in self.hardpoints:
+            if hp.name in hpnames:
+                raise ValueError("You must not have two or more hardpoints "
+                                 "with the same name! (Hardpoint name is "
+                                 "stripped of .0xx extension)")
+            hpnames.append(hp.name)
+        del hpnames
 
         print("========== Hardpoints ==========")
-        for hp in self.hardpoints:
-            print(hp)
+        for hp, hpob in zip(self.hardpoints, self.hpobnames):
+            print(hp, ": (%s)" % hpob)
 
         # Get the collider for this model
         if not self.gen_bsp:
@@ -378,14 +390,16 @@ radius: {}""".format(lod_idx, x, y, z, r))
 
         print("Materials used by this model:", repr(self.materials))
 
-        # Scan for direct child objects.
+        # Scan for child objects.
         for obj in bpy.data.scenes[self.scene].objects:
             child_basename = CHLD_LOD_RE.match(obj.name)
-            if (obj.parent is not None and obj.parent.name in self.lods and
-                obj.hide is False and obj.type == "MESH" and
-                child_basename is not None and
+            if (obj.parent is not None and (obj.parent.name in self.lods or
+                obj.parent.name in self.hpobnames) and obj.hide is False and
+                obj.type == "MESH" and child_basename is not None and
                     child_basename.group(1) not in self.children):
-                self.children.append(child_basename.group(1))
+                self.children.append(
+                    (obj.parent.name, child_basename.group(1))
+                )
 
         print("Child base objects:", self.children)
 
