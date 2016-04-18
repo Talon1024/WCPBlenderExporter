@@ -366,7 +366,7 @@ radius: {}""".format(lod_idx, x, y, z, r))
                     if len(tfmtl.texture_slots) == 0:
                         tfmtl_flat = True
                         if tfmtl not in self.materials:
-                            self.materials.append(tfmtl)
+                            self.materials.append((tfmtl_flat, tfmtl))
                     else:
                         # Use first valid texture slot
                         for tfmtx in tfmtl.texture_slots:
@@ -375,7 +375,7 @@ radius: {}""".format(lod_idx, x, y, z, r))
                                            bpy.types.ImageTexture)
                                     and tfmtx.texture.image is not None):
                                 if tfmtl not in self.materials:
-                                    self.materials.append(tfmtl)
+                                    self.materials.append((tfmtl_flat, tfmtl))
                                 break
                         else:
                             raise ValueError(
@@ -385,14 +385,20 @@ radius: {}""".format(lod_idx, x, y, z, r))
             else:
                 # Face textures (visible in Multitexture viewport render mode)
                 for tfuv in self.lodms[lodmi].tessface_uv_textures.active.data:
+                    tfmtl_flat = False
+
                     if tfuv.image is None:
-                        raise ValueError(
-                            "Each face must have an image assigned to it!")
+                        tfmtl_flat = True
 
                     if tfuv.image not in self.materials:
-                        self.materials.append(tfuv.image)
+                        if not tfmtl_flat:
+                            self.materials.append((tfmtl_flat, tfuv.image))
+                        else:
+                            self.materials.append((tfmtl_flat, "0x7fRRGGBB"))
 
-        print("Materials used by this model:", repr(self.materials))
+        print("Materials used by this model:")
+        for mtl in self.materials:
+            print(mtl[1], "(Flat)" if mtl[0] else "(Textured)")
 
         # Scan for child objects.
         for obj in bpy.data.scenes[self.scene].objects:
