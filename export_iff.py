@@ -163,8 +163,8 @@ class ModelManager:
                 else:
                     raise ValueError(
                         "Tried to set LOD {} to object {}, but it was already "
-                        "set to object {}!".format(
-                            lod, lod_name, self.lods[lod]))
+                        "set to object {}!".format(lod, lod_name,
+                                                   self.lods[lod]))
 
         # Ensure the LODs array is consistent
         if self.lods[0] is None:
@@ -305,6 +305,8 @@ radius: {}""".format(lod_idx, x, y, z, r))
                                  ))
             hpnames.append(hp.name)
         del hpnames
+
+        self.hardpoints.sort(key=lambda hp: hp.name.lower())
 
         print("========== Hardpoints ==========")
         for hp, hpob in zip(self.hardpoints, self.hpobnames):
