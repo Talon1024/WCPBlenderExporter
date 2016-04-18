@@ -365,7 +365,7 @@ radius: {}""".format(lod_idx, x, y, z, r))
                     # this material.
                     if len(tfmtl.texture_slots) == 0:
                         tfmtl_flat = True
-                        if tfmtl not in self.materials:
+                        if (tfmtl_flat, tfmtl) not in self.materials:
                             self.materials.append((tfmtl_flat, tfmtl))
                     else:
                         # Use first valid texture slot
@@ -374,7 +374,7 @@ radius: {}""".format(lod_idx, x, y, z, r))
                                 isinstance(tfmtx.texture,
                                            bpy.types.ImageTexture)
                                     and tfmtx.texture.image is not None):
-                                if tfmtl not in self.materials:
+                                if (tfmtl_flat, tfmtl) not in self.materials:
                                     self.materials.append((tfmtl_flat, tfmtl))
                                 break
                         else:
@@ -390,10 +390,11 @@ radius: {}""".format(lod_idx, x, y, z, r))
                     if tfuv.image is None:
                         tfmtl_flat = True
 
-                    if tfuv.image not in self.materials:
-                        if not tfmtl_flat:
+                    if not tfmtl_flat:
+                        if (tfmtl_flat, tfuv.image) not in self.materials:
                             self.materials.append((tfmtl_flat, tfuv.image))
-                        else:
+                    else:
+                        if (tfmtl_flat, "0x7fRRGGBB") not in self.materials:
                             self.materials.append((tfmtl_flat, "0x7fRRGGBB"))
 
         print("Materials used by this model:")
