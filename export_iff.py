@@ -306,8 +306,6 @@ radius: {}""".format(lod_idx, x, y, z, r))
             hpnames.append(hp.name)
         del hpnames
 
-        self.hardpoints.sort(key=lambda hp: hp.name.lower())
-
         print("========== Hardpoints ==========")
         for hp, hpob in zip(self.hardpoints, self.hpobnames):
             print(hp, ": ({})".format(hpob))
