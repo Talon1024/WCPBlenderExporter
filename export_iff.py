@@ -99,6 +99,8 @@ class ModelManager:
         self.name_scheme = 0
         base_lod = self._get_lod(base_obj, True)  # Determine base object LOD
         self.base_obj = base_obj
+        self.base_parent = str(
+            bpy.data.scenes[scene_name].objects[base_obj].parent)
 
         # Names of LOD objects
         self.lods = [None for x in range(self.MAX_NUM_LODS)]
