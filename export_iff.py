@@ -141,10 +141,24 @@ class ModelManager:
             if base:
                 self.name_scheme = self.LOD_NSCHEME_CHLD
                 if self.base_parent.startswith("<bpy_struct, Object("):
+                    pobname = self.base_parent[21:-3]
+                    pobasename = ""
+                    if pobname.startswith("hp-"):
+                        # Parent object is a hardpoint
+                        pobasename = (
+                            bpy.data.scenes[self.scene]
+                            .objects[pobname].parent.name)
+                        pobasename = CHLD_LOD_RE.match(self.base_parent[21:-3])
+                        pobasename = pobasename.group(1)
+                    else:
+                        # Parent object is a model LOD object.
+                        pobasename = CHLD_LOD_RE.match(self.base_parent[21:-3])
+                        pobasename = pobasename.group(1)
                     self.exp_fname = "{}_{}".format(
-                        self.base_parent[21:-3], lod.group(1))
+                        pobasename, lod.group(1))
                 else:
                     self.exp_fname = lod.group(1)
+                print("Export filename: {}.iff".format(self.exp_fname))
                 self.base_name = lod.group(1)
             lod = int(lod.group(2))
             return lod
