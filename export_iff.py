@@ -406,8 +406,8 @@ radius: {}""".format(lod_idx, x, y, z, r))
                         for tfmtx in tfmtl.texture_slots:
                             if (tfmtx.texture_coords == "UV" and
                                 isinstance(tfmtx.texture,
-                                           bpy.types.ImageTexture)
-                                    and tfmtx.texture.image is not None):
+                                           bpy.types.ImageTexture) and
+                                    tfmtx.texture.image is not None):
                                 if (tfmtl_flat, tfmtl) not in self.materials:
                                     self.materials.append((tfmtl_flat, tfmtl))
                                 break
@@ -418,7 +418,12 @@ radius: {}""".format(lod_idx, x, y, z, r))
                                 " to each material that the mesh uses.")
             else:
                 # Face textures (visible in Multitexture viewport render mode)
-                for tfuv in self.lodms[lodmi].tessface_uv_textures.active.data:
+                print("length of tessfaces and tessface_uv_textures:",
+                      len(self.lodms[lodmi].tessfaces),
+                      len(self.lodms[lodmi].tessface_uv_textures.active.data))
+                for tf, tfuv in zip(
+                        self.lodms[lodmi].tessfaces,
+                        self.lodms[lodmi].tessface_uv_textures.active.data):
                     tfmtl_flat = False
 
                     if tfuv.image is None:
@@ -428,8 +433,17 @@ radius: {}""".format(lod_idx, x, y, z, r))
                         if (tfmtl_flat, tfuv.image) not in self.materials:
                             self.materials.append((tfmtl_flat, tfuv.image))
                     else:
-                        if (tfmtl_flat, "0x7fRRGGBB") not in self.materials:
-                            self.materials.append((tfmtl_flat, "0x7fRRGGBB"))
+                        if (self.lodms[lodmi].materials[tf.material_index]
+                                is None):
+                            raise TypeError("If the face does not have an "
+                                            "image assigned to it, it must "
+                                            "refer to a valid material.")
+                        tfmclr = (
+                            self.lodms[lodmi].materials[tf.material_index]
+                            .diffuse_color)
+                        tfmclr = [hex(round(cc * 255)) for cc in tfmclr]
+                        if (tfmtl_flat, tfmclr) not in self.materials:
+                            self.materials.append((tfmtl_flat, tfmclr))
 
         print("Materials used by this model:")
         for mtl in self.materials:
