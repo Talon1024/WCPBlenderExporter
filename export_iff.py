@@ -63,7 +63,9 @@ class ModelManager:
     # Each instance of this class should be exportable to a mesh IFF.
     # Scans for a base LOD mesh and other related LODs in a given scene.
 
-    MAX_NUM_LODS = 5
+    # AFAIK, most WCP/SO models have 3 LODs. I don't know if the VISION engine
+    # can support more LODs
+    MAX_NUM_LODS = 3
 
     # The LOD base object is a LOD for the main model.
     LOD_NSCHEME_DETAIL = 0
@@ -99,10 +101,11 @@ class ModelManager:
                             "object in the given scene!")
 
         self.scene = scene_name  # Name of the scene to use
-        self.base_name = exp_fname
-        self.name_scheme = 0
+        self.base_name = exp_fname  # Base object name
+        self.exp_fname = exp_fname  # Export filename
+        self.name_scheme = 0  # See LOD_NSCHEME constants above
         base_lod = self._get_lod(base_obj, True)  # Determine base object LOD
-        self.base_obj = base_obj
+        self.base_obj = base_obj  # Name of base object
         self.base_parent = str(
             bpy.data.scenes[scene_name].objects[base_obj].parent)
 
@@ -111,23 +114,25 @@ class ModelManager:
 
         self.lodms = []  # LOD object meshes (converted from objects)
         self.lods[base_lod] = base_obj
-        self.hardpoints = []
-        self.hpobnames = []
-        self.dranges = [float(0)]
+        self.hardpoints = []  # Hardpoints
+        self.hpobnames = []  # Hardpoint Blender object names
+        self.dranges = [float(0)]  # LOD ranges (RANG chunk)
         self.drang_increment = drang_increment
-        self.dsphrs = []  # will contain CNTR/RADI Sphere objects.
+        self.dsphrs = []  # CNTR/RADI spheres for each LOD.
         self.gen_bsp = gen_bsp
-        self.collider = None
+        self.collider = None  # COLL form
         self.use_mtltex = not use_facetex
         self.materials = []  # Materials for all LODs
         self.unique_normals = []
-        self.children = []
+        self.children = []  # Child objects
 
     def _get_lod(self, lod_obj, base=False):
         lod = MAIN_LOD_RE.match(lod_obj)
         if lod:
             if base:
                 self.name_scheme = self.LOD_NSCHEME_DETAIL
+                warnings.warn("detail-x LOD naming scheme is deprecated.",
+                              DeprecationWarning)
             lod = int(lod.group(1))
             return lod
 
@@ -135,6 +140,11 @@ class ModelManager:
         if lod:
             if base:
                 self.name_scheme = self.LOD_NSCHEME_CHLD
+                if self.base_parent.startswith("<bpy_struct, Object("):
+                    self.exp_fname = "{}_{}".format(
+                        self.base_parent[21:-3], lod.group(1))
+                else:
+                    self.exp_fname = lod.group(1)
                 self.base_name = lod.group(1)
             lod = int(lod.group(2))
             return lod
@@ -143,8 +153,6 @@ class ModelManager:
         if base:
             self.name_scheme = self.LOD_NSCHEME_CHLD
         return 0
-        # raise ValueError("Base object name matches neither detail nor X-lodY"
-        #                  "name schemes!")
 
     def setup(self):
         # Scan for valid LOD objects related to the base LOD object
@@ -631,6 +639,8 @@ class IFFExporter(ExportBackend):
                             self.generate_bsp, bpy.context.scene.name
                         ))
                         main_lod_used = True
+                        warnings.warn("detail-x LOD naming scheme is "
+                                      "deprecated.", DeprecationWarning)
                     else:
                         obj_match = CHLD_LOD_RE.match(obj.name)
                         if obj_match.group(1) not in used_names:

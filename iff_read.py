@@ -109,6 +109,7 @@ class IffReader:
             #
             #     # Add to bytes read counter.
             #     form_read += 8 + data["length"]
+            #     if data["length"] % 2 == 1: form_read += 1
 
         elif self.id_isvalid(head):
             name = head
