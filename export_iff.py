@@ -54,6 +54,10 @@ class TypeWarning(Warning):
     pass
 
 
+class ValueWarning(Warning):
+    pass
+
+
 class ModelManager:
     # Manages the LODs for a mesh to export.
     # Each instance of this class should be exportable to a mesh IFF.
@@ -158,6 +162,12 @@ class ModelManager:
                             .objects[lod_name].type == 'MESH'):
                         if (bpy.data.scenes[self.scene]
                                     .objects[lod_name].hide is False):
+                                if (str(bpy.data.scenes[self.scene]
+                                        .objects[lod_name].parent) !=
+                                        self.base_parent):
+                                    warnings.warn(
+                                        "The LOD objects for this model have "
+                                        "different parents!", ValueWarning)
                                 self.lods[lod] = lod_name
                     else:
                         raise TypeError("Object {} is not a mesh!".format(
