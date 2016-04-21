@@ -23,49 +23,66 @@ from . import iff
 import warnings
 
 
+def colour_texnum(colour):
+    import struct
+
+    if not isinstance(colour, list) or not isinstance(colour, tuple):
+        raise TypeError("The colour you want to convert must be a valid "
+                        "Blender colour!")
+    for cc in colour:
+        if not isinstance(cc, float):
+            raise TypeError("The colour you want to convert must be a valid "
+                            "Blender colour!")
+
+    clrbytes = [round(cc * 255) for cc in colour]
+    tnbytes = struct.pack("<BBBB", 0x7F, *clrbytes)
+    tnint = struct.unpack("<I", tnbytes)
+    return tnint
+
+
 class Collider:
     # Collision sphere or BSP tree
 
-    COLLIDER_TYPES = ["sphere", "bsp"]
+    COLLIDER_TYPES = ["sphere", "bsp", "bsp+region"]
 
-    def __init__(self, col_type, data, xdata=None):
+    def __init__(self, col_type, *data):
         if col_type not in self.COLLIDER_TYPES:
             raise ValueError("Invalid collider type %s!" % col_type)
 
-        if col_type == "sphere" and not isinstance(data, Sphere):
-            raise TypeError("A sphere collider must have a sphere!")
+        if not isinstance(data[0], Sphere):
+            raise TypeError("A collider must have a boundary sphere!")
 
-        # if col_type == "bsp" and not isinstance(data, Sphere):
+        # if ((col_type == "bsp" or col_type == "bsp+region") and
+        #         not isinstance(data[1], bsp.BSPTree)):
         #     raise TypeError("Collider data for a BSP collider must have a "
         #                     "sphere and a BSP tree!")
         #
-        # if col_type == "bsp" and not isinstance(xdata, bsp.BSPTree):
+        # if (col_type == "bsp+region" and
+        #         not isinstance(data[2], bsp.Blockmap)):
         #     raise TypeError("Collider data for a BSP collider must have a "
         #                     "sphere and a BSP tree!")
 
-        if col_type == "bsp":
+        if col_type == "bsp" or col_type == "bsp+region":
             raise TypeError("BSP trees are not yet supported!")
 
         self.col_type = col_type
         self.data = data
-        self.xdata = xdata
 
     def to_coll_form(self):
         coll_form = iff.IffForm("COLL")
-        sphr_chnk = self.data.to_collsphr_chunk()
+        sphr_chnk = self.data[0].to_collsphr_chunk()
         coll_form.add_member(sphr_chnk)
 
         if self.col_type == "bsp":
-            if self.xdata is not None:
+            if self.data[1] is not None:
                 coll_form.add_member(self.xdata.to_form())
             else:
-                raise TypeError("xdata must not be None!")
+                raise TypeError("data[1] must be a BSP tree!")
 
         return coll_form
 
     def __str__(self):
-        return "{0} collider: ({1!s}, {2!s})".format(
-            self.col_type, self.data, self.xdata)
+        return "{0} collider: ({!s})".format(self.col_type, self.data)
 
 
 class Sphere:
@@ -437,13 +454,7 @@ class MeshIff(iff.IffFile):
             raise TypeError("collider must be a valid Collider in order to "
                             "use it for this model!")
 
-        self._mcoll.clear_members()
-
-        if collider.col_type == 'sphere':
-            self._mcoll.add_member(collider.data.to_collsphr_chunk())
-        elif collider.col_type == 'bsp':
-            self._mcoll.add_member(collider.data.to_collsphr_chunk())
-            self._mcoll.add_member(collider.xdata.to_tree_form())
+        self._mcoll = collider.to_coll_form()
 
     def add_hardpt(self, x, y, z, rot_matrix, name):
         hardpt = iff.IffChunk("HARD")

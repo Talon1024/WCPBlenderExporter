@@ -123,7 +123,6 @@ class ModelManager:
         self.collider = None  # COLL form
         self.use_mtltex = not use_facetex
         self.materials = []  # Materials for all LODs
-        self.unique_normals = []
         self.children = []  # Child objects
 
     def _get_lod(self, lod_obj, base=False):
@@ -438,10 +437,9 @@ radius: {}""".format(lod_idx, x, y, z, r))
                             raise TypeError("If the face does not have an "
                                             "image assigned to it, it must "
                                             "refer to a valid material.")
-                        tfmclr = (
+                        tfmclr = iff_mesh.colour_texnum(
                             self.lodms[lodmi].materials[tf.material_index]
                             .diffuse_color)
-                        tfmclr = [hex(round(cc * 255)) for cc in tfmclr]
                         if (tfmtl_flat, tfmclr) not in self.materials:
                             self.materials.append((tfmtl_flat, tfmclr))
 
