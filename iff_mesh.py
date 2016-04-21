@@ -75,14 +75,20 @@ class Collider:
 
         if self.col_type == "bsp":
             if self.data[1] is not None:
-                coll_form.add_member(self.xdata.to_form())
+                extn_form = iff.IffForm("EXTN")
+                coll_form.add_member(extn_form)
             else:
                 raise TypeError("data[1] must be a BSP tree!")
 
         return coll_form
 
     def __str__(self):
-        return "{0} collider: ({!s})".format(self.col_type, self.data)
+        strr = "{} collider: (".format(self.col_type.capitalize())
+        for didx in range(len(self.data)):
+            strr += "{!s}".format(self.data[didx])
+            if didx < len(self.data) - 1: strr += ", "
+        strr += ")"
+        return strr
 
 
 class Sphere:
