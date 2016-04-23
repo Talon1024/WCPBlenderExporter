@@ -63,9 +63,8 @@ class ModelManager:
     # Each instance of this class should be exportable to a mesh IFF.
     # Scans for a base LOD mesh and other related LODs in a given scene.
 
-    # AFAIK, most WCP/SO models have 3 LODs. I don't know if the VISION engine
-    # can support more LODs
-    MAX_NUM_LODS = 3
+    # One of the asteroid models I've looked at (AST_G_01.IFF) has 7 LODs
+    MAX_NUM_LODS = 7
 
     # The LOD base object is a LOD for the main model.
     LOD_NSCHEME_DETAIL = 0
