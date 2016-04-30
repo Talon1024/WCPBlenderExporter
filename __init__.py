@@ -34,7 +34,7 @@ bl_info = {
     "name": "WCP/SO Mesh File",
     "author": "Kevin Caccamo",
     "description": "Export to a WCP/SO mesh file.",
-    "version": (1, 6, 1),
+    "version": (2, 0, 0),
     "blender": (2, 65, 0),
     "location": "File > Export",
     "warning": "%{GIT_COMMIT}",
