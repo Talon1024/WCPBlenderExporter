@@ -339,10 +339,11 @@ class ExportBackend:
                             if img_num not in mtl_texnums.values():
                                 mtl_texnums[img_bname] = img_num
                             else:
-                                mtl_texnums[img_bname] = curr_txnum
-                                print(img_fname, "is already in use! Using",
-                                      curr_txnum, "instead.")
-                                num_textures += 1
+                                if img_bname not in mtl_texnums.keys():
+                                    mtl_texnums[img_bname] = curr_txnum
+                                    print(img_fname, "is already in use!",
+                                          "Using", curr_txnum, "instead.")
+                                    num_textures += 1
                         else:
                             # If the number is too big,
                             # use the "default" value.
