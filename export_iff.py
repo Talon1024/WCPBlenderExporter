@@ -386,9 +386,8 @@ radius: {}""".format(lod_idx, x, y, z, r))
             # tf_mlf = 0  # The light flags for this tessface
             # tf_mtf = False  # Is the material a flat colour
             if self.use_mtltex:
+                # Material textures
                 for tf in self.lodms[lodmi].tessfaces:
-                    # Material textures
-
                     # Ensure material for this face exists
                     try:
                         tf_mtl = self.lodms[lodmi].materials[tf.material_index]
@@ -400,9 +399,20 @@ radius: {}""".format(lod_idx, x, y, z, r))
                         used_materials.append(tf_mtl)
             else:
                 # Face textures (visible in Multitexture viewport render mode)
-                for tf, tfuv in zip(self.lodms[lodmi].tessfaces,
-                                    self.lodms[lodmi].tessface_uv_textures):
-                    pass
+                for tf, tfuv in zip(
+                        self.lodms[lodmi].tessfaces,
+                        self.lodms[lodmi].tessface_uv_textures.active.data):
+                    if (tfuv.image is not None and
+                            tfuv.image not in used_materials):
+                        # Use the face image
+                        used_materials.append(tfuv.image)
+                    else:
+                        # Use the face material colour
+                        tf_mtl = self.lodms[lodmi].materials[tf.material_index]
+                        tf_clr = iff_mesh.colour_texnum(tf_mtl.diffuse_color)
+
+                        if tf_clr not in used_materials:
+                            used_materials.append(tf_clr)
 
         # Get textures from materials
         if self.use_mtltex:
