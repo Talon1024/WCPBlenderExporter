@@ -386,8 +386,8 @@ radius: {}""".format(lod_idx, x, y, z, r))
             # tf_mlf = 0  # The light flags for this tessface
             # tf_mtf = False  # Is the material a flat colour
             if self.use_mtltex:
-                # Material textures
                 for tf in self.lodms[lodmi].tessfaces:
+                    # Material textures
 
                     # Ensure material for this face exists
                     try:
@@ -399,12 +399,17 @@ radius: {}""".format(lod_idx, x, y, z, r))
                     if tf_mtl not in self.materials:
                         used_materials.append(tf_mtl)
             else:
-                pass  # TODO: Write code to get materials/textures for facetex
-        for tf_mtl in used_materials:
-            if self.use_mtltex:
+                # Face textures (visible in Multitexture viewport render mode)
+                for tf, tfuv in zip(self.lodms[lodmi].tessfaces,
+                                    self.lodms[lodmi].tessface_uv_textures):
+                    pass
+
+        # Get textures from materials
+        if self.use_mtltex:
+            for tf_mtl in used_materials:
                 # Get light flags for this material
                 if tf_mtl.get("light_flags") is not None:
-                    tf_mlf = tf_mtl.get("light_flags")
+                    tf_mlf = int(tf_mtl.get("light_flags"))
                 elif tf_mtl.use_shadeless:
                     tf_mlf = LFLAG_FULLBRIGHT
 
@@ -412,17 +417,19 @@ radius: {}""".format(lod_idx, x, y, z, r))
                 # the colour of the material.
                 if len(tf_mtl.texture_slots) == 0:
                     tf_mtf = True
-                    mtldata = (tf_mtf, tf_mlf, tf_mtl)
+                    tf_img = iff_mesh.colour_texnum(tf_mtl.diffuse_color)
+                    mtldata = (tf_mtf, tf_mlf, tf_img)
                     if mtldata not in self.materials:
                         self.materials.append(mtldata)
                 else:
-                    mtldata = (tf_mtf, tf_mlf, tf_mtl)
                     # Use first valid texture slot
                     for tf_mtx in tf_mtl.texture_slots:
                         if (tf_mtx.texture_coords == "UV" and
                             isinstance(tf_mtx.texture,
                                        bpy.types.ImageTexture) and
                                 tf_mtx.texture.image is not None):
+                            tf_img = tf_mtx.texture.image
+                            mtldata = (tf_mtf, tf_mlf, tf_img)
                             if mtldata not in self.materials:
                                 self.materials.append(mtldata)
                             break
@@ -431,34 +438,33 @@ radius: {}""".format(lod_idx, x, y, z, r))
                             "Found no valid texture slots! You must have "
                             "at least one UV-mapped image texture assigned"
                             " to each material that the mesh uses.")
-            else:
-                # FIXME: This code is designed to work with individual faces.
-                # Face textures (visible in Multitexture viewport render mode)
-                print("length of tessfaces and tessface_uv_textures:",
-                      len(self.lodms[lodmi].tessfaces),
-                      len(self.lodms[lodmi].tessface_uv_textures.active.data))
-                for tf, tfuv in zip(
-                        self.lodms[lodmi].tessfaces,
-                        self.lodms[lodmi].tessface_uv_textures.active.data):
-                    tf_mtf = False
+        else:
+            # FIXME: This code is designed to work with individual faces.
+            print("length of tessfaces and tessface_uv_textures:",
+                  len(self.lodms[lodmi].tessfaces),
+                  len(self.lodms[lodmi].tessface_uv_textures.active.data))
+            for tf, tfuv in zip(
+                    self.lodms[lodmi].tessfaces,
+                    self.lodms[lodmi].tessface_uv_textures.active.data):
+                tf_mtf = False
 
-                    if tfuv.image is None:
-                        tf_mtf = True
+                if tfuv.image is None:
+                    tf_mtf = True
 
-                    if not tf_mtf:
-                        if (tf_mtf, tfuv.image) not in self.materials:
-                            self.materials.append((tf_mtf, tfuv.image))
-                    else:
-                        if (self.lodms[lodmi].materials[tf.material_index]
-                                is None):
-                            raise TypeError("If the face does not have an "
-                                            "image assigned to it, it must "
-                                            "refer to a valid material.")
-                        tf_mclr = iff_mesh.colour_texnum(
-                            self.lodms[lodmi].materials[tf.material_index]
-                            .diffuse_color)
-                        if (tf_mtf, tf_mclr) not in self.materials:
-                            self.materials.append((tf_mtf, tfmclr))
+                if not tf_mtf:
+                    if (tf_mtf, tfuv.image) not in self.materials:
+                        self.materials.append((tf_mtf, tfuv.image))
+                else:
+                    if (self.lodms[lodmi].materials[tf.material_index]
+                            is None):
+                        raise TypeError("If the face does not have an "
+                                        "image assigned to it, it must "
+                                        "refer to a valid material.")
+                    tf_mclr = iff_mesh.colour_texnum(
+                        self.lodms[lodmi].materials[tf.material_index]
+                        .diffuse_color)
+                    if (tf_mtf, tf_mclr) not in self.materials:
+                        self.materials.append((tf_mtf, tfmclr))
 
         print("Materials used by this model:")
         for mtl in self.materials:
