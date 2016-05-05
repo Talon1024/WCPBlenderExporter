@@ -381,6 +381,7 @@ radius: {}""".format(lod_idx, x, y, z, r))
         # Get the textures used by all LODs for this model
         for lodmi in range(len(self.lodms)):
             self.lodms[lodmi].calc_tessface()
+            used_materials = []
             tf_mtl = None  # The material for this tessface
             tf_mlf = 0  # The light flags for this tessface
             tf_mtf = False  # Is the material a flat colour
@@ -395,21 +396,34 @@ radius: {}""".format(lod_idx, x, y, z, r))
                         raise ValueError("You must have a valid material "
                                          "assigned to each face!")
 
-                    # Ensure there is at least one valid texture slot in
-                    # this material.
+                    if tf_mtl not in self.materials:
+                        self.materials.append(tf_mtl)
+
+                    # ================== TODO: Move this out of here! =========
+
+                    # Get light flags for this material
+                    if tf_mtl.light_flags:
+                        tf_mlf = tf_mtl.light_flags
+                    elif tf_mtl.use_shadeless:
+                        tf_mlf = LFLAG_FULLBRIGHT
+
+                    # Use the first valid texture slot in the material, or use
+                    # the colour of the material.
                     if len(tf_mtl.texture_slots) == 0:
                         tf_mtf = True
-                        if (tf_mtf, tf_mlf, tf_mtl) not in self.materials:
-                            self.materials.append((tf_mtf, tf_mtl))
+                        mtldata = (tf_mtf, tf_mlf, tf_mtl)
+                        if mtldata not in self.materials:
+                            self.materials.append(mtldata)
                     else:
+                        mtldata = (tf_mtf, tf_mlf, tf_mtl)
                         # Use first valid texture slot
-                        for tfmtx in tf_mtl.texture_slots:
-                            if (tfmtx.texture_coords == "UV" and
-                                isinstance(tfmtx.texture,
+                        for tf_mtx in tf_mtl.texture_slots:
+                            if (tf_mtx.texture_coords == "UV" and
+                                isinstance(tf_mtx.texture,
                                            bpy.types.ImageTexture) and
-                                    tfmtx.texture.image is not None):
-                                if (tf_mtf, tf_mtl) not in self.materials:
-                                    self.materials.append((tf_mtf, tf_mtl))
+                                    tf_mtx.texture.image is not None):
+                                if mtldata not in self.materials:
+                                    self.materials.append(mtldata)
                                 break
                         else:
                             raise ValueError(
@@ -446,7 +460,8 @@ radius: {}""".format(lod_idx, x, y, z, r))
 
         print("Materials used by this model:")
         for mtl in self.materials:
-            print(mtl[1], "(Flat)" if mtl[0] else "(Textured)")
+            print(mtl[2], "Light flags:", mtl[1],
+                  "(Flat)" if mtl[0] else "(Textured)")
 
         # Scan for child objects.
         for obj in bpy.data.scenes[self.scene].objects:
