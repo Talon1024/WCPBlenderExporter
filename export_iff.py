@@ -414,7 +414,10 @@ radius: {}""".format(lod_idx, x, y, z, r))
                         if tf_clr not in used_materials:
                             used_materials.append(tf_clr)
 
-        # Get textures from materials
+        # Get information about materials.
+        # TODO: Find out how best to associate the new materials with the
+        # individual faces.
+        # REVIEW: Ensure all "mtldata" tuples use the same format.
         if self.use_mtltex:
             for tf_mtl in used_materials:
                 # Get light flags for this material
