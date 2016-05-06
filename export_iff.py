@@ -452,32 +452,13 @@ radius: {}""".format(lod_idx, x, y, z, r))
                             "at least one UV-mapped image texture assigned"
                             " to each material that the mesh uses.")
         else:
-            # FIXME: This code is designed to work with individual faces.
-            print("length of tessfaces and tessface_uv_textures:",
-                  len(self.lodms[lodmi].tessfaces),
-                  len(self.lodms[lodmi].tessface_uv_textures.active.data))
-            for tf, tfuv in zip(
-                    self.lodms[lodmi].tessfaces,
-                    self.lodms[lodmi].tessface_uv_textures.active.data):
-                tf_mtf = False
+            for tf_mtl in used_materials:
+                tf_mlf = 0
+                tf_mtf = True if isinstance(tf_mtl, int) else False
 
-                if tfuv.image is None:
-                    tf_mtf = True
-
-                if not tf_mtf:
-                    if (tf_mtf, tfuv.image) not in self.materials:
-                        self.materials.append((tf_mtf, tfuv.image))
-                else:
-                    if (self.lodms[lodmi].materials[tf.material_index]
-                            is None):
-                        raise TypeError("If the face does not have an "
-                                        "image assigned to it, it must "
-                                        "refer to a valid material.")
-                    tf_mclr = iff_mesh.colour_texnum(
-                        self.lodms[lodmi].materials[tf.material_index]
-                        .diffuse_color)
-                    if (tf_mtf, tf_mclr) not in self.materials:
-                        self.materials.append((tf_mtf, tfmclr))
+                mtldata = (tf_mtf, tf_mlf, tf_img)
+                if mtldata not in self.materials:
+                    self.materials.append(mtldata)
 
         print("Materials used by this model:")
         for mtl in self.materials:
