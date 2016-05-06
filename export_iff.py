@@ -121,7 +121,8 @@ class ModelManager:
         self.gen_bsp = gen_bsp
         self.collider = None  # COLL form
         self.use_mtltex = not use_facetex
-        self.materials = []  # Materials for all LODs
+        self.textures = []  # Textures for all LODs
+        self.mtltexs = {}  # Material -> texture dict
         self.children = []  # Child objects
 
     def _get_lod(self, lod_obj, base=False):
@@ -395,7 +396,7 @@ radius: {}""".format(lod_idx, x, y, z, r))
                         raise ValueError("You must have a valid material "
                                          "assigned to each face!")
 
-                    if tf_mtl not in self.materials:
+                    if tf_mtl not in used_materials:
                         used_materials.append(tf_mtl)
             else:
                 # Face textures (visible in Multitexture viewport render mode)
@@ -432,8 +433,9 @@ radius: {}""".format(lod_idx, x, y, z, r))
                     tf_mtf = True
                     tf_img = iff_mesh.colour_texnum(tf_mtl.diffuse_color)
                     mtldata = (tf_mtf, tf_mlf, tf_img)
-                    if mtldata not in self.materials:
-                        self.materials.append(mtldata)
+                    if mtldata not in self.textures:
+                        self.mtltexs[tf_mtl] = len(self.textures)
+                        self.textures.append(mtldata)
                 else:
                     # Use first valid texture slot
                     for tf_mtx in tf_mtl.texture_slots:
@@ -443,8 +445,9 @@ radius: {}""".format(lod_idx, x, y, z, r))
                                 tf_mtx.texture.image is not None):
                             tf_img = tf_mtx.texture.image
                             mtldata = (tf_mtf, tf_mlf, tf_img)
-                            if mtldata not in self.materials:
-                                self.materials.append(mtldata)
+                            if mtldata not in self.textures:
+                                self.mtltexs[tf_mtl] = len(self.textures)
+                                self.textures.append(mtldata)
                             break
                     else:
                         raise ValueError(
@@ -457,11 +460,12 @@ radius: {}""".format(lod_idx, x, y, z, r))
                 tf_mtf = True if isinstance(tf_mtl, int) else False
 
                 mtldata = (tf_mtf, tf_mlf, tf_img)
-                if mtldata not in self.materials:
-                    self.materials.append(mtldata)
+                if mtldata not in self.textures:
+                    self.mtltexs[tf_mtl] = len(self.textures)
+                    self.textures.append(mtldata)
 
         print("Materials used by this model:")
-        for mtl in self.materials:
+        for mtl in self.textures:
             print(mtl[2], "Light flags:", mtl[1],
                   "(Flat)" if mtl[0] else "(Textured)")
 
