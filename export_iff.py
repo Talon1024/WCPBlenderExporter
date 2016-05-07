@@ -125,6 +125,14 @@ class ModelManager:
         self.mtltexs = {}  # Material -> texture dict
         self.children = []  # Child objects
 
+    def _get_parent(self, chld_obj):
+        parent = None
+        pparent = None
+        if chld_obj.parent is not None:
+            parent = chld_obj.parent
+            pparent = _get_parent(chld_obj.parent)
+        return pparent, parent
+
     def _get_lod(self, lod_obj, base=False):
         lod = MAIN_LOD_RE.match(lod_obj)
         if lod:
@@ -141,21 +149,10 @@ class ModelManager:
                 self.name_scheme = self.LOD_NSCHEME_CHLD
                 # TODO: Find a better way of doing this.
                 if self.base_parent.startswith("<bpy_struct, Object("):
-                    pobname = self.base_parent[21:-3]
-                    pobasename = ""
-                    if pobname.startswith("hp-"):
-                        # Parent object is a hardpoint
-                        pobasename = (
-                            bpy.data.scenes[self.scene]
-                            .objects[pobname].parent.name)
-                        pobasename = CHLD_LOD_RE.match(self.base_parent[21:-3])
-                        pobasename = pobasename.group(1)
-                    else:
-                        # Parent object is a model LOD object.
-                        pobasename = CHLD_LOD_RE.match(self.base_parent[21:-3])
-                        pobasename = pobasename.group(1)
-                    self.exp_fname = "{}_{}".format(
-                        pobasename, lod.group(1))
+                    parent_name = self.base_parent[21:-3]
+                    parent_stack = _get_parent(bpy.data.objects[parent_name])
+                    import code
+                    code.interact(local=locals())
                 else:
                     self.exp_fname = lod.group(1)
                 print("Export filename: {}.iff".format(self.exp_fname))
