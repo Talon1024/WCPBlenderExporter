@@ -426,6 +426,8 @@ radius: {}""".format(lod_idx, x, y, z, r))
                     tf_mlf = int(tf_mtl.get("light_flags"))
                 elif tf_mtl.use_shadeless:
                     tf_mlf = LFLAG_FULLBRIGHT
+                else:
+                    tf_mlf = 0
 
                 # Use the first valid texture slot in the material, or use
                 # the colour of the material.
@@ -482,6 +484,9 @@ radius: {}""".format(lod_idx, x, y, z, r))
                 )
 
         print("Child base objects:", self.children)
+
+        import code
+        code.interact(local=locals())
 
 
 class ExportBackend:
