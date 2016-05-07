@@ -438,6 +438,7 @@ radius: {}""".format(lod_idx, x, y, z, r))
                         self.textures.append(mtldata)
                 else:
                     # Use first valid texture slot
+                    tf_mtf = False
                     for tf_mtx in tf_mtl.texture_slots:
                         if (tf_mtx.texture_coords == "UV" and
                             isinstance(tf_mtx.texture,
