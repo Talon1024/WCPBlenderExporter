@@ -673,6 +673,8 @@ class IFFExporter(ExportBackend):
         used_names = set()
 
         if self.export_active_only:
+            # TODO: Traverse object hierarchy and assign export filenames from
+            # here.
             if bpy.context.active_object is None:
                 raise TypeError("You must have an object selected to export "
                                 "only the active object!")
