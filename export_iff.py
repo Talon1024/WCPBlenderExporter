@@ -441,6 +441,7 @@ radius: {}""".format(lod_idx, x, y, z, r))
         # REVIEW: Ensure all "mtldata" tuples use the same format.
         if self.use_mtltex:
             for tf_mtl in used_materials:
+
                 # Get light flags for this material
                 if tf_mtl.get("light_flags") is not None:
                     tf_mlf = int(tf_mtl.get("light_flags"))
@@ -451,22 +452,19 @@ radius: {}""".format(lod_idx, x, y, z, r))
 
                 tf_mtexs = self.texs_for_mtl(tf_mtl)  # Valid texture slots
 
-                import code
-                code.interact(local=locals())
-
                 if len(tf_mtexs) == 0:
-                    # Use the colour of the material.
+                    # Flat colour material; Use the colour of the material.
                     tf_mtf = True
                     tf_img = iff_mesh.colour_texnum(tf_mtl.diffuse_color)
-                    mtldata = (tf_mtf, tf_mlf, tf_img)
-                    if mtldata not in self.textures:
-                        self.mtltexs[tf_mtl] = len(self.textures)
-                        self.textures.append(mtldata)
                 else:
-                    # Use first valid texture slot.
+                    # Textured material; Use first valid texture slot.
                     tf_mtf = False
                     tf_img = tf_mtexs[0].image
-                    mtldata = (tf_mtf, tf_mlf, tf_img)
+
+                mtldata = (tf_mtf, tf_mlf, tf_img)
+                if mtldata not in self.textures:
+                    self.mtltexs[tf_mtl] = len(self.textures)
+                    self.textures.append(mtldata)
         else:
             for tf_mtl in used_materials:
                 tf_mlf = 0
@@ -660,6 +658,7 @@ class ExportBackend:
             for pobj in cur_hierarchy_level:
                 chobjs = children_of(pobj)
                 hierarchy_stack.append(chobjs)
+            print("Entering REPL (line 666). Press CTRL-D to exit.")
             import code
             code.interact(local=locals())
             cur_hierarchy_level = hierarchy_stack[-1]
