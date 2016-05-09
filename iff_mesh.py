@@ -26,9 +26,18 @@ import warnings
 def colour_texnum(colour):
     import struct
 
-    if not isinstance(colour, list) or not isinstance(colour, tuple):
-        raise TypeError("The colour you want to convert must be a valid "
-                        "Blender colour!")
+    # Make Blender mathutils import optional
+    try:
+        # Using Blender imports
+        import mathutils
+        if not isinstance(colour, mathutils.Color):
+            raise TypeError("The colour you want to convert must be a valid "
+                            "Blender colour!")
+    except ImportError:
+        # Not using Blender imports
+        if not isinstance(colour, list) or not isinstance(colour, tuple):
+            raise TypeError("The colour you want to convert must be a valid "
+                            "colour!")
     for cc in colour:
         if not isinstance(cc, float):
             raise TypeError("The colour you want to convert must be a valid "
