@@ -424,6 +424,9 @@ radius: {}""".format(lod_idx, x, y, z, r))
                 else:
                     tf_mlf = 0
 
+                import code
+                code.interact(local=locals())
+
                 # Use the first valid texture slot in the material, or use
                 # the colour of the material.
                 if len(tf_mtl.texture_slots) == 0:
