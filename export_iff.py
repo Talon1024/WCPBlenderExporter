@@ -151,8 +151,6 @@ class ModelManager:
                 if self.base_parent.startswith("<bpy_struct, Object("):
                     parent_name = self.base_parent[21:-3]
                     parent_stack = _get_parent(bpy.data.objects[parent_name])
-                    import code
-                    code.interact(local=locals())
                 else:
                     self.exp_fname = lod.group(1)
                 print("Export filename: {}.iff".format(self.exp_fname))
@@ -469,22 +467,6 @@ radius: {}""".format(lod_idx, x, y, z, r))
             print(mtl[2], "Light flags:", mtl[1],
                   "(Flat)" if mtl[0] else "(Textured)")
 
-        # Scan for child objects.
-        for obj in bpy.data.scenes[self.scene].objects:
-            child_basename = CHLD_LOD_RE.match(obj.name)
-            if (obj.parent is not None and (obj.parent.name in self.lods or
-                obj.parent.name in self.hpobnames) and obj.hide is False and
-                obj.type == "MESH" and child_basename is not None and
-                    child_basename.group(1) not in self.children):
-                self.children.append(
-                    (obj.parent.name, child_basename.group(1))
-                )
-
-        print("Child base objects:", self.children)
-
-        import code
-        code.interact(local=locals())
-
 
 class ExportBackend:
 
@@ -643,6 +625,30 @@ class ExportBackend:
                 "} --> {!s:0>8}.mat\n").format(img_fname, texnum)
         return tx_info
 
+    def get_children(self, obj):
+        hierarchy_stack = [[obj]]  # Stack of lists containing child objects
+
+        def is_valid_obj(obj, parent=None):
+            return (str(obj.parent) == str(parent) and obj.hide is False and
+                    obj.type == "MESH" and CHLD_LOD_RE.match(obj.name))
+
+        def children_of(parent_obj):
+            children = []
+            for obj in bpy.context.scene.objects:
+                if is_valid_obj(obj, parent_obj) and obj not in children:
+                    children.append(obj)
+            return children
+
+        cur_hierarchy_level = hierarchy_stack[-1]
+
+        while len(cur_hierarchy_level) > 0:
+            for pobj in cur_hierarchy_level:
+                chobjs = children_of(pobj)
+                hierarchy_stack.append(chobjs)
+            import code
+            code.interact(local=locals())
+            cur_hierarchy_level = hierarchy_stack[-1]
+
 
 class IFFExporter(ExportBackend):
 
@@ -678,6 +684,12 @@ class IFFExporter(ExportBackend):
             if bpy.context.active_object is None:
                 raise TypeError("You must have an object selected to export "
                                 "only the active object!")
+
+            # Traversing hierarchy here will allow the object export filename
+            # to be set, as well as removing the need for traversing the
+            # hierarchy in ModelManager.setup(). It's more efficient overall
+
+            active_children = self.get_children(bpy.context.active_object)
 
             managers.append(ModelManager(
                 modelname, bpy.context.active_object.name, self.use_facetex,
