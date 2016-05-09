@@ -163,6 +163,31 @@ class ModelManager:
             self.name_scheme = self.LOD_NSCHEME_CHLD
         return 0
 
+    def texs_for_mtl(self, material):
+        if not isinstance(material, bpy.types.Material):
+            raise TypeError("You must provide a Blender material in order to "
+                            "get its valid textures!")
+
+        filled_slots = 0
+        valid_slots = []
+        for ts in material.texture_slots:
+            if ts is not None:
+                filled_slots += 1
+            if (ts is not None and
+                    isinstance(ts, bpy.types.MaterialTextureSlot) and
+                    ts.texture_coords == "UV" and
+                    isinstance(ts.texture, bpy.types.ImageTexture) and
+                    ts.texture.image is not None):
+                valid_slots.append(ts.texture)
+
+        if filled_slots > 0 and len(valid_slots) == 0:
+            raise ValueError(
+                "Found no valid texture slots out of the ones that were "
+                "filled! In order for a texture slot to be valid, it must be "
+                "a UV-mapped image texture.")
+
+        return valid_slots
+
     def setup(self):
         # Scan for valid LOD objects related to the base LOD object
         for lod in range(self.MAX_NUM_LODS):
@@ -424,12 +449,13 @@ radius: {}""".format(lod_idx, x, y, z, r))
                 else:
                     tf_mlf = 0
 
+                tf_mtexs = self.texs_for_mtl(tf_mtl)  # Valid texture slots
+
                 import code
                 code.interact(local=locals())
 
-                # Use the first valid texture slot in the material, or use
-                # the colour of the material.
-                if len(tf_mtl.texture_slots) == 0:
+                if len(tf_mtexs) == 0:
+                    # Use the colour of the material.
                     tf_mtf = True
                     tf_img = iff_mesh.colour_texnum(tf_mtl.diffuse_color)
                     mtldata = (tf_mtf, tf_mlf, tf_img)
@@ -437,24 +463,10 @@ radius: {}""".format(lod_idx, x, y, z, r))
                         self.mtltexs[tf_mtl] = len(self.textures)
                         self.textures.append(mtldata)
                 else:
-                    # Use first valid texture slot
+                    # Use first valid texture slot.
                     tf_mtf = False
-                    for tf_mtx in tf_mtl.texture_slots:
-                        if (tf_mtx.texture_coords == "UV" and
-                            isinstance(tf_mtx.texture,
-                                       bpy.types.ImageTexture) and
-                                tf_mtx.texture.image is not None):
-                            tf_img = tf_mtx.texture.image
-                            mtldata = (tf_mtf, tf_mlf, tf_img)
-                            if mtldata not in self.textures:
-                                self.mtltexs[tf_mtl] = len(self.textures)
-                                self.textures.append(mtldata)
-                            break
-                    else:
-                        raise ValueError(
-                            "Found no valid texture slots! You must have "
-                            "at least one UV-mapped image texture assigned"
-                            " to each material that the mesh uses.")
+                    tf_img = tf_mtexs[0].image
+                    mtldata = (tf_mtf, tf_mlf, tf_img)
         else:
             for tf_mtl in used_materials:
                 tf_mlf = 0
