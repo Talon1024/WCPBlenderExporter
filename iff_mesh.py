@@ -45,7 +45,7 @@ def colour_texnum(colour):
 
     clrbytes = [round(cc * 255) for cc in colour]
     tnbytes = struct.pack("<BBBB", 0x7F, *clrbytes)
-    tnint = struct.unpack("<I", tnbytes)
+    tnint = struct.unpack("<I", tnbytes)[0]
     return tnint
 
 
@@ -423,7 +423,7 @@ class MeshIff(iff.IffFile):
         if not isinstance(include_far_chunk, bool):
             raise TypeError("include_far_chunk must be a boolean value!")
 
-        if isinstance(dranges, list):
+        if isinstance(dranges, list) or isinstance(dranges, tuple):
             for drange in dranges:
                 if not isinstance(drange, float):
                     raise TypeError("Each LOD range must be a float!")
