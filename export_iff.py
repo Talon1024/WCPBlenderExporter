@@ -42,6 +42,10 @@ MAIN_LOD_RE = re.compile(r"^detail-(\d+)$")
 # Group 1 is the child object name, group 2 is the LOD level number.
 CHLD_LOD_RE = re.compile(r"^(\w+)-lod(\d+)$")
 
+# Name pattern for hardpoints. Group 1 is the hardpoint name, group 2 is
+# the suffix appended by Blender to objects with conflicting names.
+HARDPOINT_RE = re.compile(r"^hp-(\w+)(?:\.\d*)?$")
+
 # Non-critical warnings will be reported to Blender. Critical errors will be
 # exceptions.
 
@@ -73,10 +77,8 @@ class ModelManager:
     # decides to set the active object as LOD 0.
     LOD_NSCHEME_CHLD = 1
 
-    # Name pattern for hardpoints
-    HARDPOINT_RE = re.compile(r"^hp-(\w+)(?:\.\d*)?$")
-
-    # Name pattern for LOD range info
+    # Name pattern for LOD range info. Group 1 is the range, group 2 is the
+    # suffix appended by Blender to objects with conflicting names.
     DRANGE_RE = re.compile(r"^drang=([0-9,]+)(?:\.\d*)?$")
 
     # prefix for CNTR/RADI spheres
@@ -341,8 +343,8 @@ radius: {}""".format(lod_idx, x, y, z, r))
                 if (obj.parent is not None and
                     obj.parent.name == self.lods[lod_idx] and
                     obj.type == "EMPTY" and obj.hide is False and
-                        self.HARDPOINT_RE.match(obj.name)):
-                    hpname = self.HARDPOINT_RE.match(obj.name).group(1)
+                        HARDPOINT_RE.match(obj.name)):
+                    hpname = HARDPOINT_RE.match(obj.name).group(1)
                     hpmatrix = obj.rotation_euler.to_matrix().to_3x3()
                     hardpt = iff_mesh.Hardpoint(hpmatrix, obj.location, hpname)
                     self.hardpoints.append(hardpt)
@@ -643,13 +645,38 @@ class ExportBackend:
 
         def is_valid_obj(obj, parent=None):
             return (str(obj.parent) == str(parent) and obj.hide is False and
-                    obj.type == "MESH" and CHLD_LOD_RE.match(obj.name))
+                    obj.type == "MESH" and (CHLD_LOD_RE.match(obj.name) or
+                    MAIN_LOD_RE.match(obj.name)))
+
+        def is_valid_hp(obj, parent=None):
+            return (str(obj.parent) == str(parent) and obj.hide is False and
+                    obj.type == "EMPTY" and HARDPOINT_RE.match(obj.name))
 
         def children_of(parent_obj):
             children = []
+            parent_hps = []
             for obj in bpy.context.scene.objects:
-                if is_valid_obj(obj, parent_obj) and obj not in children:
-                    children.append(obj)
+                if is_valid_obj(obj, parent_obj):
+                    obj_bname = CHLD_LOD_RE.match(obj.name)
+                    if obj_bname:
+                        obj_bname = obj_bname.group(1)
+                    else:
+                        obj_bname = self.modelname
+                    if obj_bname not in children:
+                        children.append(obj_bname)
+                if is_valid_hp(obj, parent_obj) and obj not in parent_hps:
+                    parent_hps.append(obj)
+
+            for obj in bpy.context.scene.objects:
+                for hp in parent_hps:
+                    if is_valid_obj(obj, hp):
+                        obj_bname = CHLD_LOD_RE.match(obj.name)
+                        if obj_bname:
+                            obj_bname = obj_bname.group(1)
+                        else:
+                            obj_bname = self.modelname
+                        if obj_bname not in children:
+                            children.append(obj_bname)
             return children
 
         cur_hierarchy_level = hierarchy_stack[-1]
@@ -686,7 +713,7 @@ class IFFExporter(ExportBackend):
 
         # Get directory path of output file, plus filename without extension
         modeldir = self.filepath[:self.filepath.rfind(dirsep)]
-        modelname = get_fname(self.filepath)
+        self.modelname = get_fname(self.filepath)
 
         managers = []
         main_lod_used = False
@@ -706,15 +733,16 @@ class IFFExporter(ExportBackend):
             active_children = self.get_children(bpy.context.active_object)
 
             managers.append(ModelManager(
-                modelname, bpy.context.active_object.name, self.use_facetex,
-                self.drang_increment, self.generate_bsp, bpy.context.scene.name
+                self.modelname, bpy.context.active_object.name,
+                self.use_facetex, self.drang_increment, self.generate_bsp,
+                bpy.context.scene.name
             ))
         else:
             for obj in bpy.context.scene.objects:
                 if obj.parent is None and not obj.hide:
                     if MAIN_LOD_RE.match(obj.name) and not main_lod_used:
                         managers.append(ModelManager(
-                            modelname, obj.name, self.use_facetex,
+                            self.modelname, obj.name, self.use_facetex,
                             self.generate_bsp, bpy.context.scene.name
                         ))
                         main_lod_used = True
@@ -724,7 +752,7 @@ class IFFExporter(ExportBackend):
                         obj_match = CHLD_LOD_RE.match(obj.name)
                         if obj_match.group(1) not in used_names:
                             managers.append(ModelManager(
-                                modelname, obj.name, self.use_facetex,
+                                self.modelname, obj.name, self.use_facetex,
                                 self.drang_increment, self.generate_bsp,
                                 bpy.context.scene.name
                             ))
