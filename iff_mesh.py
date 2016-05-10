@@ -45,7 +45,7 @@ def colour_texnum(colour):
 
     clrbytes = [round(cc * 255) for cc in colour]
     tnbytes = struct.pack("<BBBB", 0x7F, *clrbytes)
-    tnint = struct.unpack("<I", tnbytes)[0]
+    tnint = struct.unpack(">I", tnbytes)[0]
     return tnint
 
 
