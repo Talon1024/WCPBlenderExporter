@@ -43,8 +43,13 @@ def colour_texnum(colour):
             raise TypeError("The colour you want to convert must be a valid "
                             "Blender colour!")
 
+    def clamp_byte(x):
+        if x <= 0: return 0
+        elif x >= 256: return 255
+        else: return x
+
     clrbytes = [round(cc * 256) for cc in colour]
-    clrbytes = map(lambda x: 255 if x >= 256 else x, clrbytes)
+    clrbytes = map(clamp_byte, clrbytes)
     tnbytes = struct.pack("<BBBB", 0x7F, *clrbytes)
     tnint = struct.unpack(">I", tnbytes)[0]
     return tnint
