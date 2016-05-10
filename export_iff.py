@@ -653,6 +653,7 @@ class ExportBackend:
                     obj.type == "EMPTY" and HARDPOINT_RE.match(obj.name))
 
         def children_of(parent_obj):
+            childnames = []
             children = []
             parent_hps = []
             for obj in bpy.context.scene.objects:
@@ -662,8 +663,9 @@ class ExportBackend:
                         obj_bname = obj_bname.group(1)
                     else:
                         obj_bname = self.modelname
-                    if obj_bname not in children:
-                        children.append(obj_bname)
+                    if obj_bname not in childnames:
+                        childnames.append(obj_bname)
+                        children.append(obj)
                 if is_valid_hp(obj, parent_obj) and obj not in parent_hps:
                     parent_hps.append(obj)
 
@@ -676,7 +678,8 @@ class ExportBackend:
                         else:
                             obj_bname = self.modelname
                         if obj_bname not in children:
-                            children.append(obj_bname)
+                            childnames.append(obj_bname)
+                            children.append(obj)
             return children
 
         cur_hierarchy_level = hierarchy_stack[-1]
