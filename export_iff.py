@@ -103,7 +103,7 @@ class ModelManager:
 
         self.scene = scene_name  # Name of the scene to use
         self.base_name = exp_fname  # Base object name
-        self.exp_fname = exp_fname  # Export filename
+        self._exp_fname = ""  # Export filename
         self.name_scheme = 0  # See LOD_NSCHEME constants above
         self.base_obj = base_obj  # Name of base object
         self.base_parent = str(
@@ -149,14 +149,7 @@ class ModelManager:
         if lod:
             if base:
                 self.name_scheme = self.LOD_NSCHEME_CHLD
-                # TODO: Find a better way of doing this.
-                if self.base_parent.startswith("<bpy_struct, Object("):
-                    parent_name = self.base_parent[21:-3]
-                    parent_stack = _get_parent(bpy.data.objects[parent_name])
-                else:
-                    self.exp_fname = lod.group(1)
-                print("Export filename: {}.iff".format(self.exp_fname))
-                self.base_name = lod.group(1)
+            self.base_name = lod.group(1)
             lod = int(lod.group(2))
             return lod
 
