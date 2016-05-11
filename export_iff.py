@@ -475,6 +475,26 @@ radius: {}""".format(lod_idx, x, y, z, r))
             print(mtl[2], "Light flags:", mtl[1],
                   "(Flat)" if mtl[0] else "(Textured)")
 
+    @property
+    def exp_fname(self):
+        """The export filename.
+
+        The model is written to disk with this filename, suffixed by '.iff'
+        For example, if the export filename is 'Duhiky', the file for this
+        model will be 'Duhiky.iff'"""
+        return self._exp_fname
+
+    @exp_fname.setter
+    def _exp_fname_set(self, value):
+        if not isinstance(value, str):
+            raise TypeError("Export filename must be a string!")
+
+        self._exp_fname = value
+
+    @exp_fname.deleter
+    def _exp_fname_del(self):
+        self._exp_fname = self.base_name
+
 
 class ExportBackend:
 
