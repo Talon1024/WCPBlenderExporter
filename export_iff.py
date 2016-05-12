@@ -657,8 +657,8 @@ class ExportBackend:
         return tx_info
 
     def get_children(self, obj):
-        # FIXME: Find a way of associating child objects with parent objects.
-        hierarchy_stack = [[obj]]  # Stack of lists containing child objects
+        # List containing an object and its children.
+        objects = []  # Format: [("obj_name", "base_name", "hierarchy"), ...]
 
         def is_valid_obj(obj, parent=None):
             return (str(obj.parent) == str(parent) and obj.hide is False and
@@ -699,19 +699,19 @@ class ExportBackend:
                             children.append(obj)
             return children
 
-        # Get LODs of obj
-        for lobj in bpy.context.scene.objects:
-            if is_valid_obj(lobj, obj.parent) and obj.name != lobj.name:
-                obj_match = CHLD_LOD_RE.match(obj.name)
-                lobj_match = CHLD_LOD_RE.match(lobj.name)
-                if obj_match.group(1) == lobj_match.group(1):
-                    hierarchy_stack[0].append(lobj)
+        # Get info for root obj
+        if is_valid_obj(obj):
+            obj_match = CHLD_LOD_RE.match(obj.name)
+            obj_bname = obj_match.group(1)
+            objects.append((obj.name, obj_bname, obj_bname))
+        else:
+            objects.append((obj.name, obj.name, obj.name))
 
-        cur_hier_level = hierarchy_stack[-1]
-        cur_hier_levnum = 0
+        cur_object = objects[-1]
+        cur_ob_children = children_of(bpy.context.scene.objects[cur_object[0]])
 
-        while len(cur_hier_level) > 0:
-            hierarchy_stack.append([])
+        while len(cur_ob_children) > 0:
+            objects.append()
             cur_hier_levnum += 1
 
             for pobj in cur_hier_level:
@@ -720,7 +720,7 @@ class ExportBackend:
 
             cur_hier_level = hierarchy_stack[-1]
 
-        return hierarchy_stack
+        return objects
 
     def hierarchy_names(self, hierarchy_level):
         used_names = []
