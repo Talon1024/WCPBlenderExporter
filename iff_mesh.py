@@ -49,7 +49,7 @@ def colour_texnum(colour):
         else: return x
 
     clrbytes = [round(cc * 256) for cc in colour]
-    clrbytes = map(clamp_byte, clrbytes)
+    clrbytes = tuple(map(clamp_byte, clrbytes))
     tnbytes = struct.pack("<BBBB", 0x7F, *clrbytes)
     tnint = struct.unpack(">I", tnbytes)[0]
     return tnint
