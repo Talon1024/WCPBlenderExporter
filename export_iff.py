@@ -706,18 +706,23 @@ class ExportBackend:
                 if obj_match.group(1) == lobj_match.group(1):
                     hierarchy_stack[0].append(lobj)
 
-        cur_hierarchy_level = hierarchy_stack[-1]
+        cur_hier_level = hierarchy_stack[-1]
+        cur_hier_levnum = 0
 
-        while len(cur_hierarchy_level) > 0:
-            for pobj in cur_hierarchy_level:
+        while len(cur_hier_level) > 0:
+            hierarchy_stack.append([])
+            cur_hier_levnum += 1
+            for pobj in cur_hier_level:
                 chobjs = children_of(pobj)
-                hierarchy_stack.append(chobjs)
+                hierarchy_stack[cur_hier_levnum].extend(chobjs)
 
             import code
             print("Entering REPL. Press CTRL-D to exit.")
             code.interact(local=locals())
 
-            cur_hierarchy_level = hierarchy_stack[-1]
+            cur_hier_level = hierarchy_stack[-1]
+
+        return hierarchy_stack
 
 
 class IFFExporter(ExportBackend):
