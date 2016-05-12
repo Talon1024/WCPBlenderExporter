@@ -712,17 +712,28 @@ class ExportBackend:
         while len(cur_hier_level) > 0:
             hierarchy_stack.append([])
             cur_hier_levnum += 1
+
             for pobj in cur_hier_level:
                 chobjs = children_of(pobj)
                 hierarchy_stack[cur_hier_levnum].extend(chobjs)
 
-            import code
-            print("Entering REPL. Press CTRL-D to exit.")
-            code.interact(local=locals())
-
             cur_hier_level = hierarchy_stack[-1]
 
         return hierarchy_stack
+
+    def hierarchy_names(self, hierarchy_level):
+        used_names = []
+        obj_names = []
+
+        for obj in hierarchy_level:
+            obj_bname = CHLD_LOD_RE.match(obj.name).group(1)
+            obj_oname = obj.name
+            obj_data = (obj_oname, obj_bname)
+            if obj_bname not in used_names:
+                used_names.append(obj_bname)
+                obj_names.append(obj_data)
+
+        return obj_names
 
 
 class IFFExporter(ExportBackend):
@@ -764,13 +775,12 @@ class IFFExporter(ExportBackend):
             # to be set, as well as removing the need for traversing the
             # hierarchy in ModelManager.setup(). It's more efficient overall.
 
-            active_children = self.get_children(bpy.context.active_object)
+            active_hierarchy = self.get_children(bpy.context.active_object)
+            active_h_objs = map(self.hierarchy_names, active_hierarchy)
 
-            managers.append(ModelManager(
-                self.modelname, bpy.context.active_object.name,
-                self.use_facetex, self.drang_increment, self.generate_bsp,
-                bpy.context.scene.name
-            ))
+            import code
+            print("Entering REPL. Press CTRL-D to exit.")
+            code.interact(local=locals())
         else:
             for obj in bpy.context.scene.objects:
                 if obj.parent is None and not obj.hide:
