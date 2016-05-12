@@ -90,10 +90,10 @@ class ModelManager:
     # prefix for BSP collider definition objects
     COLLMESH_PFX = "collmesh"
 
-    def __init__(self, exp_fname, base_obj, use_facetex, drang_increment,
+    def __init__(self, base_name, base_obj, use_facetex, drang_increment,
                  gen_bsp, scene_name):
 
-        if not isinstance(exp_fname, str):
+        if not isinstance(base_name, str):
             raise TypeError("Export filename must be a string!")
         if scene_name not in bpy.data.scenes:
             raise TypeError("scene must be the name of a Blender scene!")
@@ -102,7 +102,7 @@ class ModelManager:
                             "object in the given scene!")
 
         self.scene = scene_name  # Name of the scene to use
-        self.base_name = exp_fname  # Base object name
+        self.base_name = base_name  # Base object name
         self._exp_fname = ""  # Export filename
         self.name_scheme = 0  # See LOD_NSCHEME constants above
         self.base_obj = base_obj  # Name of base object
@@ -657,6 +657,7 @@ class ExportBackend:
         return tx_info
 
     def get_children(self, obj):
+        # FIXME: Find a way of associating child objects with parent objects.
         hierarchy_stack = [[obj]]  # Stack of lists containing child objects
 
         def is_valid_obj(obj, parent=None):
@@ -778,16 +779,22 @@ class IFFExporter(ExportBackend):
             active_hierarchy = self.get_children(bpy.context.active_object)
             active_h_objs = map(self.hierarchy_names, active_hierarchy)
 
-            import code
-            print("Entering REPL. Press CTRL-D to exit.")
-            code.interact(local=locals())
+            for hlev in active_h_objs:
+                for objd in hlev:
+                    cur_manager = ModelManager(
+                        objd[1], objd[0], self.use_facetex,
+                        self.drang_increment, self.generate_bsp,
+                        bpy.context.scene.name)
+                    cur_manager.exp_fname = objd[1]
+                    managers.append(cur_manager)
         else:
             for obj in bpy.context.scene.objects:
                 if obj.parent is None and not obj.hide:
                     if MAIN_LOD_RE.match(obj.name) and not main_lod_used:
                         managers.append(ModelManager(
                             self.modelname, obj.name, self.use_facetex,
-                            self.generate_bsp, bpy.context.scene.name
+                            self.drang_increment, self.generate_bsp,
+                            bpy.context.scene.name
                         ))
                         main_lod_used = True
                         warnings.warn("detail-x LOD naming scheme is "
