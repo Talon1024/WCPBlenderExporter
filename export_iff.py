@@ -126,6 +126,7 @@ class ModelManager:
         self.textures = []  # Textures for all LODs
         self.mtltexs = {}  # Material -> texture dict
         self.children = []  # Child objects
+        self.setup_complete = False
 
     def _get_parent(self, chld_obj):
         parent = None
@@ -474,6 +475,8 @@ radius: {}""".format(lod_idx, x, y, z, r))
         for mtl in self.textures:
             print(mtl[2], "Light flags:", mtl[1],
                   "(Flat)" if mtl[0] else "(Textured)")
+
+        self.setup_complete = True
 
     @property
     def exp_fname(self):
