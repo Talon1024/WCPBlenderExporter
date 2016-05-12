@@ -658,13 +658,7 @@ class ExportBackend:
 
     def get_children(self, obj):
         # FIXME: Find a way of associating child objects with parent objects.
-        # NOTE: Object name is name of object in the scene, base name is the
-        # prefix of the object name, and is the same for all LODs.
-        hierarchy_level = 0
-        hierarchy = {
-            "obj": obj.name, "base": None,
-            "lods": [obj.name], "children": None
-        }
+        hierarchy_stack = [[obj]]  # Stack of lists containing child objects
 
         def is_valid_obj(obj, parent=None):
             return (str(obj.parent) == str(parent) and obj.hide is False and
@@ -711,20 +705,22 @@ class ExportBackend:
                 obj_match = CHLD_LOD_RE.match(obj.name)
                 lobj_match = CHLD_LOD_RE.match(lobj.name)
                 if obj_match.group(1) == lobj_match.group(1):
-                    hierarchy["lods"].append(lobj.name)
+                    hierarchy_stack[0].append(lobj)
 
-        hierarchy["lods"] = sorted(hierarchy["lods"], key=str.lower)
+        cur_hier_level = hierarchy_stack[-1]
+        cur_hier_levnum = 0
 
-        cur_hier_level = hierarchy
+        while len(cur_hier_level) > 0:
+            hierarchy_stack.append([])
+            cur_hier_levnum += 1
 
-        while len(cur_hier_level["children"]) > 0:
-            for pobj in cur_hier_level["lods"]:
+            for pobj in cur_hier_level:
                 chobjs = children_of(pobj)
                 hierarchy_stack[cur_hier_levnum].extend(chobjs)
 
-            cur_hier_level = cur_hier_level["children"]
+            cur_hier_level = hierarchy_stack[-1]
 
-        return hierarchy
+        return hierarchy_stack
 
     def hierarchy_names(self, hierarchy_level):
         used_names = []
