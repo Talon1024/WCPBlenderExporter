@@ -698,15 +698,25 @@ class ExportBackend:
                             children.append(obj)
             return children
 
+        # Get LODs of obj
+        for lobj in bpy.context.scene.objects:
+            if is_valid_obj(lobj, obj.parent) and obj.name != lobj.name:
+                obj_match = CHLD_LOD_RE.match(obj.name)
+                lobj_match = CHLD_LOD_RE.match(lobj.name)
+                if obj_match.group(1) == lobj_match.group(1):
+                    hierarchy_stack[0].append(lobj)
+
         cur_hierarchy_level = hierarchy_stack[-1]
 
         while len(cur_hierarchy_level) > 0:
             for pobj in cur_hierarchy_level:
                 chobjs = children_of(pobj)
                 hierarchy_stack.append(chobjs)
-            print("Entering REPL (line 666). Press CTRL-D to exit.")
+
             import code
+            print("Entering REPL. Press CTRL-D to exit.")
             code.interact(local=locals())
+
             cur_hierarchy_level = hierarchy_stack[-1]
 
 
@@ -747,7 +757,7 @@ class IFFExporter(ExportBackend):
 
             # Traversing hierarchy here will allow the object export filename
             # to be set, as well as removing the need for traversing the
-            # hierarchy in ModelManager.setup(). It's more efficient overall
+            # hierarchy in ModelManager.setup(). It's more efficient overall.
 
             active_children = self.get_children(bpy.context.active_object)
 
