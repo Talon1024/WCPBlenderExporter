@@ -488,14 +488,14 @@ radius: {}""".format(lod_idx, x, y, z, r))
         return self._exp_fname
 
     @exp_fname.setter
-    def _exp_fname_set(self, value):
+    def exp_fname(self, value):
         if not isinstance(value, str):
             raise TypeError("Export filename must be a string!")
 
         self._exp_fname = value
 
     @exp_fname.deleter
-    def _exp_fname_del(self):
+    def exp_fname(self):
         self._exp_fname = self.base_name
 
 
