@@ -419,6 +419,13 @@ class IFFImporter(ImportBackend):
             lod_lev, mesh_vers
         ))
 
+        vert_struct = "<fff"
+        vtnm_struct = "<fff"
+        fvrt_struct = "<iiff"
+        face_struct = "<ifiiii"
+        # Use 28 to skip the "unknown2" value, present in mesh versions 11+
+        face_size = 28 if mesh_vers >= 11 else 24
+
         while mnrmsh_read < mesh_form["length"]:
             geom_data = self.iff_reader.read_data()
             mnrmsh_read += 8 + geom_data["length"]
@@ -434,7 +441,7 @@ class IFFImporter(ImportBackend):
                 vert_idx = 0
                 while vert_idx * 12 < geom_data["length"]:
                     lodm.add_vert(struct.unpack_from(
-                        "<fff", geom_data["data"], vert_idx * 12))
+                        vert_struct, geom_data["data"], vert_idx * 12))
                     vert_idx += 1
 
             # Most 3D models by fans don't have a NORM chunk, but most 3D
@@ -444,22 +451,21 @@ class IFFImporter(ImportBackend):
                 vtnm_idx = 0
                 while vtnm_idx * 12 < geom_data["length"]:
                     lodm.add_norm(struct.unpack_from(
-                        "<fff", geom_data["data"], vtnm_idx * 12))
+                        vtnm_struct, geom_data["data"], vtnm_idx * 12))
                     vtnm_idx += 1
 
             elif geom_data["name"] == b"FVRT":
                 fvrt_idx = 0
                 while fvrt_idx * 16 < geom_data["length"]:
                     lodm.add_fvrt(struct.unpack_from(
-                        "<iiff", geom_data["data"], fvrt_idx * 16))
+                        fvrt_struct, geom_data["data"], fvrt_idx * 16))
                     fvrt_idx += 1
 
             elif geom_data["name"] == b"FACE":
                 face_idx = 0
-                while face_idx * 28 < geom_data["length"]:
-                    # Multiply by 28 to skip "unknown2" value
+                while face_idx * face_size < geom_data["length"]:
                     face_data = struct.unpack_from(
-                        "<ifiiii", geom_data["data"], face_idx * 28)
+                        face_struct, geom_data["data"], face_idx * face_size)
                     lodm.add_face(face_data)
                     register_texture(face_data[2], read_mats=self.read_mats)
                     face_idx += 1
