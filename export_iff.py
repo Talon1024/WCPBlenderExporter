@@ -26,7 +26,7 @@ import array
 from os import sep as dirsep
 from . import iff_mesh
 from math import sin, cos
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from itertools import repeat
 
 LFLAG_UNKNOWN1 = 1
@@ -702,7 +702,12 @@ class ExportBackend:
         # Get info for root obj
         if is_valid_obj(obj):
             obj_match = CHLD_LOD_RE.match(obj.name)
-            obj_bname = obj_match.group(1)
+            if obj_match:
+                obj_bname = obj_match.group(1)
+            else:
+                obj_match = MAIN_LOD_RE.match(obj.name)
+                obj_bname = self.modelname
+
             objects.append((obj.name, obj_bname, obj_bname))
         else:
             objects.append((obj.name, obj.name, obj.name))
@@ -777,7 +782,6 @@ class IFFExporter(ExportBackend):
             # hierarchy in ModelManager.setup(). It's more efficient overall.
 
             active_hierarchy = self.get_children(bpy.context.active_object)
-            active_h_objs = map(self.hierarchy_names, active_hierarchy)
 
             for hlev in active_h_objs:
                 for objd in hlev:
