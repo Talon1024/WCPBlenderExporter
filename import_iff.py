@@ -419,8 +419,7 @@ class IFFImporter(ImportBackend):
             lod_lev, mesh_vers
         ))
 
-        vert_struct = "<fff"
-        vtnm_struct = "<fff"
+        vec3_struct = "<fff"
         fvrt_struct = "<iiff"
         face_struct = "<ifiiii"
         # Use 28 to skip the "unknown2" value, present in mesh versions 11+
@@ -433,27 +432,28 @@ class IFFImporter(ImportBackend):
 
             # RADI and NORM chunks are ignored
 
+            # Internal name of "minor" mesh/LOD mesh
             if geom_data["name"] == b"NAME":
                 name_str = self.read_cstring(geom_data["data"], 0)
                 lodm.set_name(name_str)
 
+            # Vertices
             elif geom_data["name"] == b"VERT":
                 vert_idx = 0
                 while vert_idx * 12 < geom_data["length"]:
                     lodm.add_vert(struct.unpack_from(
-                        vert_struct, geom_data["data"], vert_idx * 12))
+                        vec3_struct, geom_data["data"], vert_idx * 12))
                     vert_idx += 1
 
-            # Most 3D models by fans don't have a NORM chunk, but most 3D
-            # models from the original game do.
-
+            # Vertex normals.
             elif geom_data["name"] == b"VTNM":
                 vtnm_idx = 0
                 while vtnm_idx * 12 < geom_data["length"]:
                     lodm.add_norm(struct.unpack_from(
-                        vtnm_struct, geom_data["data"], vtnm_idx * 12))
+                        vec3_struct, geom_data["data"], vtnm_idx * 12))
                     vtnm_idx += 1
 
+            # Vertices for each face
             elif geom_data["name"] == b"FVRT":
                 fvrt_idx = 0
                 while fvrt_idx * 16 < geom_data["length"]:
@@ -461,6 +461,7 @@ class IFFImporter(ImportBackend):
                         fvrt_struct, geom_data["data"], fvrt_idx * 16))
                     fvrt_idx += 1
 
+            # Face info
             elif geom_data["name"] == b"FACE":
                 face_idx = 0
                 while face_idx * face_size < geom_data["length"]:
@@ -470,8 +471,9 @@ class IFFImporter(ImportBackend):
                     register_texture(face_data[2], read_mats=self.read_mats)
                     face_idx += 1
 
+            # Center point
             elif geom_data["name"] == b"CNTR":
-                lodm.set_cntr(struct.unpack("<fff", geom_data["data"]))
+                lodm.set_cntr(struct.unpack(vec3_struct, geom_data["data"]))
 
             # print(
             #     "geom length:", geom["length"],
