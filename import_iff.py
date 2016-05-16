@@ -342,10 +342,10 @@ class LODMesh:
         return bl_mesh
 
     def debug_info(self):
-        for data in [self._verts, self._norms, self._fvrts, self._faces,
-                     self._name]:
-            pass
-            # print("length of data:", len(data))
+        banner = "Oops! Something didn't work properly. Maybe you can "
+        "find out what the issue is. Press ctrl-D to exit the REPL."
+        import code
+        code.interact(banner=banner, local=locals())
 
 
 class Hardpoint:
@@ -446,7 +446,15 @@ class IFFImporter(ImportBackend):
                     vert_idx += 1
 
             # Vertex normals.
-            elif geom_data["name"] == b"VTNM":
+            elif geom_data["name"] == b"VTNM" and mesh_vers != 9:
+                vtnm_idx = 0
+                while vtnm_idx * 12 < geom_data["length"]:
+                    lodm.add_norm(struct.unpack_from(
+                        vec3_struct, geom_data["data"], vtnm_idx * 12))
+                    vtnm_idx += 1
+
+            # Vertex normals (mesh version 9).
+            elif geom_data["name"] == b"NORM" and mesh_vers == 9:
                 vtnm_idx = 0
                 while vtnm_idx * 12 < geom_data["length"]:
                     lodm.add_norm(struct.unpack_from(
