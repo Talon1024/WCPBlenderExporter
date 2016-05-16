@@ -342,10 +342,11 @@ class LODMesh:
         return bl_mesh
 
     def debug_info(self):
-        banner = "Oops! Something didn't work properly. Maybe you can "
-        "find out what the issue is. Press ctrl-D to exit the REPL."
-        import code
-        code.interact(banner=banner, local=locals())
+        print("Oops! Something didn't work properly.")
+        # banner = "Oops! Something didn't work properly. Maybe you can "
+        # "find out what the issue is. Press ctrl-D to exit the REPL."
+        # import code
+        # code.interact(banner=banner, local=locals())
 
 
 class Hardpoint:
