@@ -812,8 +812,9 @@ class IFFExporter(ExportBackend):
 
             for hobj in active_hierarchy:
                 cur_manager = ModelManager(
-                    "", hobj.name, self.use_facetex, self.drang_increment,
-                    self.generate_bsp, bpy.context.scene.name)
+                    self.modelname, hobj.name, self.use_facetex,
+                    self.drang_increment, self.generate_bsp,
+                    bpy.context.scene.name)
                 cur_manager.exp_fname = hierarchy_str_for(hobj)
                 managers.append(cur_manager)
         else:
