@@ -658,7 +658,7 @@ class ExportBackend:
 
     def get_children(self, obj):
         # List containing an object and its children.
-        objects = []  # Format: [("obj_name", "base_name", "hierarchy"), ...]
+        objects = []  # Format: [("obj_name", "base_name"), ...]
 
         def is_valid_obj(obj, parent=None):
             return (str(obj.parent) == str(parent) and obj.hide is False and
@@ -727,19 +727,30 @@ class ExportBackend:
 
         return objects
 
-    def hierarchy_names(self, hierarchy_level):
-        used_names = []
-        obj_names = []
+    def hierarchy_str_for(self, obj):
+        def parents_of(obj):
+            if (obj.parent is not None and obj.parent.type == "MESH" and
+                (MAIN_LOD_RE.match(obj.parent.name) or
+                    CHLD_LOD_RE.match(obj.parent.name))
+                    and obj.parent.hide is False):
+                return [obj].extend(parents_of(obj.parent))
+            elif (obj.parent is not None and obj.parent.type == "EMPTY" and
+                  HARDPOINT_RE.match(obj.parent.name) and
+                    obj.parent.hide is False):
+                return [obj].extend(parents_of(obj.parent.parent))
+            else:
+                return [obj]
 
-        for obj in hierarchy_level:
-            obj_bname = CHLD_LOD_RE.match(obj.name).group(1)
-            obj_oname = obj.name
-            obj_data = (obj_oname, obj_bname)
-            if obj_bname not in used_names:
-                used_names.append(obj_bname)
-                obj_names.append(obj_data)
+        def name_of(obj):
+            if obj is not None:
+                if MAIN_LOD_RE.match(obj.name) or CHLD_LOD_RE.match(obj.name):
+                    return self.modelname
 
-        return obj_names
+        if obj.parent is not None:
+            hierarchy = parents_of(obj)
+            return "_".join(reversed(map(lambda o: o.name, hierarchy)))
+        else:
+            return obj.name
 
 
 class IFFExporter(ExportBackend):
