@@ -27,7 +27,7 @@ from os import sep as dirsep
 from . import iff_mesh
 from math import sin, cos
 from collections import OrderedDict, namedtuple
-from itertools import repeat
+from itertools import repeat, starmap
 
 LFLAG_UNKNOWN1 = 1
 LFLAG_FULLBRIGHT = 2
@@ -754,17 +754,30 @@ class ExportBackend:
                   HARDPOINT_RE.match(obj.parent.name) and
                     obj.parent.hide is False):
                 return [obj].extend(parents_of(obj.parent.parent))
-            else:
-                return [obj]
+            return [obj]
 
-        def name_of(obj):
+        def name_of(obj, first):
             if obj is not None:
-                if MAIN_LOD_RE.match(obj.name) or CHLD_LOD_RE.match(obj.name):
+                obj_ch_name = CHLD_LOD_RE.match(obj.name)
+                if MAIN_LOD_RE.match(obj.name):
                     return self.modelname
+                elif obj_ch_name:
+                    if first:
+                        return self.modelname
+                    else:
+                        return obj_ch_name.group(1)
 
         if obj.parent is not None:
             hierarchy = parents_of(obj)
-            return "_".join(reversed(map(lambda o: o.name, hierarchy)))
+
+            import code
+            code.interact(local=locals())
+
+            hierarchy = [(ob, idx == 0) for idx, ob in enumerate(hierarchy)]
+
+            code.interact(local=locals())
+
+            return "_".join(reversed(starmap(name_of, hierarchy)))
         else:
             return obj.name
 
@@ -815,7 +828,7 @@ class IFFExporter(ExportBackend):
                     self.modelname, hobj.name, self.use_facetex,
                     self.drang_increment, self.generate_bsp,
                     bpy.context.scene.name)
-                cur_manager.exp_fname = hierarchy_str_for(hobj)
+                cur_manager.exp_fname = self.hierarchy_str_for(hobj)
                 managers.append(cur_manager)
         else:
             for obj in bpy.context.scene.objects:
