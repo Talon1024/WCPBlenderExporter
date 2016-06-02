@@ -657,14 +657,28 @@ class ExportBackend:
         return tx_info
 
     def get_children(self, obj):
+        """Get a list of the object, and all of its exportable children.
+
+        In order for a child object to be exportable, it must be:
+        1. Parented to another valid LOD object or hardpoint.
+        2. Named such that MAIN_LOD_RE or CHLD_LOD_RE matches its name.
+        3. Visible in Blender's viewport."""
         # List containing an object and its children.
         objects = [obj]
         main_lod_used = False
 
         def is_valid_obj(obj, parent=None):
-            return (str(obj.parent) == str(parent) and obj.hide is False and
-                    obj.type == "MESH" and (CHLD_LOD_RE.match(obj.name) or
-                    MAIN_LOD_RE.match(obj.name)))
+            if not (str(obj.parent) == str(parent) and obj.hide is False and
+                    obj.type == "MESH"):
+                return False
+
+            if CHLD_LOD_RE.match(obj.name):
+                return True
+            elif MAIN_LOD_RE.match(obj.name):
+                if main_lod_used is True:
+                    return False
+                main_lod_used = True
+                return True
 
         def is_valid_hp(obj, parent=None):
             return (str(obj.parent) == str(parent) and obj.hide is False and
@@ -796,14 +810,12 @@ class IFFExporter(ExportBackend):
 
             active_hierarchy = self.get_children(bpy.context.active_object)
 
-            for hlev in active_h_objs:
-                for objd in hlev:
-                    cur_manager = ModelManager(
-                        objd[1], objd[0], self.use_facetex,
-                        self.drang_increment, self.generate_bsp,
-                        bpy.context.scene.name)
-                    cur_manager.exp_fname = objd[1]
-                    managers.append(cur_manager)
+            for hobj in active_hierarchy:
+                cur_manager = ModelManager(
+                    "", hobj.name, self.use_facetex, self.drang_increment,
+                    self.generate_bsp, bpy.context.scene.name)
+                cur_manager.exp_fname = hierarchy_str_for(hobj)
+                managers.append(cur_manager)
         else:
             for obj in bpy.context.scene.objects:
                 if obj.parent is None and not obj.hide:
