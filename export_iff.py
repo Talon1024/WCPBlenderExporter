@@ -659,6 +659,7 @@ class ExportBackend:
     def get_children(self, obj):
         # List containing an object and its children.
         objects = [obj]
+        main_lod_used = False
 
         def is_valid_obj(obj, parent=None):
             return (str(obj.parent) == str(parent) and obj.hide is False and
@@ -717,10 +718,7 @@ class ExportBackend:
 
                 return children
 
-        cur_object = objects[-1]
-        cur_ob_children = children_of(bpy.context.scene.objects[cur_object])
-
-        objects.extend(children_of(cur_ob_children))
+        objects.extend(children_of(obj))
 
         import code
         code.interact(banner="Entering REPL (L721).", local=locals())
