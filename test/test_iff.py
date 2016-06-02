@@ -27,7 +27,7 @@ import unittest
 sys.path.append(os.path.abspath(getcwd() + "/.."))
 
 
-class TestIFF(unittest.TestCase):
+class TestIFFFormAndChunk(unittest.TestCase):
 
     def setUp(self):
         import iff
@@ -82,6 +82,7 @@ class TestIFF(unittest.TestCase):
             b'\x00',
             self.iffc_ponf.to_bytes(), 'chunk PONF is outputting incorrectly')
 
+        import iff
         # Test clear_members method of IffChunk
         void_chnk = iff.IffChunk("VOID")
         void_chnk.add_member(42)
@@ -90,7 +91,7 @@ class TestIFF(unittest.TestCase):
         self.assertEqual(
             0, void_chnk.get_length(),
             'chunk VOID is wrong length after clearing its members!')
-        self.assertEqual("VOID\x00\x00\x00\x00", void_chnk.to_bytes(),
+        self.assertEqual(b"VOID\x00\x00\x00\x00", void_chnk.to_bytes(),
                          'chunk VOID is outputting incorrectly!')
 
     def test_form(self):
@@ -101,6 +102,34 @@ class TestIFF(unittest.TestCase):
             b'man!\x0090\x00\x00\x00GONE\x00\x00\x00\x04*\x00\x00\x00FORM\x00'
             b'\x00\x00\x04EMPT',
             self.ifff.to_bytes(), 'Form FONG is outputting incorrectly!')
+
+
+class TestIFFFile(unittest.TestCase):
+
+    def setUp(self):
+        import iff
+        self.iffl = iff.IffFile("TEST")
+        iffc_fib = iff.IffChunk("FIB ")
+        iffc_fib.add_member(1)
+        iffc_fib.add_member(1)
+        iffc_fib.add_member(2)
+        iffc_fib.add_member(3)
+        iffc_fib.add_member(5)
+        iffc_fib.add_member(8)
+        iffc_fib.add_member(13)
+        self.iffl.get_root_form().add_member(iffc_fib)
+        self.iffl.set_comment("The FIB chunk represents the first 7 numbers "
+                              "of a fibonacci sequence, as little-endian "
+                              "32-bit integers.")
+
+    def test_bytes(self):
+        self.assertEqual(
+            b'FORM\x00\x00\x00(TESTFIB \x00\x00\x00\x1C\x01\x00\x00\x00'
+            b'\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x05\x00\x00\x00'
+            b'\x08\x00\x00\x00\x0D\x00\x00\x00The FIB chunk represents the '
+            b'first 7 numbers of a fibonacci sequence, as little-endian '
+            b'32-bit integers.', self.iffl.to_bytes(),
+            'The IFF is outputting incorrectly!')
 
 
 if __name__ == '__main__':

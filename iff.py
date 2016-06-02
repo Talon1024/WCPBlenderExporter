@@ -246,6 +246,8 @@ class IffFile:
         else:
             raise TypeError("Filename must be a string")
 
+        self.comment = b""
+
     def to_xmf(self):
         xmf_string = io.StringIO()
         xmf_string.write('IFF "')
@@ -256,7 +258,7 @@ class IffFile:
         return xmf_string.getvalue()
 
     def to_bytes(self):
-        return self.root_form.to_bytes()
+        return self.root_form.to_bytes() + self.comment
 
     def set_root_form(self, root_form):
         if isinstance(root_form, IffForm):
@@ -264,6 +266,14 @@ class IffFile:
 
     def get_root_form(self):
         return self.root_form
+
+    def set_comment(self, comment):
+        if not isinstance(comment, str) and not isinstance(comment, bytes):
+            raise TypeError("Comment must be a string or a byte string!")
+
+        self.comment = comment
+        if isinstance(self.comment, str):
+            self.comment = self.comment.encode()
 
     def write_file_xmf(self):
         fname = self.filename + ".xmf"
