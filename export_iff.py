@@ -658,7 +658,7 @@ class ExportBackend:
 
     def get_children(self, obj):
         # List containing an object and its children.
-        objects = []  # Format: [("obj_name", "base_name"), ...]
+        objects = [obj]
 
         def is_valid_obj(obj, parent=None):
             return (str(obj.parent) == str(parent) and obj.hide is False and
@@ -668,6 +668,17 @@ class ExportBackend:
         def is_valid_hp(obj, parent=None):
             return (str(obj.parent) == str(parent) and obj.hide is False and
                     obj.type == "EMPTY" and HARDPOINT_RE.match(obj.name))
+
+        # def info_for(obj):
+        #     if is_valid_obj(obj):
+        #         obj_match = CHLD_LOD_RE.match(obj.name)
+        #         if obj_match:
+        #             obj_bname = obj_match.group(1)
+        #         else:
+        #             obj_match = MAIN_LOD_RE.match(obj.name)
+        #             obj_bname = self.modelname
+        #
+        #         return obj.name, obj_bname
 
         def children_of(parent_obj):
             childnames = []
@@ -694,40 +705,33 @@ class ExportBackend:
                             obj_bname = obj_bname.group(1)
                         else:
                             obj_bname = self.modelname
-                        if obj_bname not in children:
+                        if obj_bname not in childnames:
                             childnames.append(obj_bname)
                             children.append(obj)
-            return children
 
-        # Get info for root obj
-        if is_valid_obj(obj):
-            obj_match = CHLD_LOD_RE.match(obj.name)
-            if obj_match:
-                obj_bname = obj_match.group(1)
+            if len(children) == 0:
+                return children
             else:
-                obj_match = MAIN_LOD_RE.match(obj.name)
-                obj_bname = self.modelname
+                for obj in children:
+                    children.extend(children_of(obj))
 
-            objects.append((obj.name, obj_bname, obj_bname))
-        else:
-            objects.append((obj.name, obj.name, obj.name))
+                return children
 
         cur_object = objects[-1]
-        cur_ob_children = children_of(bpy.context.scene.objects[cur_object[0]])
+        cur_ob_children = children_of(bpy.context.scene.objects[cur_object])
 
-        while len(cur_ob_children) > 0:
-            objects.append()
-            cur_hier_levnum += 1
+        objects.extend(children_of(cur_ob_children))
 
-            for pobj in cur_hier_level:
-                chobjs = children_of(pobj)
-                hierarchy_stack[cur_hier_levnum].extend(chobjs)
-
-            cur_hier_level = hierarchy_stack[-1]
+        import code
+        code.interact(banner="Entering REPL (L721).", local=locals())
 
         return objects
 
     def hierarchy_str_for(self, obj):
+        """Get the export filename for the object.
+
+        This function should be called after objects have been selected for
+        export."""
         def parents_of(obj):
             if (obj.parent is not None and obj.parent.type == "MESH" and
                 (MAIN_LOD_RE.match(obj.parent.name) or
