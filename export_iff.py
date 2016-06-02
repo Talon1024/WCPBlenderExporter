@@ -102,10 +102,10 @@ class ModelManager:
                             "object in the given scene!")
 
         self.scene = scene_name  # Name of the scene to use
-        self.base_name = base_name  # Base object name
-        self._exp_fname = ""  # Export filename
+        self.base_name = base_name  # Model base name (ex. Duhiky)
+        self._exp_fname = base_name  # Export filename
         self.name_scheme = 0  # See LOD_NSCHEME constants above
-        self.base_obj = base_obj  # Name of base object
+        self.base_obj = base_obj  # Name of base object (ex. Duhiky-lod0)
         self.base_parent = str(
             bpy.data.scenes[scene_name].objects[base_obj].parent)
         base_lod = self._get_lod(base_obj, True)  # Determine base object LOD
@@ -720,8 +720,8 @@ class ExportBackend:
 
         objects.extend(children_of(obj))
 
-        import code
-        code.interact(banner="Entering REPL (L721).", local=locals())
+        # import code
+        # code.interact(banner="Entering REPL (L721).", local=locals())
 
         return objects
 
