@@ -745,16 +745,17 @@ class ExportBackend:
         This function should be called after objects have been selected for
         export."""
         def parents_of(obj):
+            rv = [obj]
             if (obj.parent is not None and obj.parent.type == "MESH" and
                 (MAIN_LOD_RE.match(obj.parent.name) or
                     CHLD_LOD_RE.match(obj.parent.name))
                     and obj.parent.hide is False):
-                return [obj].extend(parents_of(obj.parent))
+                rv.extend(parents_of(obj.parent))
             elif (obj.parent is not None and obj.parent.type == "EMPTY" and
                   HARDPOINT_RE.match(obj.parent.name) and
-                    obj.parent.hide is False):
-                return [obj].extend(parents_of(obj.parent.parent))
-            return [obj]
+                  obj.parent.hide is False):
+                rv.extend(parents_of(obj.parent.parent))
+            return rv
 
         def name_of(obj, first):
             if obj is not None:
@@ -769,17 +770,11 @@ class ExportBackend:
 
         if obj.parent is not None:
             hierarchy = parents_of(obj)
-
-            import code
-            code.interact(local=locals())
-
-            hierarchy = [(ob, idx == 0) for idx, ob in enumerate(hierarchy)]
-
-            code.interact(local=locals())
-
-            return "_".join(reversed(starmap(name_of, hierarchy)))
+            hierarchy = [(ob, idx == 0) for idx, ob in
+                         enumerate(reversed(hierarchy))]
+            return "_".join(starmap(name_of, hierarchy))
         else:
-            return obj.name
+            return name_of(obj, True)
 
 
 class IFFExporter(ExportBackend):
@@ -829,6 +824,8 @@ class IFFExporter(ExportBackend):
                     self.drang_increment, self.generate_bsp,
                     bpy.context.scene.name)
                 cur_manager.exp_fname = self.hierarchy_str_for(hobj)
+                print("Export filename for {}: {}.iff".format(
+                    hobj.name, cur_manager.exp_fname))
                 managers.append(cur_manager)
         else:
             for obj in bpy.context.scene.objects:
