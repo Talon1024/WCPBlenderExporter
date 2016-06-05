@@ -21,6 +21,7 @@
 # IFF reader class
 from os.path import exists as fexists
 import struct
+import io
 
 
 class IffReader:
@@ -28,7 +29,10 @@ class IffReader:
     _iff_heads = [b"FORM", b"CAT ", b"LIST"]
 
     def __init__(self, iff_file):
-        self._iff_file = open(iff_file, "rb")
+        if isinstance(iff_file, str):
+            self._iff_file = open(iff_file, "rb")
+        elif isinstance(iff_file, bytes) or isinstance(iff_file, bytearray):
+            self._iff_file = io.BytesIO(iff_file)
 
     def id_isvalid(self, iffid):
         if len(iffid) != 4:
