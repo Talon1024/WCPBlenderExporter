@@ -755,7 +755,7 @@ class ExportBackend:
                 if MAIN_LOD_RE.match(obj.name):
                     return self.modelname
                 elif obj_ch_name:
-                    if first:
+                    if first and self.export_active_only:
                         return self.modelname
                     else:
                         return obj_ch_name.group(1)
