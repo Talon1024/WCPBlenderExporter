@@ -128,14 +128,6 @@ class ModelManager:
         self.children = []  # Child objects
         self.setup_complete = False
 
-    def _get_parent(self, chld_obj):
-        parent = None
-        pparent = None
-        if chld_obj.parent is not None:
-            parent = chld_obj.parent
-            pparent = _get_parent(chld_obj.parent)
-        return pparent, parent
-
     def _get_lod(self, lod_obj, base=False):
         lod = MAIN_LOD_RE.match(lod_obj)
         if lod:
