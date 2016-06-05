@@ -5,4 +5,13 @@ cwd: '{PROJECT_PATH}'
 targets:
   'Wing Blender (Production)':
     cmd: '{PROJECT_PATH}/build.sh'
+    args: ['-p']
+    cwd: '{PROJECT_PATH}'
+  'Wing Blender ZIP (Development)':
+    cmd: '{PROJECT_PATH}/build.sh'
+    args: ['-dz']
+    cwd: '{PROJECT_PATH}'
+  'Wing Blender ZIP (Production)':
+    cmd: '{PROJECT_PATH}/build.sh'
+    args: ['-pz']
     cwd: '{PROJECT_PATH}'
