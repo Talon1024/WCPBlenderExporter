@@ -49,17 +49,31 @@ class TestIFFFormAndChunk(unittest.TestCase):
         self.assertEqual("IffForm 'BOOK'", str(iff.IffForm("BOOK")),
                          "IffForm isn't converting to a string properly!")
 
+        good_members = [iff.IffForm("EMPT"), iff.IffChunk("VOID")]
+        bad_members = [192, 2.25, "abc"]
+
+        test_form = iff.IffForm("TEST", good_members)
+        self.assertIs(good_members, test_form._members,
+                      "IffForm isn't using the members parameter correctly!")
+
         # Exception testing.
         # Invalid Form ID
         self.assertRaises(ValueError, iff.IffForm, ("\x02Aéâ"))
         # Invalid member types
-        self.assertRaises(TypeError, iff.IffForm, "DETA", [192, 2.25, "abc"])
+        self.assertRaises(TypeError, iff.IffForm, "DETA", bad_members)
 
     def test_iff_chunk(self):
         import iff
         self.assertIsNotNone(iff.IffChunk("DOCK"), 'Cannot create chunk DOCK!')
         self.assertEqual("IffChunk 'SOCK'", str(iff.IffChunk("SOCK")),
                          "IffChunk isn't converting to a string properly!")
+
+        good_members = [192, 2.25, "abc"]
+        bad_members = [iff.IffForm("EMPT"), iff.IffChunk("VOID")]
+        test_chunk = iff.IffChunk("TEST", good_members)
+
+        self.assertIs(good_members, test_chunk._members,
+                      "IffChunk isn't using the members parameter correctly!")
 
         # Exception testing.
         # Invalid Chunk ID

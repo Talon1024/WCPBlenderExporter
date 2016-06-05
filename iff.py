@@ -27,7 +27,7 @@ import io
 
 class IffForm:
     # A FORM is an IFF data structure that can hold CHUNKs or other FORMs
-    def __init__(self, name, members=[]):
+    def __init__(self, name, members=None):
         name = name.strip()
         if len(name) == 4:  # The name of the FORM must be 4 letters long
             self._name = name.upper()
@@ -41,16 +41,25 @@ class IffForm:
                 raise ValueError(
                     "Invalid name for this " + type(self).__name__)
 
-        for member in members:
-            if not self.is_member_valid(member):
-                raise TypeError("Member %r is of an invalid type for an %s!" %
-                                (member, type(self).__name__))
+        if members is not None:
+            if not isinstance(members, list):
+                raise TypeError(
+                    "members must be a list of valid members for an %s!" %
+                    (type(self).__name__)
+                )
+
+            for member in members:
+                if not self.is_member_valid(member):
+                    raise TypeError(
+                        "Member %r is of an invalid type for an %s!" %
+                        (member, type(self).__name__)
+                    )
 
         # Make a slice copy of the member list so that every FORM can have
         # different members. If this is not done, all IffForm objects will have
         # the same members
         self._length = 4  # Account for FORM name
-        self._members = members[:]
+        self._members = [] if members is None else members
 
     def __str__(self):
         return "{} {!r}".format(type(self).__name__, self._name)
@@ -130,7 +139,7 @@ class IffChunk(IffForm):
     # A CHUNK is an IFF data structure that holds binary data,
     # such as integers, floats, or strings.
 
-    def __init__(self, name, members=[]):
+    def __init__(self, name, members=None):
         super().__init__(name, members)
         self._length = 0
         self._last_type_added = 0
