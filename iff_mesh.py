@@ -58,7 +58,7 @@ def colour_texnum(colour):
 class Collider:
     # Collision sphere or BSP tree
 
-    COLLIDER_TYPES = ["sphere", "bsp", "bsp+region"]
+    COLLIDER_TYPES = ("sphere", "bsp", "bsp+region")
 
     def __init__(self, col_type, *data):
         if col_type not in self.COLLIDER_TYPES:

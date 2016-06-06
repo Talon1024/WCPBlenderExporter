@@ -26,7 +26,7 @@ import io
 
 class IffReader:
 
-    _iff_heads = [b"FORM", b"CAT ", b"LIST"]
+    _iff_heads = (b"FORM", b"CAT ", b"LIST")
 
     def __init__(self, iff_file):
         if isinstance(iff_file, str):
@@ -53,12 +53,12 @@ class IffReader:
         orig_pos = self._iff_file.tell()
         head = self._iff_file.read(4)
         if head in self._iff_heads:
-            self._iff_file.read(8)
+            self._iff_file.seek(self._iff_file.tell() + 8)
             # Don't skip the entire FORM, just the header (length and name).
-        elif head.isalnum() or head == b"FAR ":
+        elif self.id_isvalid(head):
             # Skip the entire CHUNK
             length = struct.unpack(">i", self._iff_file.read(4))[0]
-            self._iff_file.read(length)
+            self._iff_file.seek(self._iff_file.tell() + length - 8)
 
             # IFF Chunks and FORMs are aligned at even offsets
             if self._iff_file.tell() % 2 == 1: self._iff_file.read(1)

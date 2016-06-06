@@ -195,9 +195,9 @@ class ModelManager:
                                 if (str(bpy.data.scenes[self.scene]
                                         .objects[lod_name].parent) !=
                                         self.base_parent):
-                                    warnings.warn(
+                                    raise ValueError(
                                         "The LOD objects for this model have "
-                                        "different parents!", ValueWarning)
+                                        "different parents!")
                                 self.lods[lod] = lod_name
                     else:
                         raise TypeError("Object {} is not a mesh!".format(
