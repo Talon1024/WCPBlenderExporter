@@ -97,7 +97,7 @@ class IffForm:
     def remove_member(self, memberToRemove):
         """Remove a member from this FORM"""
         self._length -= memberToRemove.get_length() + 8
-        if memberToAdd.get_length() % 2 == 1:
+        if memberToRemove.get_length() % 2 == 1:
             self._length -= 1
         self._members.remove(memberToRemove)
 
@@ -114,6 +114,11 @@ class IffForm:
         iffbytes = bytearray()
         for x in self._members:
             iffbytes.extend(x.to_bytes())
+            # If the chunk contains an odd number of bytes,
+            # add an extra 0-byte for padding.
+            if x.get_length() % 2 == 1:
+                iffbytes.append(0)
+
         iffbytes = (b"FORM" +
                     struct.pack(">l", self._length) +
                     self._name.encode("ascii", "replace") +
@@ -154,19 +159,17 @@ class IffChunk(IffForm):
             return 0
 
     def add_member(self, memberToAdd):
-        """Add a member to this FORM
+        """Add a member to this CHUNK
 
-        Only CHUNKs or other FORMs may be added to a FORM
+        Only ints, floats, and strings can be added to a CHUNK.
         """
         membtype = self.is_member_valid(memberToAdd)
         if membtype > 0:
             self._members.append(memberToAdd)
             if membtype == 1:  # Numeric (int/float)
-                if self._last_type_added == 2:
-                    self._length += 1
                 self._length += 4
             elif membtype == 2:  # String
-                self._length += len(memberToAdd)
+                self._length += len(memberToAdd) + 1  # Null-terminated
             self._last_type_added = membtype
         else:
             raise TypeError("Tried to add an invalid piece of data!")
@@ -227,11 +230,7 @@ class IffChunk(IffForm):
             if isinstance(x, str):
                 iffbytes.extend(x.encode("ascii", "replace"))
                 iffbytes.append(0)
-        # If the chunk contains an odd number of bytes, add an extra 0-byte for
-        # padding. See the EA IFF 85 specification here:
-        # https://github.com/1fish2/IFF/tree/master/IFF%20docs%20with%20Commodore%20revisions/
-        if self._length % 2 == 1:
-            iffbytes.append(0)
+
         iffbytes = (self._name.encode("ascii", "replace") +
                     struct.pack(">l", self._length) +
                     iffbytes)

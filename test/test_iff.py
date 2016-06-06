@@ -44,6 +44,8 @@ class TestIFFFormAndChunk(unittest.TestCase):
         self.ifff.add_member(self.ifff_empty)
 
     def test_iff_form(self):
+        """Ensure IffForm constructs, adds members, and raises appropriate
+        errors properly."""
         import iff
         self.assertIsNotNone(iff.IffForm("BABY"), 'Cannot create Form BABY!')
         self.assertEqual("IffForm 'BOOK'", str(iff.IffForm("BOOK")),
@@ -63,6 +65,8 @@ class TestIFFFormAndChunk(unittest.TestCase):
         self.assertRaises(TypeError, iff.IffForm, "DETA", bad_members)
 
     def test_iff_chunk(self):
+        """Ensure IffChunk constructs, adds members, and raises appropriate
+        errors properly."""
         import iff
         self.assertIsNotNone(iff.IffChunk("DOCK"), 'Cannot create chunk DOCK!')
         self.assertEqual("IffChunk 'SOCK'", str(iff.IffChunk("SOCK")),
@@ -83,7 +87,7 @@ class TestIFFFormAndChunk(unittest.TestCase):
                           [iff.IffChunk("SETA"), iff.IffForm("ZETA")])
 
     def test_chunk(self):
-        """Check chunk length and content"""
+        "Check chunk length and content"
         self.assertEqual(25, self.iffc_ponf.get_length(),
                          'Chunk PONF is wrong length!')
         self.assertEqual(4, self.iffc_gone.get_length(),
@@ -92,8 +96,7 @@ class TestIFFFormAndChunk(unittest.TestCase):
             b'GONE\x00\x00\x00\x04*\x00\x00\x00', self.iffc_gone.to_bytes(),
             'chunk GONE is outputting incorrectly')
         self.assertEqual(
-            b'PONF\x00\x00\x00\x19\x1F\x85EAI am poncho man!\x0090\x00\x00'
-            b'\x00',
+            b'PONF\x00\x00\x00\x19\x1F\x85EAI am poncho man!\x0090\x00\x00',
             self.iffc_ponf.to_bytes(), 'chunk PONF is outputting incorrectly')
 
         import iff
@@ -109,8 +112,9 @@ class TestIFFFormAndChunk(unittest.TestCase):
                          'chunk VOID is outputting incorrectly!')
 
     def test_form(self):
-        """Check root form length and content"""
-        self.assertEqual(62, self.ifff._length, 'Form FONG is wrong length!')
+        "Check root form length and content"
+        self.assertEqual(
+            62, self.ifff.get_length(), 'Form FONG is wrong length!')
         self.assertEqual(
             b'FORM\x00\x00\x00>FONGPONF\x00\x00\x00\x19\x1f\x85EAI am poncho '
             b'man!\x0090\x00\x00\x00GONE\x00\x00\x00\x04*\x00\x00\x00FORM\x00'
@@ -123,7 +127,7 @@ class TestIFFFile(unittest.TestCase):
     def setUp(self):
         import iff
         self.iffl = iff.IffFile("TEST")
-        iffc_fib = iff.IffChunk("FIB ")
+        iffc_fib = iff.IffChunk("FIB")
         iffc_fib.add_member(1)
         iffc_fib.add_member(1)
         iffc_fib.add_member(2)
@@ -137,6 +141,7 @@ class TestIFFFile(unittest.TestCase):
                               "32-bit integers.")
 
     def test_bytes(self):
+        "IffFile.to_bytes() works as it should"
         self.assertEqual(
             b'FORM\x00\x00\x00(TESTFIB \x00\x00\x00\x1C\x01\x00\x00\x00'
             b'\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x05\x00\x00\x00'
@@ -144,6 +149,58 @@ class TestIFFFile(unittest.TestCase):
             b'first 7 numbers of a fibonacci sequence, as little-endian '
             b'32-bit integers.', self.iffl.to_bytes(),
             'The IFF is outputting incorrectly!')
+
+
+class TestIFFReader(unittest.TestCase):
+
+    def setUp(self):
+        import iff
+        iffl = iff.IffForm("TEST")
+
+        iffc_desc = iff.IffChunk("DESC")
+        iffc_desc.add_member("Fibonacci sequence")
+        iffl.add_member(iffc_desc)
+
+        ifff_fib = iff.IffForm("FIB")
+
+        iffc_num = iff.IffChunk("NUM")
+        iffc_num.add_member(7)
+        ifff_fib.add_member(iffc_num)
+
+        iffc_fib = iff.IffChunk("FIB")
+        iffc_fib.add_member(1)
+        iffc_fib.add_member(1)
+        iffc_fib.add_member(2)
+        iffc_fib.add_member(3)
+        iffc_fib.add_member(5)
+        iffc_fib.add_member(8)
+        iffc_fib.add_member(13)
+        ifff_fib.add_member(iffc_fib)
+        iffl.add_member(ifff_fib)
+
+        self.iff_data = iffl.to_bytes()
+
+    def test_can_read(self):
+        "IffReader can read from bytes or bytearray objects."
+        import iff_read
+        self.assertIsNotNone(
+            iff_read.IffReader(self.iff_data),
+            'IffReader is unable to read from bytes or bytearrays!')
+
+    def test_skip(self):
+        "IffReader skips CHUNKs and FORMs properly."
+        import iff_read
+        iffr = iff_read.IffReader(self.iff_data)
+        self.assertEqual(0, iffr._iff_file.tell(),
+                         'IffReader does not start at the beginning of the '
+                         'file/bytes!')
+        self.assertIsNone(iffr.skip_data(), 'skip_data() returned something!')
+        # First 12 bytes are the header for the TEST (root) form.
+        self.assertEqual(12, iffr._iff_file.tell(), 'IffReader does not skip'
+                         'FORM headers properly!')
+        self.assertIsNone(iffr.skip_data(), 'skip_data() returned something!')
+        self.assertEqual(40, iffr._iff_file.tell(), 'IffReader does not skip '
+                         'odd-length CHUNKs properly!')
 
 
 if __name__ == '__main__':

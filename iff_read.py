@@ -58,7 +58,9 @@ class IffReader:
         elif self.id_isvalid(head):
             # Skip the entire CHUNK
             length = struct.unpack(">i", self._iff_file.read(4))[0]
-            self._iff_file.seek(self._iff_file.tell() + length - 8)
+            bytes_to_skip = length
+            bytes_to_skip += 1 if length % 2 == 1 else 0
+            self._iff_file.seek(self._iff_file.tell() + bytes_to_skip)
 
             # IFF Chunks and FORMs are aligned at even offsets
             if self._iff_file.tell() % 2 == 1: self._iff_file.read(1)
