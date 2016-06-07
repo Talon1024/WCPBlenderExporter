@@ -234,8 +234,18 @@ class ModelManager:
         # Initialize lists that should be the same length as self.lods
 
         # Get LOD ranges for this model
+        # LOD ranges can be either a custom property of the LOD object, or the
+        # name of an empty object parented to said LOD object. The custom
+        # property takes precedence, however.
         for lod_idx in range(len(self.lods)):
+            # LOD range for LOD 0 is always ignored; it is always 0.
             if lod_idx > 0:
+                drange = getattr(
+                    bpy.data.scenes[self.scene][self.lods[lod_idx]],
+                    "drange", None)
+                if drange is not None and drange > 0:
+                    drange = float(drange)
+                    continue
                 # LOD Ranges are only valid for LODs greater than 0
                 for obj in bpy.data.scenes[self.scene].objects:
                     if (obj.parent is not None and
@@ -243,12 +253,23 @@ class ModelManager:
                         obj.type == "EMPTY" and obj.hide is False and
                             self.DRANGE_RE.match(obj.name)):
                         drange = self.DRANGE_RE.match(obj.name).group(1)
-                        drange = drange.translate({44: 46})  # Comma to period
+                        # A comma is used in place of a period in the drange
+                        # object name because Blender likes to add .000, .001,
+                        # etc. to objects with duplicate names.
+                        drange = drange.translate({44: 46})
                         drange = float(drange)
                         self.dranges.append(drange)
                         break
                 else:
                     self.dranges.append(None)
+
+        # TODO: Unify all for loops to optimize this method.
+        for obj in bpy.data.scenes[self.scene].objects:
+            if obj.parent is not None and obj.parent.name in self.lods:
+                par_lod = int(obj.parent.name[-1])
+                if obj.type == "EMPTY" and obj.hide is False:
+                    if self.DRANGE_RE.match(obj.name) and par_lod > 0:
+                        drange = self.DRANGE_RE.match(obj.name).group(1)
 
         print("dranges (b4):", self.dranges)
 
