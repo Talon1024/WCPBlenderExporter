@@ -117,9 +117,15 @@ class ModelManager:
         self.lods[base_lod] = base_obj
         self.hardpoints = []  # Hardpoints
         self.hpobnames = []  # Hardpoint Blender object names
-        self.dranges = [float(0)]  # LOD ranges (RANG chunk)
+
+        # LOD ranges (RANG chunk)
+        self.dranges = [None for x in range(self.MAX_NUM_LODS)]
+        self.dranges[0] = 0.0
         self.drang_increment = drang_increment
-        self.dsphrs = [None]  # CNTR/RADI spheres for each LOD.
+
+        # CNTR/RADI spheres for each LOD.
+        self.dsphrs = [None for x in range(self.MAX_NUM_LODS)]
+
         self.gen_bsp = gen_bsp
         self.collider = None  # COLL form
         self.use_mtltex = not use_facetex
@@ -185,22 +191,22 @@ class ModelManager:
             elif self.name_scheme == self.LOD_NSCHEME_CHLD:
                 lod_name = "{}-lod{}".format(self.base_name, lod)
 
-            if (lod_name in bpy.data.scenes[self.scene].objects and
-                    lod_name != self.base_obj):
+            lobj = None
+            try:
+                lobj = bpy.data.scenes[self.scene].objects[lod_name]
+            except KeyError:
+                lobj = None
+                del self.dranges[-1]
+                del self.dsphrs[-1]
+            if lobj is not None and lod_name != self.base_obj:
                 if self.lods[lod] is None:
-                    if (bpy.data.scenes[self.scene]
-                            .objects[lod_name].type == 'MESH'):
-                        if (bpy.data.scenes[self.scene]
-                                    .objects[lod_name].hide is False):
-                                if (str(bpy.data.scenes[self.scene]
-                                        .objects[lod_name].parent) !=
-                                        self.base_parent):
-                                    raise ValueError(
-                                        "The LOD objects for this model have "
-                                        "different parents!")
-                                self.lods[lod] = lod_name
-                                self.dsphrs.append(None)
-                                self.dranges.append(None)
+                    if lobj.type == 'MESH':
+                        if lobj.hide is False:
+                            if str(lobj.parent) != self.base_parent:
+                                raise ValueError(
+                                    "The LOD objects for this model have "
+                                    "different parents!")
+                            self.lods[lod] = lod_name
                     else:
                         raise TypeError("Object {} is not a mesh!".format(
                                         lod_name))
