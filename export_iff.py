@@ -850,6 +850,17 @@ class IFFExporter(ExportBackend):
                             used_names.add(obj_match.group(1))
 
         for manager in managers:
+            def banner(text, width=50):
+                str_length = len(text)
+                if str_length > width:
+                    return banner_topbtm + "\n" + text + "\n" + banner_topbtm
+                banner_topbtm = "=" * width
+                num_sideqs = width // 2 - (str_length + 2) // 2
+                banner_mid = (
+                    "=" * num_sideqs + " " + text + " " + "=" * num_sideqs)
+                return banner_topbtm + "\n" + banner_mid + "\n" + banner_topbtm
+
+            print(banner(manager.exp_fname, 70))
             manager.setup()
 
 
