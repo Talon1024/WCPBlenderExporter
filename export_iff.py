@@ -119,7 +119,7 @@ class ModelManager:
         self.hpobnames = []  # Hardpoint Blender object names
         self.dranges = [float(0)]  # LOD ranges (RANG chunk)
         self.drang_increment = drang_increment
-        self.dsphrs = []  # CNTR/RADI spheres for each LOD.
+        self.dsphrs = [None]  # CNTR/RADI spheres for each LOD.
         self.gen_bsp = gen_bsp
         self.collider = None  # COLL form
         self.use_mtltex = not use_facetex
@@ -199,6 +199,8 @@ class ModelManager:
                                         "The LOD objects for this model have "
                                         "different parents!")
                                 self.lods[lod] = lod_name
+                                self.dsphrs.append(None)
+                                self.dranges.append(None)
                     else:
                         raise TypeError("Object {} is not a mesh!".format(
                                         lod_name))
@@ -263,10 +265,9 @@ class ModelManager:
                 else:
                     self.dranges.append(None)
 
-        for x in range(len(self.lods) - 1):
-            self.dsphrs.append(None)
-            if x > 0:
-                self.dranges.append(None)
+        # The collider for the lowest (most detailed) LOD takes precedence over
+        # colliders for other LODs, and a model can only have one collider.
+        collider_lod = self.MAX_NUM_LODS + 1
 
         # TODO: Unify all for loops to optimize this method.
         for obj in bpy.data.scenes[self.scene].objects:
@@ -287,9 +288,18 @@ class ModelManager:
                     elif (obj.name.lower().startswith(self.CNTRADI_PFX) and
                           obj.empty_draw_type == "SPHERE"):
                         x, z, y = obj.location
-                        self.dsphrs.append(iff_mesh.Sphere(
+                        self.dsphrs[par_lod] = iff_mesh.Sphere(
                             x, y, z, max(obj.scale)
-                        ))
+                        )
+                    elif (obj.name.lower().startswith(self.COLLSPHR_PFX) and
+                          obj.empty_draw_type == "SPHERE"):
+                        if par_lod < collider_lod:
+                            x, z, y = obj.location
+                            self.collider = iff_mesh.Collider(
+                                "sphere",
+                                iff_mesh.Sphere(x, y, z, max(obj.scale))
+                            )
+                            collider_lod = par_lod
                     elif HARDPOINT_RE.match(obj.name):
                         hpname = HARDPOINT_RE.match(obj.name).group(1)
                         hpmatrix = obj.rotation_euler.to_matrix().to_3x3()
