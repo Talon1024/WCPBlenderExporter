@@ -36,7 +36,7 @@ LFLAG_UNKNOWN2 = 8
 # Name pattern for LOD objects. Largely deprecated in favour of named LOD
 # object models. Mostly present for backwards compatibility.
 # Group 1 is the LOD level number.
-MAIN_LOD_RE = re.compile(r"^detail-(\d+)$")
+MAIN_LOD_RE = re.compile(r"^detail-?(\d+)$")
 
 # Name pattern for LOD objects, grouped by name.
 # Group 1 is the child object name, group 2 is the LOD level number.
@@ -202,11 +202,14 @@ class ModelManager:
                 if self.lods[lod] is None:
                     if lobj.type == 'MESH':
                         if lobj.hide is False:
+
                             if str(lobj.parent) != self.base_parent:
                                 raise ValueError(
                                     "The LOD objects for this model have "
                                     "different parents!")
+
                             self.lods[lod] = lod_name
+
                     else:
                         raise TypeError("Object {} is not a mesh!".format(
                                         lod_name))
@@ -239,59 +242,42 @@ class ModelManager:
 
         print("LOD object names:", self.lods)
 
-        # Initialize lists that should be the same length as self.lods
-
-        # Get LOD ranges for this model
-        # LOD ranges can be either a custom property of the LOD object, or the
-        # name of an empty object parented to said LOD object. The custom
-        # property takes precedence, however.
-        for lod_idx in range(len(self.lods)):
-            # LOD range for LOD 0 is always ignored; it is always 0.
-            if lod_idx > 0:
-                drange = getattr(
-                    bpy.data.scenes[self.scene][self.lods[lod_idx]],
-                    "drange", None)
-                if drange is not None and drange > 0:
-                    drange = float(drange)
-                    continue
-                # LOD Ranges are only valid for LODs greater than 0
-                for obj in bpy.data.scenes[self.scene].objects:
-                    if (obj.parent is not None and
-                        obj.parent.name == self.lods[lod_idx] and
-                        obj.type == "EMPTY" and obj.hide is False and
-                            self.DRANGE_RE.match(obj.name)):
-                        drange = self.DRANGE_RE.match(obj.name).group(1)
-                        # A comma is used in place of a period in the drange
-                        # object name because Blender likes to add .000, .001,
-                        # etc. to objects with duplicate names.
-                        drange = drange.translate({44: 46})
-                        drange = float(drange)
-                        self.dranges.append(drange)
-                        break
-                else:
-                    self.dranges.append(None)
-
         # The collider for the lowest (most detailed) LOD takes precedence over
         # colliders for other LODs, and a model can only have one collider.
         collider_lod = self.MAX_NUM_LODS + 1
 
-        # TODO: Unify all for loops to optimize this method.
+        # LOD ranges can be either a custom property of the LOD object, or the
+        # name of an empty object parented to said LOD object. The custom
+        # property takes precedence, however.
+        drange_prop = [False for x in range(len(self.lods))]
+
+        # TODO: Unify all for loops that scan the scene for metadata objects.
         for obj in bpy.data.scenes[self.scene].objects:
             if obj.parent is not None and obj.parent.name in self.lods:
                 par_lod = int(obj.parent.name[-1])
                 if obj.type == "EMPTY" and obj.hide is False:
+
                     if self.DRANGE_RE.match(obj.name) and par_lod > 0:
-                        drange = self.DRANGE_RE.match(obj.name).group(1)
-                        drange = float(drange.translate({44: 46}))
-                        self.dranges[par_lod] = drange
+                        # LOD Range object
+                        if drange_prop[par_lod] is False:
+                            drange = self.DRANGE_RE.match(obj.name).group(1)
+                            # A comma is used in place of a period in the
+                            # drange object name because Blender likes to add
+                            # .000, .001, etc. to objects with duplicate names.
+                            drange = float(drange.translate({44: 46}))
+                            self.dranges[par_lod] = drange
+
                     elif (obj.name.lower().startswith(self.CNTRADI_PFX) and
                           obj.empty_draw_type == "SPHERE"):
+                        # CNTR/RADI object
                         x, z, y = obj.location
                         self.dsphrs[par_lod] = iff_mesh.Sphere(
                             x, y, z, max(obj.scale)
                         )
+
                     elif (obj.name.lower().startswith(self.COLLSPHR_PFX) and
                           obj.empty_draw_type == "SPHERE"):
+                        # COLLSPHR object
                         if par_lod < collider_lod:
                             x, z, y = obj.location
                             self.collider = iff_mesh.Collider(
@@ -299,20 +285,28 @@ class ModelManager:
                                 iff_mesh.Sphere(x, y, z, max(obj.scale))
                             )
                             collider_lod = par_lod
+
                     elif HARDPOINT_RE.match(obj.name):
+                        # Hardpoint object
                         hpname = HARDPOINT_RE.match(obj.name).group(1)
                         hpmatrix = obj.rotation_euler.to_matrix().to_3x3()
                         hardpt = iff_mesh.Hardpoint(hpmatrix, obj.location,
                                                     hpname)
                         self.hardpoints.append(hardpt)
                         self.hpobnames.append(obj.name)
+
             elif obj.name in self.lods:
                 obj_lod = self.lods.index(obj.name)
                 if obj_lod > 0:
-                    drange = getattr(obj, "drange", None)
+                    # LOD range for LOD 0 is always ignored; it is always 0.
+                    drange = obj.get("drange")
                     if drange is not None:
                         self.dranges[obj_lod] = drange
+                        drange_prop[obj_lod] = True
                         continue
+
+        del collider_lod
+        del drange_prop
 
         print("dranges (b4):", self.dranges)
 
@@ -358,21 +352,9 @@ class ModelManager:
 
         print("dranges (after):", self.dranges)
 
-        # Get CNTR/RADI data for each LOD
-        for lod_idx in range(len(self.lods)):
-            for obj in bpy.data.scenes[self.scene].objects:
-                if (obj.parent is not None and
-                    obj.parent.name == self.lods[lod_idx] and
-                    obj.name.lower().startswith(self.CNTRADI_PFX) and
-                    obj.type == "EMPTY" and obj.hide is False and
-                        obj.empty_draw_type == "SPHERE"):
-                    # Convert Blender to VISION coordinates.
-                    x, z, y = obj.location
-                    self.dsphrs.append(iff_mesh.Sphere(
-                        x, y, z, max(obj.scale)
-                    ))
-                    break
-            else:
+        # Generate CNTR/RADI data for each LOD where it does not exist.
+        for lod_idx in range(len(self.dsphrs)):
+            if self.dsphrs[lod_idx] is None:
                 # Generate CNTR/RADI sphere
                 lod_obj = (
                     bpy.data.scenes[self.scene].objects[self.lods[lod_idx]])
@@ -381,24 +363,7 @@ class ModelManager:
                 r = max(lod_obj.dimensions) / 2
                 self.dsphrs.append(iff_mesh.Sphere(x, y, z, r))
 
-            print("""LOD {}
-X: {}
-Y: {}
-Z: {}
-radius: {}""".format(lod_idx, x, y, z, r))
-
-        # Get the hardpoints associated with this model
-        for lod_idx in range(len(self.lods)):
-            for obj in bpy.data.scenes[self.scene].objects:
-                if (obj.parent is not None and
-                    obj.parent.name == self.lods[lod_idx] and
-                    obj.type == "EMPTY" and obj.hide is False and
-                        HARDPOINT_RE.match(obj.name)):
-                    hpname = HARDPOINT_RE.match(obj.name).group(1)
-                    hpmatrix = obj.rotation_euler.to_matrix().to_3x3()
-                    hardpt = iff_mesh.Hardpoint(hpmatrix, obj.location, hpname)
-                    self.hardpoints.append(hardpt)
-                    self.hpobnames.append(obj.name)
+            print("LOD {} CNTR/RADI: {}".format(lod_idx, self.dsphrs[lod_idx]))
 
         # Ensure there are no hardpoint name conflicts
         hpnames = []
@@ -417,32 +382,14 @@ radius: {}""".format(lod_idx, x, y, z, r))
             print(hp, ": ({})".format(hpob))
 
         # Get the collider for this model
-        if not self.gen_bsp:
-            for lod_idx in reversed(range(len(self.lods))):
-                for obj in bpy.data.scenes[self.scene].objects:
-                    if (obj.parent is not None and
-                        obj.parent.name == self.lods[lod_idx] and
-                        obj.name.lower().startswith(self.COLLSPHR_PFX) and
-                        obj.type == "EMPTY" and obj.hide is False and
-                            obj.empty_draw_type == "SPHERE"):
-                        x, z, y = obj.location
-                        radius = max(obj.scale)
-                        self.collider = iff_mesh.Collider(
-                            "sphere", iff_mesh.Sphere(x, y, z, radius)
-                        )
-                        break
-
-            if self.collider is None:
-                # Generate collsphr
-                lod_obj = bpy.data.scenes[self.scene].objects[self.lods[0]]
-                x, z, y = lod_obj.location
-                radius = max(lod_obj.dimensions) / 2
-                self.collider = iff_mesh.Collider(
-                    "sphere", iff_mesh.Sphere(x, y, z, radius)
-                )
-        else:
-            raise NotImplementedError(
-                "BSP Tree generation is not yet supported!")
+        if self.collider is None:
+            # Generate collsphr
+            lod_obj = bpy.data.scenes[self.scene].objects[self.lods[0]]
+            x, z, y = lod_obj.location
+            radius = max(lod_obj.dimensions) / 2
+            self.collider = iff_mesh.Collider(
+                "sphere", iff_mesh.Sphere(x, y, z, radius)
+            )
 
         print("Collider:", self.collider)
 
@@ -453,17 +400,17 @@ radius: {}""".format(lod_idx, x, y, z, r))
 
         # Get the textures used by all LODs for this model
         used_materials = []
-        for lodmi in range(len(self.lodms)):
-            self.lodms[lodmi].calc_tessface()
+        for lodm in self.lodms:
+            lodm.calc_tessface()
             # tf_mtl = None  # The material for this tessface
             # tf_mlf = 0  # The light flags for this tessface
             # tf_mtf = False  # Is the material a flat colour
             if self.use_mtltex:
                 # Material textures
-                for tf in self.lodms[lodmi].tessfaces:
+                for tf in lodm.tessfaces:
                     # Ensure material for this face exists
                     try:
-                        tf_mtl = self.lodms[lodmi].materials[tf.material_index]
+                        tf_mtl = lodm.materials[tf.material_index]
                     except IndexError:
                         raise ValueError("You must have a valid material "
                                          "assigned to each face!")
@@ -473,15 +420,15 @@ radius: {}""".format(lod_idx, x, y, z, r))
             else:
                 # Face textures (visible in Multitexture viewport render mode)
                 for tf, tfuv in zip(
-                        self.lodms[lodmi].tessfaces,
-                        self.lodms[lodmi].tessface_uv_textures.active.data):
+                        lodm.tessfaces,
+                        lodm.tessface_uv_textures.active.data):
                     if (tfuv.image is not None and
                             tfuv.image not in used_materials):
                         # Use the face image
                         used_materials.append(tfuv.image)
                     else:
                         # Use the face material colour
-                        tf_mtl = self.lodms[lodmi].materials[tf.material_index]
+                        tf_mtl = lodm.materials[tf.material_index]
                         tf_clr = iff_mesh.colour_texnum(tf_mtl.diffuse_color)
 
                         if tf_clr not in used_materials:
