@@ -355,13 +355,12 @@ class ModelManager:
         # Generate CNTR/RADI data for each LOD where it does not exist.
         for lod_idx in range(len(self.dsphrs)):
             if self.dsphrs[lod_idx] is None:
-                # Generate CNTR/RADI sphere
                 lod_obj = (
                     bpy.data.scenes[self.scene].objects[self.lods[lod_idx]])
 
                 x, z, y = lod_obj.location
                 r = max(lod_obj.dimensions) / 2
-                self.dsphrs.append(iff_mesh.Sphere(x, y, z, r))
+                self.dsphrs[lod_idx] = iff_mesh.Sphere(x, y, z, r)
 
             print("LOD {} CNTR/RADI: {}".format(lod_idx, self.dsphrs[lod_idx]))
 
@@ -369,11 +368,10 @@ class ModelManager:
         hpnames = []
         for hp in self.hardpoints:
             if hp.name in hpnames:
-                raise ValueError("Two or more hardpoints of the object {} "
-                                 "have the same name ({})! (Hardpoint name is "
-                                 "stripped of numeric extension)".format(
-                                     self.base_name, hp.name
-                                 ))
+                raise ValueError(
+                    "Two or more hardpoints of the object {} have the same "
+                    "name ({})! (Hardpoint name is stripped of numeric "
+                    "suffix)".format(self.base_name, hp.name))
             hpnames.append(hp.name)
         del hpnames
 
@@ -381,9 +379,8 @@ class ModelManager:
         for hp, hpob in zip(self.hardpoints, self.hpobnames):
             print(hp, ": ({})".format(hpob))
 
-        # Get the collider for this model
+        # Generate the collider for this model if it doesn't exist.
         if self.collider is None:
-            # Generate collsphr
             lod_obj = bpy.data.scenes[self.scene].objects[self.lods[0]]
             x, z, y = lod_obj.location
             radius = max(lod_obj.dimensions) / 2
