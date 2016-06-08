@@ -271,13 +271,6 @@ class ModelManager:
 
         # TODO: Unify all for loops to optimize this method.
         for obj in bpy.data.scenes[self.scene].objects:
-            if obj.name in self.lods:
-                obj_lod = self.lods.index(obj.name)
-                if obj_lod > 0:
-                    drange = getattr(obj, "drange", None)
-                    if drange is not None:
-                        self.dranges[obj_lod] = drange
-                        continue
             if obj.parent is not None and obj.parent.name in self.lods:
                 par_lod = int(obj.parent.name[-1])
                 if obj.type == "EMPTY" and obj.hide is False:
@@ -307,6 +300,13 @@ class ModelManager:
                                                     hpname)
                         self.hardpoints.append(hardpt)
                         self.hpobnames.append(obj.name)
+            elif obj.name in self.lods:
+                obj_lod = self.lods.index(obj.name)
+                if obj_lod > 0:
+                    drange = getattr(obj, "drange", None)
+                    if drange is not None:
+                        self.dranges[obj_lod] = drange
+                        continue
 
         print("dranges (b4):", self.dranges)
 
