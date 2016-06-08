@@ -26,7 +26,7 @@ import array
 from os import sep as dirsep
 from . import iff_mesh
 from math import sin, cos
-from collections import OrderedDict, namedtuple
+from collections import OrderedDict
 from itertools import repeat, starmap
 
 LFLAG_UNKNOWN1 = 1
@@ -263,13 +263,40 @@ class ModelManager:
                 else:
                     self.dranges.append(None)
 
+        for x in range(len(self.lods) - 1):
+            self.dsphrs.append(None)
+            if x > 0:
+                self.dranges.append(None)
+
         # TODO: Unify all for loops to optimize this method.
         for obj in bpy.data.scenes[self.scene].objects:
+            if obj.name in self.lods:
+                obj_lod = self.lods.index(obj.name)
+                if obj_lod > 0:
+                    drange = getattr(obj, "drange", None)
+                    if drange is not None:
+                        self.dranges[obj_lod] = drange
+                        continue
             if obj.parent is not None and obj.parent.name in self.lods:
                 par_lod = int(obj.parent.name[-1])
                 if obj.type == "EMPTY" and obj.hide is False:
                     if self.DRANGE_RE.match(obj.name) and par_lod > 0:
                         drange = self.DRANGE_RE.match(obj.name).group(1)
+                        drange = float(drange.translate({44: 46}))
+                        self.dranges[par_lod] = drange
+                    elif (obj.name.lower().startswith(self.CNTRADI_PFX) and
+                          obj.empty_draw_type == "SPHERE"):
+                        x, z, y = obj.location
+                        self.dsphrs.append(iff_mesh.Sphere(
+                            x, y, z, max(obj.scale)
+                        ))
+                    elif HARDPOINT_RE.match(obj.name):
+                        hpname = HARDPOINT_RE.match(obj.name).group(1)
+                        hpmatrix = obj.rotation_euler.to_matrix().to_3x3()
+                        hardpt = iff_mesh.Hardpoint(hpmatrix, obj.location,
+                                                    hpname)
+                        self.hardpoints.append(hardpt)
+                        self.hpobnames.append(obj.name)
 
         print("dranges (b4):", self.dranges)
 
