@@ -32,11 +32,16 @@ class TestIFFFormAndChunk(unittest.TestCase):
     def setUp(self):
         import iff
         self.ifff = iff.IffForm("FONG")
-        self.iffc_ponf = iff.IffChunk("PONF")
-        self.iffc_ponf.add_member(12.345)
-        self.iffc_ponf.add_member("I am poncho man!")
-        self.iffc_ponf.add_member(12345)
-        self.ifff.add_member(self.iffc_ponf)
+        self.iffc_frst = iff.IffChunk("FRST")
+        self.iffc_frst.add_member(12.25)
+        self.iffc_frst.add_member(12345)
+        self.iffc_frst.add_member("I am poncho man")
+        self.ifff.add_member(self.iffc_frst)
+        self.iffc_scnd = iff.IffChunk("SCND")
+        self.iffc_scnd.add_member(12.25)
+        self.iffc_scnd.add_member(12345)
+        self.iffc_scnd.add_member("I am poncho man!")
+        self.ifff.add_member(self.iffc_scnd)
         self.iffc_gone = iff.IffChunk("GONE")
         self.iffc_gone.add_member(42)
         self.ifff.add_member(self.iffc_gone)
@@ -88,18 +93,24 @@ class TestIFFFormAndChunk(unittest.TestCase):
 
     def test_chunk(self):
         "Check chunk length and content"
-        self.assertEqual(25, self.iffc_ponf.get_length(),
-                         'Chunk PONF is wrong length!')
+        import iff
+
+        self.assertEqual(24, self.iffc_frst.get_length(),
+                         'Chunk FRST is wrong length!')
+        self.assertEqual(25, self.iffc_scnd.get_length(),
+                         'Chunk SCND is wrong length!')
         self.assertEqual(4, self.iffc_gone.get_length(),
                          'Chunk GONE is wrong length!')
         self.assertEqual(
             b'GONE\x00\x00\x00\x04*\x00\x00\x00', self.iffc_gone.to_bytes(),
             'chunk GONE is outputting incorrectly')
         self.assertEqual(
-            b'PONF\x00\x00\x00\x19\x1F\x85EAI am poncho man!\x0090\x00\x00',
-            self.iffc_ponf.to_bytes(), 'chunk PONF is outputting incorrectly')
+            b'FRST\x00\x00\x00\x18\x00\x00DA90\x00\x00I am poncho man\x00',
+            self.iffc_frst.to_bytes(), 'chunk FRST is outputting incorrectly')
+        self.assertEqual(
+            b'SCND\x00\x00\x00\x19\x00\x00DA90\x00\x00I am poncho man!\x00',
+            self.iffc_scnd.to_bytes(), 'chunk SCND is outputting incorrectly')
 
-        import iff
         # Test clear_members method of IffChunk
         void_chnk = iff.IffChunk("VOID")
         void_chnk.add_member(42)
@@ -114,10 +125,11 @@ class TestIFFFormAndChunk(unittest.TestCase):
     def test_form(self):
         "Check root form length and content"
         self.assertEqual(
-            62, self.ifff.get_length(), 'Form FONG is wrong length!')
+            94, self.ifff.get_length(), 'Form FONG is wrong length!')
         self.assertEqual(
-            b'FORM\x00\x00\x00>FONGPONF\x00\x00\x00\x19\x1f\x85EAI am poncho '
-            b'man!\x0090\x00\x00\x00GONE\x00\x00\x00\x04*\x00\x00\x00FORM\x00'
+            b'FORM\x00\x00\x00^FONGFRST\x00\x00\x00\x18\x00\x00DA90\x00\x00I '
+            b'am poncho man\x00SCND\x00\x00\x00\x19\x00\x00DA90\x00\x00I am '
+            b'poncho man!\x00\x00GONE\x00\x00\x00\x04*\x00\x00\x00FORM\x00'
             b'\x00\x00\x04EMPT',
             self.ifff.to_bytes(), 'Form FONG is outputting incorrectly!')
 
