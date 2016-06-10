@@ -744,24 +744,34 @@ class ExportBackend:
 
         This function should be called after objects have been selected for
         export."""
+
         def parents_of(obj):
             rv = [obj]
-            if (obj.parent is not None and obj.parent.type == "MESH" and
-                (MAIN_LOD_RE.match(obj.parent.name) or
-                    CHLD_LOD_RE.match(obj.parent.name))
-                    and obj.parent.hide is False):
+
+            if (self.export_active_only and
+                    obj.name == bpy.context.active_object.name):
+                return rv
+
+            elif (obj.parent is not None and obj.parent.type == "MESH" and
+                  (MAIN_LOD_RE.match(obj.parent.name) or
+                   CHLD_LOD_RE.match(obj.parent.name)) and
+                  obj.parent.hide is False):
                 rv.extend(parents_of(obj.parent))
+
             elif (obj.parent is not None and obj.parent.type == "EMPTY" and
                   HARDPOINT_RE.match(obj.parent.name) and
                   obj.parent.hide is False):
                 rv.extend(parents_of(obj.parent.parent))
+
             return rv
 
         def name_of(obj, first):
             if obj is not None:
                 obj_ch_name = CHLD_LOD_RE.match(obj.name)
+
                 if MAIN_LOD_RE.match(obj.name):
                     return self.modelname
+
                 elif obj_ch_name:
                     if first and self.export_active_only:
                         return self.modelname
