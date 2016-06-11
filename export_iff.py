@@ -779,7 +779,8 @@ class ExportBackend:
                     return self.modelname
 
                 elif obj_ch_name:
-                    if first and self.export_active_only:
+                    if (first and self.export_active_only and
+                            not self.main_lod_used):
                         return self.modelname
                     else:
                         return obj_ch_name.group(1)
