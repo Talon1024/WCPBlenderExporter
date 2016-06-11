@@ -36,11 +36,11 @@ LFLAG_UNKNOWN2 = 8
 # Name pattern for LOD objects. Largely deprecated in favour of named LOD
 # object models. Mostly present for backwards compatibility.
 # Group 1 is the LOD level number.
-MAIN_LOD_RE = re.compile(r"^detail-?(\d+)$")
+MAIN_LOD_RE = re.compile(r"^detail-?(\d+)(?:\.\d+)?$")
 
 # Name pattern for LOD objects, grouped by name.
 # Group 1 is the child object name, group 2 is the LOD level number.
-CHLD_LOD_RE = re.compile(r"^(\w+)-lod(\d+)$")
+CHLD_LOD_RE = re.compile(r"^(\w+)-lod(\d+)(?:\.\d+)?$")
 
 # Name pattern for hardpoints. Group 1 is the hardpoint name, group 2 is
 # the suffix appended by Blender to objects with conflicting names.
@@ -70,12 +70,14 @@ class ModelManager:
     # One of the asteroid models I've looked at (AST_G_01.IFF) has 7 LODs
     MAX_NUM_LODS = 7
 
-    # The LOD base object is a LOD for the main model.
+    # The LOD base object uses the 'detail-X' naming scheme.
     LOD_NSCHEME_DETAIL = 0
 
-    # The LOD base object is a LOD for a child model, or the main model if user
-    # decides to set the active object as LOD 0.
-    LOD_NSCHEME_CHLD = 1
+    # The LOD base object uses the 'detailX' naming scheme.
+    LOD_NSCHEME_DETAIL2 = 1
+
+    # The LOD base object used the 'Y-lodX' naming scheme.
+    LOD_NSCHEME_CHLD = 2
 
     # Name pattern for LOD range info. Group 1 is the range, group 2 is the
     # suffix appended by Blender to objects with conflicting names.
@@ -138,7 +140,10 @@ class ModelManager:
         lod = MAIN_LOD_RE.match(lod_obj)
         if lod:
             if base:
-                self.name_scheme = self.LOD_NSCHEME_DETAIL
+                if lod.group(0).count("-") == 1:
+                    self.name_scheme = self.LOD_NSCHEME_DETAIL
+                else:
+                    self.name_scheme = self.LOD_NSCHEME_DETAIL2
                 warnings.warn("detail-x LOD naming scheme is deprecated.",
                               DeprecationWarning)
             lod = int(lod.group(1))
@@ -188,6 +193,8 @@ class ModelManager:
             lod_name = ""
             if self.name_scheme == self.LOD_NSCHEME_DETAIL:
                 lod_name = "detail-{}".format(lod)
+            elif self.name_scheme == self.LOD_NSCHEME_DETAIL2:
+                lod_name = "detail{}".format(lod)
             elif self.name_scheme == self.LOD_NSCHEME_CHLD:
                 lod_name = "{}-lod{}".format(self.base_name, lod)
 
@@ -665,7 +672,6 @@ class ExportBackend:
         3. Visible in Blender's viewport."""
         # List containing an object and its children.
         objects = [obj]
-        main_lod_used = False
 
         def is_valid_obj(obj, parent=None):
             if not (str(obj.parent) == str(parent) and obj.hide is False and
@@ -675,9 +681,9 @@ class ExportBackend:
             if CHLD_LOD_RE.match(obj.name):
                 return True
             elif MAIN_LOD_RE.match(obj.name):
-                if main_lod_used is True:
+                if self.main_lod_used is True:
                     return False
-                main_lod_used = True
+                self.main_lod_used = True
                 return True
 
         def is_valid_hp(obj, parent=None):
@@ -812,7 +818,7 @@ class IFFExporter(ExportBackend):
         self.modelname = get_fname(self.filepath)
 
         managers = []
-        main_lod_used = False
+        self.main_lod_used = False
         used_names = set()
 
         if self.export_active_only:
@@ -840,13 +846,13 @@ class IFFExporter(ExportBackend):
         else:
             for obj in bpy.context.scene.objects:
                 if obj.parent is None and not obj.hide:
-                    if MAIN_LOD_RE.match(obj.name) and not main_lod_used:
+                    if MAIN_LOD_RE.match(obj.name) and not self.main_lod_used:
                         managers.append(ModelManager(
                             self.modelname, obj.name, self.use_facetex,
                             self.drang_increment, self.generate_bsp,
                             bpy.context.scene.name
                         ))
-                        main_lod_used = True
+                        self.main_lod_used = True
                         warnings.warn("detail-x LOD naming scheme is "
                                       "deprecated.", DeprecationWarning)
                     else:
