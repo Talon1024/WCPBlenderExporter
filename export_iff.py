@@ -527,6 +527,8 @@ class ExportBackend:
         self.include_far_chunk = include_far_chunk
         self.drang_increment = drang_increment
         self.generate_bsp = generate_bsp
+        self.modelname = ""
+        self.main_lod_used = False
 
     def calc_dplane(self, vert, facenrm):
         """Calculate the D-Plane of the face.
