@@ -23,6 +23,7 @@ import mathutils
 import warnings
 import re
 import array
+import time
 from os import sep as dirsep
 from . import iff_mesh
 from math import sin, cos
@@ -188,6 +189,7 @@ class ModelManager:
         return valid_slots
 
     def setup(self):
+        setup_start_time = time.perf_counter()
         # Scan for valid LOD objects related to the base LOD object
         for lod in range(self.MAX_NUM_LODS):
             lod_name = ""
@@ -258,7 +260,6 @@ class ModelManager:
         # property takes precedence, however.
         drange_prop = [False for x in range(len(self.lods))]
 
-        # TODO: Unify all for loops that scan the scene for metadata objects.
         for obj in bpy.data.scenes[self.scene].objects:
             if obj.parent is not None and obj.parent.name in self.lods:
                 par_lod = int(obj.parent.name[-1])
@@ -484,6 +485,8 @@ class ModelManager:
                   "(Flat)" if mtl[0] else "(Textured)")
 
         self.setup_complete = True
+        print("Setup took {} seconds".format(
+            time.perf_counter() - setup_start_time))
 
     @property
     def exp_fname(self):
