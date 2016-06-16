@@ -525,7 +525,7 @@ class IFFImporter(ImportBackend):
             bl_obj.empty_draw_type = "SPHERE"
             x, y, z, r = struct.unpack("<ffff", coll_data["data"])
             bl_obj.scale = r, r, r
-            bl_obj.location = -x, z, y
+            bl_obj.location = x, z, y
             bpy.context.scene.objects.link(bl_obj)
 
     def read_cstring(self, data, ofs):
