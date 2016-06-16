@@ -1,0 +1,4 @@
+# Compiled Python bytecode cache folder
+__pycache__
+# Blender file backups
+*.blend[0-9]*
