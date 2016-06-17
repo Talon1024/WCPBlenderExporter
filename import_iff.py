@@ -355,10 +355,11 @@ class LODMesh:
         return bl_mesh
 
     def debug_info(self):
-        for data in [self._verts, self._norms, self._fvrts, self._faces,
-                     self._name]:
-            pass
-            # print("length of data:", len(data))
+        print("Oops! Something didn't work properly.")
+        # banner = "Oops! Something didn't work properly. Maybe you can "
+        # "find out what the issue is. Press ctrl-D to exit the REPL."
+        # import code
+        # code.interact(banner=banner, local=locals())
 
 
 class IFFImporter(ImportBackend):
@@ -368,86 +369,98 @@ class IFFImporter(ImportBackend):
             raise ValueError("RANG chunk has an invalid length!")
         num_dranges = rang_chunk["length"] // 4
         dranges = struct.unpack("<" + ("f" * num_dranges), rang_chunk["data"])
-        self.dranges = dranges
+        return dranges
 
-    def read_lod_data(self, major_form):
-        mjrf_bytes_read = 4
+    def parse_major_mesh_form(self, mesh_form):
+        mjrmsh_read = 4
         # Read all LODs
-        while mjrf_bytes_read < major_form["length"]:
+        while mjrmsh_read < mesh_form["length"]:
             lod_form = self.iff_reader.read_data()
-            mjrf_bytes_read += 12
-            lod_lev = lod_form["name"].decode("ascii").lstrip("0")
-            if lod_lev == "": lod_lev = 0
-            else: lod_lev = int(lod_lev)
+            lod_lev = int(lod_form["name"].decode("ascii"))
 
-            self.iff_reader.skip_data()
-            mjrf_bytes_read += 12
+            mnrmsh = self.iff_reader.read_data()
+            if mnrmsh["type"] == "form" and mnrmsh["name"] == b"MESH":
+                self.parse_minor_mesh_form(mnrmsh, lod_lev)
 
-            mjrf_bytes_read += self.read_mesh_data(lod_lev)
+            mjrmsh_read += 8 + lod_form["length"]
+            print("mjrmsh_read:", mjrmsh_read, "of", mesh_form["length"])
 
-            print(
-                "mjr form length:", major_form["length"],
-                "mjr form read:", mjrf_bytes_read
-            )
-
-    def read_mesh_data(self, lod_level):
+    def parse_minor_mesh_form(self, mesh_form, lod_lev=0):
         lodm = LODMesh(self.texname)
 
-        geom = self.iff_reader.read_data()
-        geom_bytes_read = 4
-        # Mesh version. In most cases, it will be 12
-        mvers = geom["name"].decode("ascii").lstrip("0")
-        if mvers == "": mvers = 0
-        else: mvers = int(mvers)
+        mnrmsh_read = 4
 
-        print("Mesh format is", mvers)
+        vers_form = self.iff_reader.read_data()
+        mesh_vers = int(vers_form["name"].decode("ascii"))
+        mnrmsh_read += 12
 
-        while geom_bytes_read < geom["length"]:
+        print("---------- LOD {} (version {}) ----------".format(
+            lod_lev, mesh_vers
+        ))
+
+        vec3_struct = "<fff"
+        fvrt_struct = "<iiff"
+        face_struct = "<ifiiii"
+        # Use 28 to skip the "unknown2" value, present in mesh versions 11+
+        face_size = 28 if mesh_vers >= 11 else 24
+
+        while mnrmsh_read < mesh_form["length"]:
             geom_data = self.iff_reader.read_data()
-            geom_bytes_read += geom_data["length"] + 8
+            mnrmsh_read += 8 + geom_data["length"]
+            print("mnrmsh_read:", mnrmsh_read, "of", mesh_form["length"])
 
             # RADI and NORM chunks are ignored
 
+            # Internal name of "minor" mesh/LOD mesh
             if geom_data["name"] == b"NAME":
                 name_str = self.read_cstring(geom_data["data"], 0)
                 lodm.set_name(name_str)
 
+            # Vertices
             elif geom_data["name"] == b"VERT":
                 vert_idx = 0
                 while vert_idx * 12 < geom_data["length"]:
                     lodm.add_vert(struct.unpack_from(
-                        "<fff", geom_data["data"], vert_idx * 12))
+                        vec3_struct, geom_data["data"], vert_idx * 12))
                     vert_idx += 1
 
-            # Most 3D models by fans don't have a NORM chunk, but most 3D
-            # models from the original game do.
-
-            elif geom_data["name"] == b"VTNM":
+            # Vertex normals.
+            elif geom_data["name"] == b"VTNM" and mesh_vers != 9:
                 vtnm_idx = 0
                 while vtnm_idx * 12 < geom_data["length"]:
                     lodm.add_norm(struct.unpack_from(
-                        "<fff", geom_data["data"], vtnm_idx * 12))
+                        vec3_struct, geom_data["data"], vtnm_idx * 12))
                     vtnm_idx += 1
 
+            # Vertex normals (mesh version 9).
+            elif geom_data["name"] == b"NORM" and mesh_vers == 9:
+                vtnm_idx = 0
+                while vtnm_idx * 12 < geom_data["length"]:
+                    lodm.add_norm(struct.unpack_from(
+                        vec3_struct, geom_data["data"], vtnm_idx * 12))
+                    vtnm_idx += 1
+
+            # Vertices for each face
             elif geom_data["name"] == b"FVRT":
                 fvrt_idx = 0
                 while fvrt_idx * 16 < geom_data["length"]:
                     lodm.add_fvrt(struct.unpack_from(
-                        "<iiff", geom_data["data"], fvrt_idx * 16))
+                        fvrt_struct, geom_data["data"], fvrt_idx * 16))
                     fvrt_idx += 1
 
+            # Face info
             elif geom_data["name"] == b"FACE":
                 face_idx = 0
-                while face_idx * 28 < geom_data["length"]:
-                    # Multiply by 28 to skip "unknown2" value
+                while face_idx * face_size < geom_data["length"]:
                     face_data = struct.unpack_from(
-                        "<ifiiii", geom_data["data"], face_idx * 28)
+                        face_struct, geom_data["data"], face_idx * face_size)
                     lodm.add_face(face_data)
                     register_texture(face_data[2], read_mats=self.read_mats)
                     face_idx += 1
 
+            # Center point
             elif geom_data["name"] == b"CNTR":
-                lodm.set_cntr(struct.unpack("<fff", geom_data["data"]))
+                lodm.set_cntr(struct.unpack(vec3_struct, geom_data["data"]))
 
             # print(
             #     "geom length:", geom["length"],
@@ -458,25 +471,19 @@ class IFFImporter(ImportBackend):
             bl_mesh = lodm.to_bl_mesh()
             if isinstance(self.reorient_matrix, Matrix):
                 bl_mesh.transform(self.reorient_matrix)
-            self.bl_pob = bpy.data.objects.new(LOD_NAMES[lod_level], bl_mesh)
-            bpy.context.scene.objects.link(self.bl_ob)
+            bl_ob = bpy.data.objects.new(LOD_NAMES[lod_lev], bl_mesh)
+            bpy.context.scene.objects.link(bl_ob)
         except AssertionError:
             lodm.debug_info()
-        geom_bytes_read += 8  # This function used to return mjrf_bytes_read
-        return geom_bytes_read
 
     def read_hard_data(self, major_form):
         mjrf_bytes_read = 4
         while mjrf_bytes_read < major_form["length"]:
             hardpt_chunk = self.iff_reader.read_data()
-            # ALWAYS add 8 when you read a chunk (because the chunk header is
-            # 8 bytes long)
             mjrf_bytes_read += hardpt_chunk["length"] + 8
 
             hardpt = iff_mesh.Hardpoint.from_chunk(hardpt_chunk["data"])
-
             bl_ob = hardpt.to_bl_obj()
-            bl_ob.parent = self.bl_pob
 
             bpy.context.scene.objects.link(bl_ob)
 
@@ -487,17 +494,20 @@ class IFFImporter(ImportBackend):
             bl_obj.empty_draw_type = "SPHERE"
             x, y, z, r = struct.unpack("<ffff", coll_data["data"])
             bl_obj.scale = r, r, r
-            bl_obj.location = -x, z, y
-            bl_obj.parent = self.bl_pob
+            bl_obj.location = x, z, y
             bpy.context.scene.objects.link(bl_obj)
+            # TODO: Assign parent to collision sphere.
+            # bl_obj.parent =
 
-    def read_cstring(data, ofs):
+    def read_cstring(self, data, ofs):
         cstring = bytearray()
-        while data[ofs] != 0:
-            if data[ofs] == 0: break
-            cstring.append(data[ofs])
+        the_byte = 1
+        while the_byte != 0:
+            the_byte = data[ofs]
+            if the_byte == 0: break
+            cstring.append(the_byte)
             ofs += 1
-        return cstring.decode("ascii")
+        return cstring.decode("iso-8859-1")
 
     def load(self):
         self.iff_reader = iff_read.IffReader(mfilepath)
@@ -511,9 +521,9 @@ class IFFImporter(ImportBackend):
                     mjrfs_read += major_form["length"] + 8
                     # print("Reading major form:", major_form["name"])
                     if major_form["name"] == b"RANG":
-                        pass  # RANG data is useless to Blender.
+                        self.dranges = self.read_rang_chunk(major_form)
                     elif major_form["name"] == b"MESH":
-                        self.read_lod_data(major_form)
+                        self.parse_major_mesh_form(major_form)
                     elif major_form["name"] == b"HARD":
                         self.read_hard_data(major_form)
                     elif major_form["name"] == b"COLL":
@@ -529,10 +539,11 @@ class IFFImporter(ImportBackend):
                     #     "root form bytes read:", mjrfs_read
                     # )
             elif root_form["name"] == b"MESH":
-                self.read_mesh_data(0)
+                self.parse_minor_mesh_form(root_form)
             else:
                 raise TypeError(
                     "This file isn't a mesh! (root form is {})".format(
-                        root_form["name"].decode("ascii")))
+                        root_form["name"].decode("iso-8859-1")))
         else:
             raise TypeError("This file isn't a mesh! (root is not a form)")
+        self.iff_reader.close()

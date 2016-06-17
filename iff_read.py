@@ -139,3 +139,6 @@ class IffReader:
         else:
             raise TypeError("Tried to read an invalid IFF file!")
         return None  # Shouldn't be reachable
+
+    def close(self):
+        self._iff_file.close()
