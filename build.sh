@@ -2,11 +2,11 @@
 
 # Copy the python code to the Blender scripts folder.
 
-homedir=$(echo $HOME | sed 's/\ /\\\ /g')
+homedir=$HOME
 
 if [ -n "$(uname -s | grep -i 'MINGW\|CYGWIN\|MSYS')" ]; then
   # We're using Bash on Windows!
-  homedir="$homedir/Documents"
+  homedir="$HOME/Documents"
 fi
 
 usage(){
@@ -71,15 +71,15 @@ done
 if [[ $zip -eq 0 ]]; then
   # Copy scripts to Blender scripts folder
   for pyf in ${pyfs[@]}; do
-    if eval [ -f $blender_scripts_folder/$pyf ]; then rm $blender_scripts_folder/$pyf; fi
+    if [[ -f "$blender_scripts_folder/$pyf" ]]; then rm "$blender_scripts_folder/$pyf"; fi
   done
 
-  eval cp --target-directory=$blender_scripts_folder {__init__,export_iff,iff,iff_mesh,iff_read,mat_read,import_iff}.py
-  sed -i -e "s/%\\x7BGIT_COMMIT\\x7D/$gvers/g" $blender_scripts_folder/__init__.py
+  cp --target-directory="$blender_scripts_folder" {__init__,export_iff,iff,iff_mesh,iff_read,mat_read,import_iff}.py
+  sed -i -e "s/%\\x7BGIT_COMMIT\\x7D/$gvers/g" "$blender_scripts_folder/__init__.py"
   echo "Scripts copied to $vers folder."
 
-  if eval [ -d $blender_scripts_folder/__pycache__ ]; then
-    eval rm -r $blender_scripts_folder/__pycache__
+  if [[ -d "$blender_scripts_folder/__pycache__" ]]; then
+    rm -r "$blender_scripts_folder/__pycache__"
   fi
 else
   # Make installable Blender plugin zip file.
@@ -96,4 +96,3 @@ else
   rm -r io_scene_wcp
   echo "Created $zipname.zip."
 fi
-
