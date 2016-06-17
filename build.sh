@@ -74,7 +74,7 @@ if [[ $zip -eq 0 ]]; then
     if [[ -f "$blender_scripts_folder/$pyf" ]]; then rm "$blender_scripts_folder/$pyf"; fi
   done
 
-  cp --target-directory="$blender_scripts_folder" {__init__,export_iff,iff,iff_mesh,iff_read,mat_read,import_iff}.py
+  cp -t "$blender_scripts_folder" ${pyfs[@]}
   sed -i -e "s/%\\x7BGIT_COMMIT\\x7D/$gvers/g" "$blender_scripts_folder/__init__.py"
   echo "Scripts copied to $vers folder."
 
