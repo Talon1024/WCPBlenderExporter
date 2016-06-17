@@ -124,7 +124,7 @@ def register_texture(texnum, mat_name=None, read_mats=True):
         bl_mat = bpy.data.materials.new(mat_name)
 
         texmats[texnum] = [mat_name, bl_mat, None]
-        if (texnum & 0x7f000000) == 0x7f000000:
+        if (texnum & 0xff000000) == 0x7f000000:
             # Flat colour material
             bl_mat.diffuse_color = [
                 float(x + 1) / 256 for x in
