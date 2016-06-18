@@ -28,7 +28,7 @@ from os import sep as dirsep
 from os.path import normpath, join as joinpath, exists as fexists
 from math import radians
 
-MAX_NUM_LODS = 5
+MAX_NUM_LODS = 7
 LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
 
 mfilepath = None  # These are Initialized in ImportBackend constructor
@@ -170,6 +170,8 @@ class ImportBackend:
         self.use_facetex = use_facetex
         self.import_bsp = import_bsp
         self.read_mats = read_mats
+        self.dranges = None
+        self.lod_objs = []
 
         if texname.isspace() or texname == "":
             # Get material/texture name from file name
@@ -473,6 +475,16 @@ class IFFImporter(ImportBackend):
                 bl_mesh.transform(self.reorient_matrix)
             bl_ob = bpy.data.objects.new(LOD_NAMES[lod_lev], bl_mesh)
             bpy.context.scene.objects.link(bl_ob)
+            if lod_lev > 0:
+                # Set drange custom property
+                try:
+                    bl_ob["drange"] = self.dranges[lod_lev]
+                except IndexError:
+                    try:
+                        del bl_ob["drange"]
+                    except KeyError:
+                        pass
+            self.lod_objs.append(bl_ob)
         except AssertionError:
             lodm.debug_info()
 
@@ -496,8 +508,7 @@ class IFFImporter(ImportBackend):
             bl_obj.scale = r, r, r
             bl_obj.location = x, z, y
             bpy.context.scene.objects.link(bl_obj)
-            # TODO: Assign parent to collision sphere.
-            # bl_obj.parent =
+            bl_obj.parent = self.lod_objs[0]
 
     def read_cstring(self, data, ofs):
         cstring = bytearray()
