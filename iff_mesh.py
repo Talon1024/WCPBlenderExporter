@@ -218,13 +218,13 @@ class Hardpoint:
         euler_rot.x *= -1
 
         matrix_rot = euler_rot.to_matrix().to_4x4()
-        matrix_loc = Matrix.Translation((self._x, self._z, self._y))
+        matrix_loc = Matrix.Translation(self.location)
 
         bl_obj.matrix_basis = matrix_loc * matrix_rot
         return bl_obj
 
     @staticmethod
-    def from_chunk(cls, chunk_data):
+    def from_chunk(chunk_data):
         import struct
 
         def read_cstring(data, ofs):
