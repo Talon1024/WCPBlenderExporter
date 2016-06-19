@@ -206,7 +206,7 @@ class Hardpoint:
 
     def to_bl_obj(self):
         import bpy
-        from mathutils import Matrix
+        from mathutils import Matrix, Vector
         bl_obj = bpy.data.objects.new("hp-" + self.name, None)
         bl_obj.empty_draw_type = "ARROWS"
 
@@ -218,7 +218,9 @@ class Hardpoint:
         euler_rot.x *= -1
 
         matrix_rot = euler_rot.to_matrix().to_4x4()
-        matrix_loc = Matrix.Translation(self.location)
+        vector_loc = Vector(self.location)
+        vector_loc.y, vector_loc.z = vector_loc.z, vector_loc.y
+        matrix_loc = Matrix.Translation(vector_loc)
 
         bl_obj.matrix_basis = matrix_loc * matrix_rot
         return bl_obj
