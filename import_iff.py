@@ -21,7 +21,7 @@
 import bpy
 import warnings
 import struct
-from . import iff_read, mat_read
+from . import iff_read, iff_mesh, mat_read
 from mathutils import Matrix
 from itertools import starmap, count
 from os import sep as dirsep
@@ -503,6 +503,7 @@ class IFFImporter(ImportBackend):
             bl_ob = hardpt.to_bl_obj()
 
             bpy.context.scene.objects.link(bl_ob)
+            bl_ob.parent = self.lod_objs[0]
 
     def read_coll_data(self):
         coll_data = self.iff_reader.read_data()
