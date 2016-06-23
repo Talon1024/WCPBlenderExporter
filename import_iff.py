@@ -558,9 +558,11 @@ class IFFImporter(ImportBackend):
             elif root_form["name"] == b"MESH":
                 self.parse_minor_mesh_form(root_form)
             else:
+                self.iff_reader.close()
                 raise TypeError(
                     "This file isn't a mesh! (root form is {})".format(
                         root_form["name"].decode("iso-8859-1")))
         else:
+            self.iff_reader.close()
             raise TypeError("This file isn't a mesh! (root is not a form)")
         self.iff_reader.close()
