@@ -184,8 +184,8 @@ class Sphere:
         "Convert CNTR and RADI data to a Sphere."
         import struct
 
-        x, y, z = struct.unpack("<fff", cntr_chunk)
-        r = struct.unpack("<f", radi_chunk)[0]
+        x, y, z = struct.unpack("<fff", cntr_data)
+        r = struct.unpack("<f", radi_data)[0]
 
         return Sphere(x, y, z, r)
 
@@ -194,7 +194,7 @@ class Sphere:
         "Convert a SPHR data to a Sphere."
         import struct
 
-        x, y, z, r = struct.unpack("<ffff", sphr_chunk)
+        x, y, z, r = struct.unpack("<ffff", sphr_data)
 
         return Sphere(x, y, z, r)
 
