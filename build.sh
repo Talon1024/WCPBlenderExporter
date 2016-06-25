@@ -70,9 +70,13 @@ done
 
 if [[ $zip -eq 0 ]]; then
   # Copy scripts to Blender scripts folder
-  for pyf in ${pyfs[@]}; do
-    if [[ -f "$blender_scripts_folder/$pyf" ]]; then rm "$blender_scripts_folder/$pyf"; fi
-  done
+  if [[ -d "$blender_scripts_folder" ]]; then
+    for pyf in ${pyfs[@]}; do
+      if [[ -f "$blender_scripts_folder/$pyf" ]]; then rm "$blender_scripts_folder/$pyf"; fi
+    done
+  else
+    mkdir -p "$blender_scripts_folder"
+  fi
 
   cp -t "$blender_scripts_folder" ${pyfs[@]}
   sed -i -e "s/%\\x7BGIT_COMMIT\\x7D/$gvers/g" "$blender_scripts_folder/__init__.py"
