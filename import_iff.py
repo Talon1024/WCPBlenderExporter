@@ -191,6 +191,8 @@ class LODMesh:
         self._fvrts = []
         self._faces = []
         self._name = ""
+        self._cntr = (0.0, 0.0, 0.0)
+        self._radi = 0.0
         self.texname = texname
         self.mtlrefs = {}
 
@@ -244,6 +246,12 @@ class LODMesh:
             self._cntr = cntr
         else:
             raise TypeError("{0!r} ain't no CNTR!".format(cntr))
+
+    def set_radi(self, radi):
+        """Set the radius of this mesh."""
+        if not isinstance(radi, float):
+            raise TypeError("{0!r} is not a valid radius!".format(radi))
+        self._radi = radi
 
     def edges_from_verts(self, verts):
         """Generates vertex reference tuples for edges."""
@@ -508,11 +516,9 @@ class IFFImporter(ImportBackend):
     def read_coll_data(self):
         coll_data = self.iff_reader.read_data()
         if coll_data["name"] == b"SPHR":
-            bl_obj = bpy.data.objects.new("collsphr", None)
-            bl_obj.empty_draw_type = "SPHERE"
-            x, y, z, r = struct.unpack("<ffff", coll_data["data"])
-            bl_obj.scale = r, r, r
-            bl_obj.location = x, z, y
+            coll_sphere = iff_mesh.Sphere.from_sphr_chunk(coll_data["data"])
+
+            bl_obj = coll_sphere.to_bl_obj("collsphr")
             bpy.context.scene.objects.link(bl_obj)
             bl_obj.parent = self.lod_objs[0]
 

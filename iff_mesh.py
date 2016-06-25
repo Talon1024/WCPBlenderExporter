@@ -166,15 +166,15 @@ class Sphere:
         "Get the CNTR and RADI chunks for this Sphere."
         return self.to_cntr_chunk(), self.to_radi_chunk()
 
-    def to_bl_obj(self):
+    def to_bl_obj(self, name="cntradi"):
         "Convert this sphere to a Blender object."
         import bpy
-        bl_obj = bpy.data.objects.new("cntradi", None)
+        bl_obj = bpy.data.objects.new(name, None)
         bl_obj.empty_draw_type = "SPHERE"
 
         bl_obj.location.x = self.x
-        bl_obj.location.y = self.y
-        bl_obj.location.z = self.z
+        bl_obj.location.y = self.z
+        bl_obj.location.z = self.y
         bl_obj.scale = self.r, self.r, self.r
 
         return bl_obj
