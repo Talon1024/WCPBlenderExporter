@@ -24,6 +24,7 @@ import warnings
 
 
 def colour_texnum(colour):
+    "Convert a colour from Blender/floating point format to bytes"
     import struct
 
     # Make Blender mathutils import optional
@@ -55,8 +56,11 @@ def colour_texnum(colour):
     return tnint
 
 
+# =========================== Other model metadata ===========================
+
+
 class Collider:
-    # Collision sphere or BSP tree
+    "Collision sphere or BSP tree"
 
     COLLIDER_TYPES = ("sphere", "bsp", "bsp+region")
 
@@ -84,6 +88,7 @@ class Collider:
         self.data = data
 
     def to_coll_form(self):
+        "Convert this Collider to a COLL form."
         coll_form = iff.IffForm("COLL")
         sphr_chnk = self.data[0].to_collsphr_chunk()
         coll_form.add_member(sphr_chnk)
@@ -107,7 +112,7 @@ class Collider:
 
 
 class Sphere:
-    # CNTR/RADI chunks for each LOD
+    "CNTR/RADI chunks for each LOD, or SPHR chunk for collider."
 
     def __init__(self, x, y, z, r):
         if not isinstance(x, float):
@@ -125,9 +130,13 @@ class Sphere:
         self.r = r
 
     def to_tuple(self):
+        "Get the data for this sphere in tuple format"
         return (self.x, self.y, self.z, self.r)
 
     def to_cntr_chunk(self):
+        """Make a CNTR chunk using the data for this sphere.
+
+        The RADI chunk is used in LOD meshes."""
         cntr_chunk = iff.IffChunk("CNTR")
         cntr_chunk.add_member(self.x)
         cntr_chunk.add_member(self.z)
@@ -135,11 +144,17 @@ class Sphere:
         return cntr_chunk
 
     def to_radi_chunk(self):
+        """Make a RADI chunk using the data for this sphere.
+
+        The RADI chunk is used in LOD meshes."""
         radi_chunk = iff.IffChunk("RADI")
         radi_chunk.add_member(self.r)
         return radi_chunk
 
     def to_collsphr_chunk(self):
+        """Make a SPHR chunk using the data for this sphere.
+
+        The SPHR chunk is used to define a Collider's boundaries."""
         collsphr_chunk = iff.IffChunk("SPHR")
         collsphr_chunk.add_member(self.x)
         collsphr_chunk.add_member(self.z)
@@ -148,9 +163,11 @@ class Sphere:
         return collsphr_chunk
 
     def to_chunks(self):
+        "Get the CNTR and RADI chunks for this Sphere."
         return self.to_cntr_chunk(), self.to_radi_chunk()
 
     def to_bl_obj(self):
+        "Convert this sphere to a Blender object."
         import bpy
         bl_obj = bpy.data.objects.new("cntradi", None)
         bl_obj.empty_draw_type = "SPHERE"
@@ -164,6 +181,7 @@ class Sphere:
 
     @staticmethod
     def from_chunks(cntr_chunk, radi_chunk):
+        "Convert CNTR and RADI chunks to a Sphere."
         import struct
 
         x, y, z = struct.unpack("<fff", cntr_chunk)
@@ -177,7 +195,7 @@ class Sphere:
 
 
 class Hardpoint:
-    # Hardpoints
+    "A hardpoint of a model."
 
     def __init__(self, rot_matrix, location, name):
         # rot_matrix should be a mathutils.Matrix or compatible value
@@ -188,6 +206,7 @@ class Hardpoint:
         self.name = name
 
     def to_chunk(self):
+        "Convert this hardpoint to a HARD chunk."
         hard_chunk = iff.IffChunk("HARD")
         hard_chunk.add_member(self.rot_matrix[0][0])
         hard_chunk.add_member(self.rot_matrix[0][1])
@@ -205,6 +224,7 @@ class Hardpoint:
         return hard_chunk
 
     def to_bl_obj(self):
+        "Convert this hardpoint to a Blender object."
         import bpy
         from mathutils import Matrix, Vector
         bl_obj = bpy.data.objects.new("hp-" + self.name, None)
@@ -227,6 +247,7 @@ class Hardpoint:
 
     @staticmethod
     def from_chunk(chunk_data):
+        "Convert a HARD chunk to a hardpoint."
         import struct
 
         def read_cstring(data, ofs):
@@ -258,11 +279,13 @@ class Hardpoint:
         )
 
 
+# ================================= LOD Info =================================
+
+
 class MeshLODForm(iff.IffForm):
-    def __init__(self, LOD, version=12):
-        # No call to superclass constructor because we set the same values
-        # in this constructor
-        self._name = "{!s:0>4}".format(LOD)
+    "A LOD mesh."
+
+    def __init__(self, lod_lev, version=12):
         self._mesh_form = iff.IffForm("MESH")
         self._geom_form = iff.IffForm("{!s:0>4}".format(version))
         self._name_chunk = iff.IffChunk("NAME")
@@ -280,9 +303,17 @@ class MeshLODForm(iff.IffForm):
         self._geom_form.add_member(self._cntr_chunk)
         self._geom_form.add_member(self._radi_chunk)
         self._mesh_form.add_member(self._geom_form)
-        self._members = [self._mesh_form]
+
+        # Ensure no vertex/face normal is added more than once.
+        self._unique_normals = []
+        self._duplicate_normals = {}
+
+        self.lod_lev = lod_lev
+        form_name = "{!s:0>4}".format(self.lod_lev)
+        super().__init__(form_name, [self._mesh_form])
 
     def set_name(self, name):
+        "Set the name of this LOD mesh."
         # Check data types before adding to respective chunks
         if self._name_chunk.has_members():
             self._name_chunk.clear_members()
@@ -292,6 +323,7 @@ class MeshLODForm(iff.IffForm):
             raise TypeError("Name of this mesh LOD must be a string!")
 
     def add_vertex(self, vx, vy, vz):
+        "Add a vertex to this LOD mesh."
         if not (isinstance(vx, float) and
                 isinstance(vy, float) and
                 isinstance(vz, float)):
@@ -303,6 +335,7 @@ class MeshLODForm(iff.IffForm):
         self._vert_chunk.add_member(vz)
 
     def add_normal(self, nx, ny, nz):
+        "Add a face/vertex normal to this LOD mesh."
         if not (isinstance(nx, float) and
                 isinstance(ny, float) and
                 isinstance(nz, float)):
@@ -313,6 +346,11 @@ class MeshLODForm(iff.IffForm):
         self._vtnm_chunk.add_member(nz)
 
     def add_fvrt(self, vert_idx, vtnm_idx, uv_x, uv_y):
+        """Add a "face vertex" to this LOD mesh.
+
+        A "face vertex" consists of a vertex index, a normal index, and X/Y UV
+        coordinates. They are somewhat similar and analogous to Blender's BMesh
+        mesh loops."""
         if (not(isinstance(vert_idx, int) and
                 isinstance(vtnm_idx, int))):
             raise TypeError("The vertex and vertex normal indices must"
@@ -329,6 +367,8 @@ class MeshLODForm(iff.IffForm):
 
     def add_face(self, vtnm_idx, dplane, texnum,
                  fvrt_idx, num_verts, light_flags, alt_mat=0x7F0096FF):
+        """Add a face to this LOD mesh."""
+
         if not isinstance(vtnm_idx, int):
             raise TypeError("Vertex normal index must be an integer!")
         if not isinstance(dplane, float):
@@ -352,34 +392,8 @@ class MeshLODForm(iff.IffForm):
         self._face_chunk.add_member(light_flags)  # Lighting flags
         self._face_chunk.add_member(alt_mat)  # Unknown (alternate MAT?)
 
-    def set_center(self, cx, cy, cz):
-        warnings.warn("set_center is deprecated! Use set_cntradi instead.",
-                      DeprecationWarning)
-
-        if self._cntr_chunk.has_members():
-            self._cntr_chunk.clear_members()
-        if (isinstance(cx, float) and
-                isinstance(cy, float) and
-                isinstance(cz, float)):
-            self._cntr_chunk.add_member(cx)
-            self._cntr_chunk.add_member(cy)
-            self._cntr_chunk.add_member(cz)
-        else:
-            raise TypeError("Center coordinates must be floating point"
-                            " values!")
-
-    def set_radius(self, radius):
-        warnings.warn("set_radius is deprecated! Use set_cntradi instead.",
-                      DeprecationWarning)
-
-        if self._radi_chunk.has_members():
-            self._radi_chunk.clear_members()
-        if isinstance(radius, float):
-            self._radi_chunk.add_member(radius)
-        else:
-            raise TypeError("Radius must be a floating point value!")
-
     def set_cntradi(self, sphere):
+        "Set the center and radius of this LOD mesh."
 
         if not isinstance(sphere, Sphere):
             raise TypeError("You must use a valid Sphere object to set the "
@@ -393,59 +407,36 @@ class MeshLODForm(iff.IffForm):
         self._cntr_chunk.add_member(sphere.z)
         self._radi_chunk.add_member(sphere.r)
 
-    # Do not use! These methods are only here for backwards compatibility
-    def get_name_chunk(self):
-        warnings.warn("get_name_chunk is deprecated!", DeprecationWarning)
-        return self._name_chunk
 
-    def get_vert_chunk(self):
-        warnings.warn("get_vert_chunk is deprecated!", DeprecationWarning)
-        return self._vert_chunk
+class EmptyLODForm(iff.IffForm):
+    "An empty LOD. (no geometry)"
 
-    def get_vtnm_chunk(self):
-        warnings.warn("get_vtnm_chunk is deprecated!", DeprecationWarning)
-        return self._vtnm_chunk
+    def __init__(self, lod_lev):
+        self.lod_lev = lod_lev
 
-    def get_fvrt_chunk(self):
-        warnings.warn("get_fvrt_chunk is deprecated!", DeprecationWarning)
-        return self._fvrt_chunk
-
-    def get_face_chunk(self):
-        warnings.warn("get_face_chunk is deprecated!", DeprecationWarning)
-        return self._face_chunk
-
-    def get_cntr_chunk(self):
-        warnings.warn("get_cntr_chunk is deprecated!", DeprecationWarning)
-        return self._cntr_chunk
-
-    def get_radi_chunk(self):
-        warnings.warn("get_radi_chunk is deprecated!", DeprecationWarning)
-        return self._radi_chunk
+        empty_form = iff.IffForm("EMPT")
+        form_name = "{!s:0>4}".format(lod_lev)
+        super().__init__(form_name, [empty_form])
 
 
-class MeshIff(iff.IffFile):
-    # Manages the IFF data for a VISION engine 3D model.
+class ModelIff(iff.IffFile):
+    "Manages the IFF data for a VISION engine 3D model."
 
-    def __init__(self, filename, include_far_chunk, dranges):
+    def __init__(self, filename, include_far_chunk):
 
         if not isinstance(include_far_chunk, bool):
             raise TypeError("include_far_chunk must be a boolean value!")
 
-        if isinstance(dranges, list) or isinstance(dranges, tuple):
-            for drange in dranges:
-                if not isinstance(drange, float):
-                    raise TypeError("Each LOD range must be a float!")
-        else:
-            raise TypeError("dranges must be a list or tuple!")
-
         # Initialize an empty mesh IFF file, initialize data structures, etc.
         super().__init__("DETA", filename)
 
-        self._mrang = iff.IffChunk("RANG", dranges)
+        self._num_lods = 0
+
+        self._mrang = iff.IffChunk("RANG")
         self.root_form.add_member(self._mrang)
 
-        self._mmeshes = iff.IffForm("MESH")
-        self.root_form.add_member(self._mmeshes)
+        self._mlods = iff.IffForm("MESH")
+        self.root_form.add_member(self._mlods)
 
         self._mhard = iff.IffForm("HARD")
         self.root_form.add_member(self._mhard)
@@ -457,56 +448,75 @@ class MeshIff(iff.IffFile):
             self._mfar = iff.IffChunk("FAR ", [float(0), float(900000)])
             self.root_form.add_member(self._mfar)
 
-    def make_coll_sphr(self, X, Y, Z, radius):
-        warnings.warn("make_coll_sphr is deprecated! "
-                      "Use set_collider instead.", DeprecationWarning)
-
-        if self._mcoll.has_members():
-            for mem in range(self._mcoll.get_num_members()):
-                self._mcoll.remove_member(mem)
-
-        _mcollsphr = iff.IffChunk("SPHR")
-        _mcollsphr.add_member(X)
-        _mcollsphr.add_member(Y)
-        _mcollsphr.add_member(Z)
-        _mcollsphr.add_member(radius)
-        self._mcoll.add_member(_mcollsphr)
-
     def set_collider(self, collider):
+        """Set/replace the collider for this model."""
         if not isinstance(collider, Collider):
             raise TypeError("collider must be a valid Collider in order to "
                             "use it for this model!")
 
         self._mcoll = collider.to_coll_form()
 
-    def add_hardpt(self, x, y, z, rot_matrix, name):
-        hardpt = iff.IffChunk("HARD")
-        hardpt.add_member(rot_matrix[0][0])
-        hardpt.add_member(rot_matrix[0][1])
-        hardpt.add_member(rot_matrix[0][2])
-        hardpt.add_member(x)
-        hardpt.add_member(rot_matrix[1][0])
-        hardpt.add_member(rot_matrix[1][1])
-        hardpt.add_member(rot_matrix[1][2])
-        hardpt.add_member(y)
-        hardpt.add_member(rot_matrix[2][0])
-        hardpt.add_member(rot_matrix[2][1])
-        hardpt.add_member(rot_matrix[2][2])
-        hardpt.add_member(z)
-        hardpt.add_member(name)
-        self._mhard.add_member(hardpt)
+    def add_hardpt(self, hardpt):
+        """Add a hardpoint to this model."""
+        if not isinstance(hardpt, Hardpoint):
+            raise TypeError("The hardpoint must be a Hardpoint object!")
+
+        self._mhard.add_member(hardpt.to_chunk())
 
     def remove_hardpt(self, hp_idx):
+        "Remove a hardpoint from this model."
         self._mhard.remove_member(hp_idx)
 
     def remove_hardpts(self):
-        self._mhard.clear_members(mem)
+        "Clear all hardpoints from this model."
+        self._mhard.clear_members()
 
-    def add_lod(self, lod):
-        if isinstance(lod, MeshLODForm):
-            self._mmeshes.add_member(lod)
+    def add_lod(self, lod, lod_range=0):
+        """Add a LOD to this model.
+
+        A LOD can be an empty LOD form, or a LOD mesh form."""
+        if isinstance(lod, MeshLODForm) or isinstance(lod, EmptyLODForm):
+            if lod.lod_lev >= 0:
+                self._mrang.add_member(float(lod_range))
+            else:
+                raise ValueError("LOD level cannot be negative!")
+
+            if lod_range < 0:
+                raise ValueError("LOD range cannot be negative!")
+
+            self._num_lods += 1
+            self._mlods.add_member(lod)
+        else:
+            raise TypeError("A LOD must be an instance of MeshLODForm or"
+                            "EmptyLODForm!")
 
     def set_dranges(self, dranges):
+        """Set the LOD ranges for this model.
+
+        Validates the list of LOD ranges before making any changes."""
+        if isinstance(dranges, list) or isinstance(dranges, tuple):
+            for drange in dranges:
+                if not isinstance(drange, float):
+                    raise TypeError("Each LOD range must be a float!")
+        else:
+            raise TypeError("dranges must be a list or tuple!")
+
+        if len(dranges) != self._num_lods:
+            raise ValueError("You must have the same number of LOD ranges as "
+                             "the number of LODs!")
+
+        if dranges[0] != 0.0:
+            raise ValueError("The first LOD range must be 0.")
+
+        self._mrang.clear_members()
+        for drange in dranges:
+            self._mrang.add_member(drange)
+
+    def set_dranges_force(self, dranges):
+        """Set the LOD ranges for this model.
+
+        Does not validate the list of LOD ranges before making any changes. Use
+        at your own risk!"""
         if isinstance(dranges, list) or isinstance(dranges, tuple):
             for drange in dranges:
                 if not isinstance(drange, float):
@@ -517,7 +527,3 @@ class MeshIff(iff.IffFile):
         self._mrang.clear_members()
         for drange in dranges:
             self._mrang.add_member(drange)
-
-    def get_meshes_form(self):
-        warnings.warn("get_meshes_form is deprecated!", DeprecationWarning)
-        return self._mmeshes
