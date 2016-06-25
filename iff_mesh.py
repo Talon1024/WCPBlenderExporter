@@ -180,12 +180,21 @@ class Sphere:
         return bl_obj
 
     @staticmethod
-    def from_chunks(cntr_chunk, radi_chunk):
-        "Convert CNTR and RADI chunks to a Sphere."
+    def from_cntradi_chunks(cntr_data, radi_data):
+        "Convert CNTR and RADI data to a Sphere."
         import struct
 
         x, y, z = struct.unpack("<fff", cntr_chunk)
         r = struct.unpack("<f", radi_chunk)[0]
+
+        return Sphere(x, y, z, r)
+
+    @staticmethod
+    def from_sphr_chunk(sphr_data):
+        "Convert a SPHR data to a Sphere."
+        import struct
+
+        x, y, z, r = struct.unpack("<ffff", sphr_chunk)
 
         return Sphere(x, y, z, r)
 
