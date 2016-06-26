@@ -21,14 +21,18 @@
 # IFF reader class
 from os.path import exists as fexists
 import struct
+import io
 
 
 class IffReader:
 
-    _iff_heads = [b"FORM", b"CAT ", b"LIST"]
+    _iff_heads = (b"FORM", b"CAT ", b"LIST")
 
     def __init__(self, iff_file):
-        self._iff_file = open(iff_file, "rb")
+        if isinstance(iff_file, str):
+            self._iff_file = open(iff_file, "rb")
+        elif isinstance(iff_file, bytes) or isinstance(iff_file, bytearray):
+            self._iff_file = io.BytesIO(iff_file)
 
     def id_isvalid(self, iffid):
         if len(iffid) != 4:
@@ -49,12 +53,14 @@ class IffReader:
         orig_pos = self._iff_file.tell()
         head = self._iff_file.read(4)
         if head in self._iff_heads:
-            self._iff_file.read(8)
+            self._iff_file.seek(self._iff_file.tell() + 8)
             # Don't skip the entire FORM, just the header (length and name).
-        elif head.isalnum() or head == b"FAR ":
+        elif self.id_isvalid(head):
             # Skip the entire CHUNK
             length = struct.unpack(">i", self._iff_file.read(4))[0]
-            self._iff_file.read(length)
+            bytes_to_skip = length
+            bytes_to_skip += 1 if length % 2 == 1 else 0
+            self._iff_file.seek(self._iff_file.tell() + bytes_to_skip)
 
             # IFF Chunks and FORMs are aligned at even offsets
             if self._iff_file.tell() % 2 == 1: self._iff_file.read(1)
@@ -80,6 +86,8 @@ class IffReader:
                 "offset": orig_pos
             }
 
+            # =================================================================
+            #
             # NOTE: This method (as well as the similar skip_data method)
             # doesn't read everything inside a form, and if you're counting the
             # number of bytes to determine whether you've read the FORM
@@ -87,6 +95,27 @@ class IffReader:
             # time to take the FORM/CHUNK header into account!! (The 4 bytes
             # representing the length of the FORM as a 32-bit unsigned integer
             # is counted as part of the inside of the FORM)
+            #
+            # ========================= LIKE THIS =============================
+            #
+            # form = iff.read_data()
+            # ...
+            # # Initialize bytes read counter at 4
+            # form_read = 4
+            # while form_read < form["length"]:
+            #     data = iff.read_data()  # Read the data
+            #
+            #     # Parse the data
+            #     if data["type"] == 'chunk' and data["name"] == b"BLAH":
+            #         parse(data)
+            #     elif:
+            #         ...
+            #     else:
+            #         ...
+            #
+            #     # Add to bytes read counter.
+            #     form_read += 8 + data["length"]
+            #     if data["length"] % 2 == 1: form_read += 1
 
         elif self.id_isvalid(head):
             name = head
@@ -110,3 +139,6 @@ class IffReader:
         else:
             raise TypeError("Tried to read an invalid IFF file!")
         return None  # Shouldn't be reachable
+
+    def close(self):
+        self._iff_file.close()
