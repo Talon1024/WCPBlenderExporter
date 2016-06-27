@@ -33,7 +33,7 @@ bl_info = {
     "name": "WCP/SO Mesh File",
     "author": "Kevin Caccamo",
     "description": "Export to a WCP/SO mesh file.",
-    "version": (1, 6, 2),
+    "version": (1, 6, 3),
     "blender": (2, 65, 0),
     "location": "File > Export",
     "warning": "",
