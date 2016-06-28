@@ -215,5 +215,48 @@ class TestIFFReader(unittest.TestCase):
                          'odd-length CHUNKs properly!')
 
 
+class TestIFFMetadata(unittest.TestCase):
+
+    def setUp(self):
+        import iff_mesh
+        self.sphere = iff_mesh.Sphere(100, 0, 50, 30)
+        self.hardpoint = iff_mesh.Hardpoint(
+        [[1, 0, 0],
+         [0, 1, 0],
+         [0, 0, 1]], [0, -0.5, 3], "fgun01"
+        )
+
+
+class TestIFFMesh(unittest.TestCase):
+
+    def setUp(self):
+        import iff_mesh
+        self.cube_mesh = iff_mesh.ModelIff("box", True)
+
+        cube_lod = iff_mesh.MeshLODForm(0)
+        empty_lod = iff_mesh.EmptyLODForm(1)
+
+        cube_lod.set_name("testcube")
+
+        cube_lod.add_vertex(1.0, 1.0, 1.0)
+        cube_lod.add_vertex(-1.0, 1.0, 1.0)
+        cube_lod.add_vertex(1.0, 1.0, -1.0)
+        cube_lod.add_vertex(-1.0, 1.0, -1.0)
+        cube_lod.add_vertex(1.0, -1.0, 1.0)
+        cube_lod.add_vertex(-1.0, -1.0, 1.0)
+        cube_lod.add_vertex(1.0, -1.0, -1.0)
+        cube_lod.add_vertex(-1.0, -1.0, -1.0)
+
+        cube_lod.add_normal()
+
+        cube_lod.add_fvrt(0, 0, 0.0, 0.0)
+        cube_lod.add_fvrt(1, 1, 1.0, 0.0)
+        cube_lod.add_fvrt(2, 2, 0.0, 1.0)
+        cube_lod.add_fvrt(3, 3, 1.0, 1.0)
+
+        self.cube_mesh.add_lod(cube_lod, 0)
+        self.cube_mesh.add_lod(empty_lod, 1000)
+
+
 if __name__ == '__main__':
     unittest.main()
