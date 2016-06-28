@@ -115,19 +115,10 @@ class Sphere:
     "CNTR/RADI chunks for each LOD, or SPHR chunk for collider."
 
     def __init__(self, x, y, z, r):
-        if not isinstance(x, float):
-            raise TypeError("X Coordinate must be a float!")
-        if not isinstance(y, float):
-            raise TypeError("Y Coordinate must be a float!")
-        if not isinstance(z, float):
-            raise TypeError("Z Coordinate must be a float!")
-        if not isinstance(r, float):
-            raise TypeError("Radius must be a float!")
-
-        self.x = x
-        self.y = y
-        self.z = z
-        self.r = r
+        self.x = float(x)
+        self.y = float(y)
+        self.z = float(z)
+        self.r = float(r)
 
     def to_tuple(self):
         "Get the data for this sphere in tuple format"
@@ -333,26 +324,15 @@ class MeshLODForm(iff.IffForm):
 
     def add_vertex(self, vx, vy, vz):
         "Add a vertex to this LOD mesh."
-        if not (isinstance(vx, float) and
-                isinstance(vy, float) and
-                isinstance(vz, float)):
-            raise TypeError("The vertex coordinates must be floating point"
-                            " values!")
-
-        self._vert_chunk.add_member(vx)
-        self._vert_chunk.add_member(vy)
-        self._vert_chunk.add_member(vz)
+        self._vert_chunk.add_member(float(vx))
+        self._vert_chunk.add_member(float(vy))
+        self._vert_chunk.add_member(float(vz))
 
     def add_normal(self, nx, ny, nz):
         "Add a face/vertex normal to this LOD mesh."
-        if not (isinstance(nx, float) and
-                isinstance(ny, float) and
-                isinstance(nz, float)):
-            raise TypeError("The normal vector must be floating point values!")
-
-        self._vtnm_chunk.add_member(nx)
-        self._vtnm_chunk.add_member(ny)
-        self._vtnm_chunk.add_member(nz)
+        self._vtnm_chunk.add_member(float(nx))
+        self._vtnm_chunk.add_member(float(ny))
+        self._vtnm_chunk.add_member(float(nz))
 
     def add_fvrt(self, vert_idx, vtnm_idx, uv_x, uv_y):
         """Add a "face vertex" to this LOD mesh.
@@ -360,46 +340,34 @@ class MeshLODForm(iff.IffForm):
         A "face vertex" consists of a vertex index, a normal index, and X/Y UV
         coordinates. They are somewhat similar and analogous to Blender's BMesh
         mesh loops."""
-        if (not(isinstance(vert_idx, int) and
-                isinstance(vtnm_idx, int))):
-            raise TypeError("The vertex and vertex normal indices must"
-                            " be integers!")
-        if (not(isinstance(uv_x, float) and
-                isinstance(uv_y, float))):
-            raise TypeError("The UV coordinates must be floating point"
-                            " values!")
 
-        self._fvrt_chunk.add_member(vert_idx)
-        self._fvrt_chunk.add_member(vtnm_idx)
-        self._fvrt_chunk.add_member(uv_x)
-        self._fvrt_chunk.add_member(uv_y)
+        if vert_idx < 0:
+            raise ValueError("Vertex index must not be negative!")
+        if vtnm_idx < 0:
+            raise ValueError("Vertex normal index must not be negative!")
+
+        self._fvrt_chunk.add_member(int(vert_idx))
+        self._fvrt_chunk.add_member(int(vtnm_idx))
+        self._fvrt_chunk.add_member(float(uv_x))
+        self._fvrt_chunk.add_member(float(uv_y))
 
     def add_face(self, vtnm_idx, dplane, texnum,
                  fvrt_idx, num_verts, light_flags, alt_mat=0x7F0096FF):
         """Add a face to this LOD mesh."""
+        if vtnm_idx < 0:
+            raise ValueError("Vertex normal index must not be negative!")
+        if fvrt_idx < 0:
+            raise ValueError("FVRT index must not be negative!")
+        if num_verts < 0:
+            raise ValueError("Number of vertices must not be negative!")
 
-        if not isinstance(vtnm_idx, int):
-            raise TypeError("Vertex normal index must be an integer!")
-        if not isinstance(dplane, float):
-            raise TypeError("D-Plane value must be a floating point number!")
-        if not isinstance(texnum, int):
-            raise TypeError("Texture number must be an integer!")
-        if not isinstance(fvrt_idx, int):
-            raise TypeError("First FVRT index must be an integer!")
-        if not isinstance(num_verts, int):
-            raise TypeError("Number of vertices must be an integer!")
-        if not isinstance(light_flags, int):
-            raise TypeError("Lighting wordflag must be an integer!")
-        if not isinstance(alt_mat, int):
-            raise TypeError("Alternate MAT must be an integer!")
-
-        self._face_chunk.add_member(vtnm_idx)  # Face normal
-        self._face_chunk.add_member(dplane)  # D-Plane
-        self._face_chunk.add_member(texnum)  # Texture number
-        self._face_chunk.add_member(fvrt_idx)  # Index of face's first FVRT
-        self._face_chunk.add_member(num_verts)  # Number of vertices
-        self._face_chunk.add_member(light_flags)  # Lighting flags
-        self._face_chunk.add_member(alt_mat)  # Unknown (alternate MAT?)
+        self._face_chunk.add_member(int(vtnm_idx))  # Face normal index
+        self._face_chunk.add_member(float(dplane))  # D-Plane
+        self._face_chunk.add_member(int(texnum))  # Texture number
+        self._face_chunk.add_member(int(fvrt_idx))  # Index of first FVRT
+        self._face_chunk.add_member(int(num_verts))  # Number of vertices
+        self._face_chunk.add_member(int(light_flags))  # Lighting flags
+        self._face_chunk.add_member(int(alt_mat))  # Unknown (alternate MAT?)
 
     def set_cntradi(self, sphere):
         "Set the center and radius of this LOD mesh."
