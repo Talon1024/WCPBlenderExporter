@@ -112,7 +112,10 @@ class Collider:
 
 
 class Sphere:
-    "CNTR/RADI chunks for each LOD, or SPHR chunk for collider."
+    """CNTR/RADI chunks for each LOD, or SPHR chunk for collider.
+
+    Position data is represented internally in WCSO format
+    (vertical Y, front/back Z)."""
 
     def __init__(self, x, y, z, r):
         self.x = float(x)
@@ -130,8 +133,8 @@ class Sphere:
         The RADI chunk is used in LOD meshes."""
         cntr_chunk = iff.IffChunk("CNTR")
         cntr_chunk.add_member(self.x)
-        cntr_chunk.add_member(self.z)
         cntr_chunk.add_member(self.y)
+        cntr_chunk.add_member(self.z)
         return cntr_chunk
 
     def to_radi_chunk(self):
@@ -148,8 +151,8 @@ class Sphere:
         The SPHR chunk is used to define a Collider's boundaries."""
         collsphr_chunk = iff.IffChunk("SPHR")
         collsphr_chunk.add_member(self.x)
-        collsphr_chunk.add_member(self.z)
         collsphr_chunk.add_member(self.y)
+        collsphr_chunk.add_member(self.z)
         collsphr_chunk.add_member(self.r)
         return collsphr_chunk
 
@@ -195,10 +198,13 @@ class Sphere:
 
 
 class Hardpoint:
-    "A hardpoint of a model."
+    """A hardpoint of a model.
+
+    Position data is represented internally in WCSO format
+    (vertical Y, front/back Z)."""
 
     def __init__(self, rot_matrix, location, name):
-        # rot_matrix should be a mathutils.Matrix or compatible value
+        # rot_matrix should be a mathutils.Matrix(3x3) or compatible value
         # location should be a mathutils.Vector or compatible value
 
         self.rot_matrix = rot_matrix
