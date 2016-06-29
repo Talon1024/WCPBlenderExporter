@@ -19,12 +19,7 @@
 # <pep8-80 compliant>
 # -*- coding: utf8 -*-
 
-from os import getcwd
-import os.path
-import sys
 import unittest
-
-sys.path.append(os.path.abspath(getcwd() + "/.."))
 
 
 class TestIFFFormAndChunk(unittest.TestCase):
@@ -221,10 +216,22 @@ class TestIFFMetadata(unittest.TestCase):
         import iff_mesh
         self.sphere = iff_mesh.Sphere(100, 0, 50, 30)
         self.hardpoint = iff_mesh.Hardpoint(
-        [[1, 0, 0],
-         [0, 1, 0],
-         [0, 0, 1]], [0, -0.5, 3], "fgun01"
-        )
+            [[1, 0, 0], [0, 1, 0], [0, 0, 1]], [0, -0.5, 3], "fgun01")
+
+    def test_chunks(self):
+        self.assertEqual(
+            b"SPHR\x00\x00\x00\x10\x00\x00\xC8B\x00\x00\x00\x00"
+            b"\x00\x00HB\x00\x00\xF0A",
+            self.sphere.to_collsphr_chunk().to_bytes(),
+            'Sphere is not being converted to a chunk correctly!')
+
+        self.assertEqual(
+            b"HARD\x00\x00\x007\x00\x00\x80?\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80?"
+            b"\x00\x00\x00\x00\x00\x00\x00\xBF\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x80?\x00\x00@@fgun01\x00",
+            self.hardpoint.to_chunk().to_bytes(),
+            'Hardpoint is not being converted to a chunk correctly!')
 
 
 class TestIFFMesh(unittest.TestCase):
