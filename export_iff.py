@@ -189,7 +189,6 @@ class ModelManager:
         return valid_slots
 
     def setup(self):
-        setup_start_time = time.perf_counter()
         # Scan for valid LOD objects related to the base LOD object
         for lod in range(self.MAX_NUM_LODS):
             lod_name = ""
@@ -209,19 +208,21 @@ class ModelManager:
                 del self.dsphrs[-1]
             if lobj is not None and lod_name != self.base_obj:
                 if self.lods[lod] is None:
-                    if lobj.type == 'MESH':
+                    if lobj.type == "MESH" or lobj.type == "EMPTY":
                         if lobj.hide is False:
 
                             if str(lobj.parent) != self.base_parent:
                                 raise ValueError(
-                                    "The LOD objects for this model have "
-                                    "different parents!")
+                                    "LOD {} ({}) has a different parent than "
+                                    "LOD {} ({})!".format(
+                                        lod, lobj,
+                                        self.base_lod, self.base_parent))
 
                             self.lods[lod] = lod_name
 
                     else:
-                        raise TypeError("Object {} is not a mesh!".format(
-                                        lod_name))
+                        raise TypeError("Object {} is not a mesh or empty!"
+                                        .format(lod_name))
                 else:
                     raise ValueError(
                         "Tried to set LOD {} to object {}, but it was already "
@@ -485,8 +486,6 @@ class ModelManager:
                   "(Flat)" if mtl[0] else "(Textured)")
 
         self.setup_complete = True
-        print("Setup took {} seconds".format(
-            time.perf_counter() - setup_start_time))
 
     @property
     def exp_fname(self):
@@ -675,13 +674,14 @@ class ObjectHierarchy:
     This class represents a valid object in the scene root, and its valid
     children."""
 
-    def __init__(self):
+    def __init__(self, root_obj):
         self.main_lod_used = False
+        self.root_obj = root_obj
 
     def is_valid_obj(self, obj, parent=None):
         """Ensure the object in question is valid for exporting."""
         if not (str(obj.parent) == str(parent) and obj.hide is False and
-                obj.type == "MESH"):
+                (obj.type == "MESH" or obj.type == "EMPTY")):
             return False
 
         if CHLD_LOD_RE.match(obj.name):
@@ -692,7 +692,7 @@ class ObjectHierarchy:
             self.main_lod_used = True
             return True
 
-    def get_children(self, obj):
+    def get_children(self, obj=self.root_obj):
         """Get a list of the object, and all of its exportable children.
 
         In order for a child object to be exportable, it must be:
@@ -778,7 +778,8 @@ class ObjectHierarchy:
                     obj.name == bpy.context.active_object.name):
                 return rv
 
-            elif (obj.parent is not None and obj.parent.type == "MESH" and
+            elif (obj.parent is not None and (obj.parent.type == "MESH" or
+                  obj.parent.type == "EMPTY") and
                   (MAIN_LOD_RE.match(obj.parent.name) or
                    CHLD_LOD_RE.match(obj.parent.name)) and
                   obj.parent.hide is False):
@@ -829,6 +830,7 @@ class IFFExporter(ExportBackend):
         4. All LODs that are to be exported, especially LOD 0, must be visible
            in Blender's viewport.
         """
+        export_timer = time.perf_counter()
 
         # Aliases to long function names
         # Filename without extension
@@ -899,3 +901,5 @@ class IFFExporter(ExportBackend):
 
             print(banner(manager.exp_fname, 70))
             manager.setup()
+        print("Export took {} seconds.".format(
+            time.perf_counter() - export_timer))
