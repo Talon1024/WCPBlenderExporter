@@ -173,7 +173,7 @@ class ImportBackend:
         self.read_mats = read_mats
         self.dranges = None
         self.lod_objs = []
-        self.mdl_base_name = ""
+        self.base_name = ""
 
         if texname.isspace() or texname == "":
             # Get material/texture name from file name
@@ -394,9 +394,8 @@ class IFFImporter(ImportBackend):
             if mnrmsh["type"] == "form" and mnrmsh["name"] == b"MESH":
                 self.parse_minor_mesh_form(mnrmsh, lod_lev)
             elif mnrmsh["type"] == "form" and mnrmsh["name"] == b"EMPT":
-                if self.mdl_base_name != "":
-                    bl_obname = (
-                        CHLD_LOD_NAMES[lod_lev].format(self.mdl_base_name))
+                if self.base_name != "":
+                    bl_obname = CHLD_LOD_NAMES[lod_lev].format(self.base_name)
                 else:
                     bl_obname = "detail-{}".format(lod_lev)
                 bl_ob = bpy.data.objects.new(bl_obname, None)
@@ -435,8 +434,8 @@ class IFFImporter(ImportBackend):
             # Internal name of "minor" mesh/LOD mesh
             if geom_data["name"] == b"NAME":
                 name_str = self.read_cstring(geom_data["data"], 0)
-                if self.mdl_base_name == "":
-                    self.mdl_base_name = name_str
+                if self.base_name == "":
+                    self.base_name = name_str
                 lodm.set_name(name_str)
 
             # Vertices
@@ -494,7 +493,7 @@ class IFFImporter(ImportBackend):
             bl_mesh = lodm.to_bl_mesh()
             if isinstance(self.reorient_matrix, Matrix):
                 bl_mesh.transform(self.reorient_matrix)
-            bl_obname = CHLD_LOD_NAMES[lod_lev].format(self.mdl_base_name)
+            bl_obname = CHLD_LOD_NAMES[lod_lev].format(self.base_name)
             bl_ob = bpy.data.objects.new(bl_obname, bl_mesh)
             bpy.context.scene.objects.link(bl_ob)
             if lod_lev > 0:
