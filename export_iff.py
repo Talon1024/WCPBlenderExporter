@@ -859,13 +859,9 @@ class IFFExporter(ExportBackend):
         """
         export_start = time.perf_counter()
 
-        # Aliases to long function names
-        # Filename without extension
-        get_fname = bpy.path.display_name_from_filepath
-
         # Get directory path of output file, plus filename without extension
         modeldir = self.filepath[:self.filepath.rfind(dirsep)]
-        modelname = get_fname(self.filepath)
+        modelname = bpy.path.display_name_from_filepath(self.filepath)
 
         managers = []
         used_names = set()
