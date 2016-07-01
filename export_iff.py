@@ -678,10 +678,8 @@ class HierarchyManager:
 
     def __init__(self, root_obj, modelname, modeldir, use_facetex,
                  drang_increment, generate_bsp, scene_name):
-        self.main_lod_used = False
 
         self.root_obj = root_obj
-        self.hierarchy_objects = self.get_children(root_obj)
 
         self.modelname = modelname
         self.modeldir = modeldir
@@ -690,6 +688,9 @@ class HierarchyManager:
         self.generate_bsp = generate_bsp
         self.scene_name = scene_name
         self.managers = []
+
+        self.main_lod_used = False
+        self.hierarchy_objects = self.get_children(root_obj)
 
     def is_valid_obj(self, obj, parent=None):
         """Ensure the object in question is valid for exporting."""
