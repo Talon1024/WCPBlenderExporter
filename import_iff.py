@@ -393,6 +393,15 @@ class IFFImporter(ImportBackend):
             mnrmsh = self.iff_reader.read_data()
             if mnrmsh["type"] == "form" and mnrmsh["name"] == b"MESH":
                 self.parse_minor_mesh_form(mnrmsh, lod_lev)
+            elif mnrmsh["type"] == "form" and mnrmsh["name"] == b"EMPT":
+                if self.mdl_base_name != "":
+                    bl_obname = (
+                        CHLD_LOD_NAMES[lod_lev].format(self.mdl_base_name))
+                else:
+                    bl_obname = "detail-{}".format(lod_lev)
+                bl_ob = bpy.data.objects.new(bl_obname, None)
+                bpy.context.scene.objects.link(bl_ob)
+                self.lod_objs.append(bl_ob)
 
             mjrmsh_read += 8 + lod_form["length"]
             print("mjrmsh_read:", mjrmsh_read, "of", mesh_form["length"])
