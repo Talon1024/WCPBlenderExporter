@@ -401,8 +401,14 @@ class ModelManager:
 
         # Convert all LOD objects to meshes to populate the LOD mesh list.
         for lod in self.lods:
-            self.lodms.append(bpy.data.scenes[self.scene].objects[lod].to_mesh(
-                bpy.data.scenes[self.scene], True, "PREVIEW"))
+            try:
+                self.lodms.append(
+                    bpy.data.scenes[self.scene].objects[lod].to_mesh(
+                        bpy.data.scenes[self.scene], True, "PREVIEW")
+                )
+            except RuntimeError:
+                print("Object {} is an empty.".format(lod))
+                # self.lodms.append(None)
 
         # Get the textures used by all LODs for this model
         used_materials = []
@@ -527,10 +533,9 @@ class ExportBackend:
         self.use_facetex = use_facetex
         self.wc_orientation_matrix = wc_orientation_matrix
         self.include_far_chunk = include_far_chunk
-        self.drang_increment = drang_increment
+        self.drang_incval = drang_increment
         self.generate_bsp = generate_bsp
         self.modelname = ""
-        self.main_lod_used = False
 
     def calc_dplane(self, vert, facenrm):
         """Calculate the D-Plane of the face.
@@ -668,15 +673,23 @@ class ExportBackend:
         return tx_info
 
 
-class ObjectHierarchy:
-    """A valid object, and its valid children.
+class HierarchyManager:
+    """A valid object, and its valid children."""
 
-    This class represents a valid object in the scene root, and its valid
-    children."""
-
-    def __init__(self, root_obj):
+    def __init__(self, root_obj, modelname, modeldir, use_facetex,
+                 drang_increment, generate_bsp, scene_name):
         self.main_lod_used = False
+
         self.root_obj = root_obj
+        self.hierarchy_objects = self.get_children(root_obj)
+
+        self.modelname = modelname
+        self.modeldir = modeldir
+        self.use_facetex = use_facetex
+        self.drang_incval = drang_increment
+        self.generate_bsp = generate_bsp
+        self.scene_name = scene_name
+        self.managers = []
 
     def is_valid_obj(self, obj, parent=None):
         """Ensure the object in question is valid for exporting."""
@@ -692,7 +705,7 @@ class ObjectHierarchy:
             self.main_lod_used = True
             return True
 
-    def get_children(self, obj=self.root_obj):
+    def get_children(self, obj):
         """Get a list of the object, and all of its exportable children.
 
         In order for a child object to be exportable, it must be:
@@ -774,8 +787,7 @@ class ObjectHierarchy:
         def parents_of(obj):
             rv = [obj]
 
-            if (self.export_active_only and
-                    obj.name == bpy.context.active_object.name):
+            if (obj.name == self.root_obj.name):
                 return rv
 
             elif (obj.parent is not None and (obj.parent.type == "MESH" or
@@ -800,7 +812,7 @@ class ObjectHierarchy:
                     return self.modelname
 
                 elif obj_ch_name:
-                    if (first and self.export_active_only and
+                    if (first and obj.name == self.root_obj.name and
                             not self.main_lod_used):
                         return self.modelname
                     else:
@@ -813,6 +825,21 @@ class ObjectHierarchy:
             return "_".join(starmap(name_of, hierarchy))
         else:
             return name_of(obj, True)
+
+    def setup(self):
+        for hobj in self.hierarchy_objects:
+            cur_manager = ModelManager(
+                self.modelname, hobj.name, self.use_facetex,
+                self.drang_incval, self.generate_bsp,
+                bpy.context.scene.name)
+            cur_manager.exp_fname = self.hierarchy_str_for(hobj)
+            print("Export filename for {}: {}.iff".format(
+                hobj.name, cur_manager.exp_fname))
+            self.managers.append(cur_manager)
+
+        for manager in self.managers:
+            print(banner(manager.exp_fname, 70))
+            manager.setup()
 
 
 class IFFExporter(ExportBackend):
@@ -830,7 +857,7 @@ class IFFExporter(ExportBackend):
         4. All LODs that are to be exported, especially LOD 0, must be visible
            in Blender's viewport.
         """
-        export_timer = time.perf_counter()
+        export_start = time.perf_counter()
 
         # Aliases to long function names
         # Filename without extension
@@ -838,11 +865,11 @@ class IFFExporter(ExportBackend):
 
         # Get directory path of output file, plus filename without extension
         modeldir = self.filepath[:self.filepath.rfind(dirsep)]
-        self.modelname = get_fname(self.filepath)
+        modelname = get_fname(self.filepath)
 
         managers = []
-        self.main_lod_used = False
         used_names = set()
+        main_lod_used = False
 
         if self.export_active_only:
             # TODO: Traverse object hierarchy and assign export filenames from
@@ -855,51 +882,45 @@ class IFFExporter(ExportBackend):
             # to be set, as well as removing the need for traversing the
             # hierarchy in ModelManager.setup(). It's more efficient overall.
 
-            active_hierarchy = self.get_children(bpy.context.active_object)
+            managers.append(HierarchyManager(
+                bpy.context.active_object, modelname, modeldir,
+                self.use_facetex, self.drang_incval, self.generate_bsp,
+                bpy.context.scene.name))
 
-            for hobj in active_hierarchy:
-                cur_manager = ModelManager(
-                    self.modelname, hobj.name, self.use_facetex,
-                    self.drang_increment, self.generate_bsp,
-                    bpy.context.scene.name)
-                cur_manager.exp_fname = self.hierarchy_str_for(hobj)
-                print("Export filename for {}: {}.iff".format(
-                    hobj.name, cur_manager.exp_fname))
-                managers.append(cur_manager)
         else:
             for obj in bpy.context.scene.objects:
                 if obj.parent is None and not obj.hide:
-                    if MAIN_LOD_RE.match(obj.name) and not self.main_lod_used:
-                        managers.append(ModelManager(
-                            self.modelname, obj.name, self.use_facetex,
+                    if MAIN_LOD_RE.match(obj.name) and not main_lod_used:
+                        main_lod_used = True
+                        managers.append(HierarchyManager(
+                            obj, modelname, modeldir, self.use_facetex,
                             self.drang_increment, self.generate_bsp,
                             bpy.context.scene.name
                         ))
-                        self.main_lod_used = True
                         warnings.warn("detail-x LOD naming scheme is "
                                       "deprecated.", DeprecationWarning)
                     else:
                         obj_match = CHLD_LOD_RE.match(obj.name)
                         if obj_match.group(1) not in used_names:
-                            managers.append(ModelManager(
-                                self.modelname, obj.name, self.use_facetex,
+                            managers.append(HierarchyManager(
+                                obj, modelname, modeldir, self.use_facetex,
                                 self.drang_increment, self.generate_bsp,
                                 bpy.context.scene.name
                             ))
                             used_names.add(obj_match.group(1))
 
         for manager in managers:
-            def banner(text, width=50):
-                str_length = len(text)
-                if str_length > width:
-                    return banner_topbtm + "\n" + text + "\n" + banner_topbtm
-                banner_topbtm = "=" * width
-                num_sideqs = width // 2 - (str_length + 2) // 2
-                banner_mid = (
-                    "=" * num_sideqs + " " + text + " " + "=" * num_sideqs)
-                return banner_topbtm + "\n" + banner_mid + "\n" + banner_topbtm
-
-            print(banner(manager.exp_fname, 70))
             manager.setup()
         print("Export took {} seconds.".format(
-            time.perf_counter() - export_timer))
+            time.perf_counter() - export_start))
+
+
+def banner(text, width=50):
+    str_length = len(text)
+    if str_length > width:
+        return banner_topbtm + "\n" + text + "\n" + banner_topbtm
+    banner_topbtm = "=" * width
+    num_sideqs = width // 2 - (str_length + 2) // 2
+    banner_mid = (
+        "=" * num_sideqs + " " + text + " " + "=" * num_sideqs)
+    return banner_topbtm + "\n" + banner_mid + "\n" + banner_topbtm
