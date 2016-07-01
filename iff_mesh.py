@@ -292,10 +292,13 @@ class MeshLODForm(iff.IffForm):
     "A LOD mesh."
 
     def __init__(self, lod_lev, version=12):
+        self._version = int(version)
         self._mesh_form = iff.IffForm("MESH")
         self._geom_form = iff.IffForm("{!s:0>4}".format(version))
         self._name_chunk = iff.IffChunk("NAME")
         self._vert_chunk = iff.IffChunk("VERT")
+        if self._version == 11:
+            self._norm_chunk = iff.IffChunk("NORM")
         self._vtnm_chunk = iff.IffChunk("VTNM")
         self._fvrt_chunk = iff.IffChunk("FVRT")
         self._face_chunk = iff.IffChunk("FACE")
@@ -334,11 +337,20 @@ class MeshLODForm(iff.IffForm):
         self._vert_chunk.add_member(float(vy))
         self._vert_chunk.add_member(float(vz))
 
-    def add_normal(self, nx, ny, nz):
-        "Add a face/vertex normal to this LOD mesh."
+    def add_vert_normal(self, nx, ny, nz):
+        "Add a vertex normal to this LOD mesh."
         self._vtnm_chunk.add_member(float(nx))
         self._vtnm_chunk.add_member(float(ny))
         self._vtnm_chunk.add_member(float(nz))
+
+    def add_face_normal(self, nx, ny, nz):
+        "Add a face normal to this LOD mesh."
+        if self._version == 11:
+            self._norm_chunk.add_member(float(nx))
+            self._norm_chunk.add_member(float(ny))
+            self._norm_chunk.add_member(float(nz))
+        elif self._version == 12:
+            self.add_vert_normal(nx, ny, nz)
 
     def add_fvrt(self, vert_idx, vtnm_idx, uv_x, uv_y):
         """Add a "face vertex" to this LOD mesh.
@@ -400,6 +412,9 @@ class EmptyLODForm(iff.IffForm):
         empty_form = iff.IffForm("EMPT")
         form_name = "{!s:0>4}".format(lod_lev)
         super().__init__(form_name, [empty_form])
+
+
+# ============================== IFF Model File ==============================
 
 
 class ModelIff(iff.IffFile):
