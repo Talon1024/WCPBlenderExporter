@@ -1,17 +1,21 @@
 cmd: '{PROJECT_PATH}/build.sh'
 name: 'Wing Blender (Development)'
 args: ['-d']
+sh: no
 cwd: '{PROJECT_PATH}'
 targets:
   'Wing Blender (Production)':
     cmd: '{PROJECT_PATH}/build.sh'
     args: ['-p']
+    sh: no
     cwd: '{PROJECT_PATH}'
   'Wing Blender ZIP (Development)':
     cmd: '{PROJECT_PATH}/build.sh'
     args: ['-dz']
+    sh: no
     cwd: '{PROJECT_PATH}'
   'Wing Blender ZIP (Production)':
     cmd: '{PROJECT_PATH}/build.sh'
     args: ['-pz']
+    sh: no
     cwd: '{PROJECT_PATH}'
