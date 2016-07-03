@@ -173,18 +173,18 @@ class ModelManager:
         for ts in material.texture_slots:
             if ts is not None:
                 filled_slots += 1
-            if (ts is not None and
-                    isinstance(ts, bpy.types.MaterialTextureSlot) and
+                if (isinstance(ts, bpy.types.MaterialTextureSlot) and
                     ts.texture_coords == "UV" and
                     isinstance(ts.texture, bpy.types.ImageTexture) and
-                    ts.texture.image is not None):
-                valid_slots.append(ts.texture)
+                        ts.texture.image is not None):
+                    valid_slots.append(ts.texture)
 
         if filled_slots > 0 and len(valid_slots) == 0:
             raise ValueError(
-                "Found no valid texture slots out of the ones that were "
-                "filled! In order for a texture slot to be valid, it must be "
-                "a UV-mapped image texture.")
+                "Found no valid texture slots for the material '{}' out of "
+                "the ones that were filled! In order for a texture slot to be "
+                "valid, it must be a UV-mapped image texture."
+                .format(material.name))
 
         return valid_slots
 
