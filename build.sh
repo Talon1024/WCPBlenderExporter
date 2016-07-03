@@ -40,7 +40,7 @@ while getopts ':dpz' build_option; do
         exit 1
       fi
       vers='development'
-      gvers="commit $(git log -n 1 --format=%h)"
+      gvers="$(git log -n 1 --format=%h)"
       blender_scripts_folder="$homedir/BlenderScriptsDev/addons/io_scene_wcp" # Development script folder
       ;;
     p)
@@ -58,7 +58,6 @@ while getopts ':dpz' build_option; do
       if [[ -z "$(which zip)" ]]; then
         echo 'zip is not in your PATH!' >&2; exit 1
       fi
-      gvers="${gvers##commit }"
       zip=1
       ;;
     \?)
@@ -79,7 +78,7 @@ if [[ $zip -eq 0 ]]; then
   fi
 
   cp -t "$blender_scripts_folder" ${pyfs[@]}
-  sed -i -e "s/%\\x7BGIT_COMMIT\\x7D/$gvers/g" "$blender_scripts_folder/__init__.py"
+  sed -i -e "s/%\\x7BGIT_COMMIT\\x7D/commit $gvers/g" "$blender_scripts_folder/__init__.py"
 
   build_success=0
   for pyf in ${pyfs[@]}; do
@@ -101,7 +100,7 @@ else
   # Make installable Blender plugin zip file.
   mkdir io_scene_wcp
   cp -t io_scene_wcp ${pyfs[@]}
-  sed -i -e "s/%\\x7BGIT_COMMIT\\x7D/$gvers/g" io_scene_wcp/__init__.py
+  sed -i -e "s/%\\x7BGIT_COMMIT\\x7D/commit $gvers/g" io_scene_wcp/__init__.py
   zipname="Wing_Blender"
   if [[ "$vers" = 'production' ]]; then
     zipname="${zipname}_$(git describe --tags)"
