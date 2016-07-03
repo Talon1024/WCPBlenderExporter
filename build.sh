@@ -58,7 +58,7 @@ while getopts ':dpz' build_option; do
       if [[ -z "$(which zip)" ]]; then
         echo 'zip is not in your PATH!' >&2; exit 1
       fi
-      gvers="$(echo $gvers | grep -o '[[:digit:]a-fA-F]\+$')"
+      gvers="${gvers##commit }"
       zip=1
       ;;
     \?)
@@ -80,7 +80,19 @@ if [[ $zip -eq 0 ]]; then
 
   cp -t "$blender_scripts_folder" ${pyfs[@]}
   sed -i -e "s/%\\x7BGIT_COMMIT\\x7D/$gvers/g" "$blender_scripts_folder/__init__.py"
-  echo "Scripts copied to $vers folder."
+
+  build_success=0
+  for pyf in ${pyfs[@]}; do
+    if [[ -f "$blender_scripts_folder/$pyf" ]]; then ((++build_success)); fi
+  done
+
+  if [[ $build_success -eq ${#pyfs} ]]; then
+    echo "Scripts copied to $vers folder."
+    build_success=0  # From now on, this variable is the exit status.
+  else
+    echo "Failed to copy scripts to $vers folder."
+    build_success=1
+  fi
 
   if [[ -d "$blender_scripts_folder/__pycache__" ]]; then
     rm -r "$blender_scripts_folder/__pycache__"
@@ -98,5 +110,13 @@ else
   fi
   zip -r $zipname io_scene_wcp
   rm -r io_scene_wcp
-  echo "Created $zipname.zip."
+  if [[ -f $zipname ]]; then
+    echo "Created $zipname.zip."
+    build_success=0
+  else
+    echo "Failed to create $zipname.zip."
+    build_success=1
+  fi
 fi
+
+exit $build_success
