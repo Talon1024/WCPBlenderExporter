@@ -86,7 +86,7 @@ if [[ $zip -eq 0 ]]; then
     if [[ -f "$blender_scripts_folder/$pyf" ]]; then ((++build_success)); fi
   done
 
-  if [[ $build_success -eq ${#pyfs} ]]; then
+  if [[ "$build_success" -eq "${#pyfs[@]}" ]]; then
     echo "Scripts copied to $vers folder."
     build_success=0  # From now on, this variable is the exit status.
   else
