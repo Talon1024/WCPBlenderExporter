@@ -200,6 +200,7 @@ class ModelManager:
         return valid_slots
 
     def setup(self):
+        print(banner(self.modelname, 70))
         # Scan for valid LOD objects related to the base LOD object
         for lod in range(self.MAX_NUM_LODS):
             lod_name = "{}{}{}".format(self.base_prefix, lod, self.base_suffix)
@@ -855,7 +856,6 @@ class HierarchyManager:
             self.managers.append(cur_manager)
 
         for manager in self.managers:
-            print(banner(manager.exp_fname, 70))
             manager.setup()
 
 
