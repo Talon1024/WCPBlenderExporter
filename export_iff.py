@@ -36,12 +36,16 @@ LFLAG_UNKNOWN2 = 8
 
 # Name pattern for LOD objects. Largely deprecated in favour of named LOD
 # object models. Mostly present for backwards compatibility.
-# Group 1 is the LOD level number.
-MAIN_LOD_RE = re.compile(r"^detail-?(\d+)(?:\.\d+)?$")
+# Group 1 is the prefix.
+# Group 2 is the LOD level number.
+# Group 3 is the suffix.
+MAIN_LOD_RE = re.compile(r"^(detail-?)(\d+)(\.\d+)?$")
 
 # Name pattern for LOD objects, grouped by name.
-# Group 1 is the child object name, group 2 is the LOD level number.
-CHLD_LOD_RE = re.compile(r"^(\w+)-lod(\d+)(?:\.\d+)?$")
+# Group 1 is the prefix object name.
+# Group 2 is the LOD level number.
+# Group 3 is the suffix.
+CHLD_LOD_RE = re.compile(r"^([\w#]+-lod)(\d+)(\.\d+)?$")
 
 # Name pattern for hardpoints. Group 1 is the hardpoint name, group 2 is
 # the suffix appended by Blender to objects with conflicting names.
@@ -72,13 +76,10 @@ class ModelManager:
     MAX_NUM_LODS = 7
 
     # The LOD base object uses the 'detail-X' naming scheme.
-    LOD_NSCHEME_DETAIL = 0
-
-    # The LOD base object uses the 'detailX' naming scheme.
-    LOD_NSCHEME_DETAIL2 = 1
+    # LOD_NSCHEME_DETAIL = 0
 
     # The LOD base object used the 'Y-lodX' naming scheme.
-    LOD_NSCHEME_CHLD = 2
+    # LOD_NSCHEME_CHLD = 1
 
     # Name pattern for LOD range info. Group 1 is the range, group 2 is the
     # suffix appended by Blender to objects with conflicting names.
@@ -97,7 +98,7 @@ class ModelManager:
                  gen_bsp, scene_name):
 
         if not isinstance(base_name, str):
-            raise TypeError("Export filename must be a string!")
+            raise TypeError("Model name must be a string!")
         if scene_name not in bpy.data.scenes:
             raise TypeError("scene must be the name of a Blender scene!")
         if base_obj not in bpy.data.scenes[scene_name].objects:
@@ -105,19 +106,22 @@ class ModelManager:
                             "object in the given scene!")
 
         self.scene = scene_name  # Name of the scene to use
-        self.base_name = base_name  # Model base name (ex. Duhiky)
+        # self.base_name = base_name
         self._exp_fname = base_name  # Export filename
-        self.name_scheme = 0  # See LOD_NSCHEME constants above
+        # self.name_scheme = 0  # See LOD_NSCHEME constants above
+        self.modelname = base_obj  # Model base name (ex. Duhiky)
         self.base_obj = base_obj  # Name of base object (ex. Duhiky-lod0)
+        self.base_prefix = ""  # Prefix before LOD level number.
+        self.base_suffix = ""  # Object name suffix (.000, .001, etc.)
         self.base_parent = str(
             bpy.data.scenes[scene_name].objects[base_obj].parent)
-        base_lod = self._get_lod(base_obj, True)  # Determine base object LOD
+        self.base_lod = self._get_lod(base_obj, True)  # Get base object LOD
 
         # Names of LOD objects
         self.lods = [None for x in range(self.MAX_NUM_LODS)]
 
         self.lodms = []  # LOD object meshes (converted from objects)
-        self.lods[base_lod] = base_obj
+        self.lods[self.base_lod] = base_obj
         self.hardpoints = []  # Hardpoints
         self.hpobnames = []  # Hardpoint Blender object names
 
@@ -138,29 +142,36 @@ class ModelManager:
         self.setup_complete = False
 
     def _get_lod(self, lod_obj, base=False):
-        lod = MAIN_LOD_RE.match(lod_obj)
-        if lod:
+        lod_match = MAIN_LOD_RE.match(lod_obj)
+        if lod_match:
             if base:
-                if lod.group(0).count("-") == 1:
-                    self.name_scheme = self.LOD_NSCHEME_DETAIL
-                else:
-                    self.name_scheme = self.LOD_NSCHEME_DETAIL2
+                # self.name_scheme = self.LOD_NSCHEME_DETAIL
+                self.base_prefix = lod_match.group(1)
+                self.base_suffix = lod_match.group(3)
+                if self.base_suffix is None: self.base_suffix = ""
                 warnings.warn("detail-x LOD naming scheme is deprecated.",
                               DeprecationWarning)
-            lod = int(lod.group(1))
-            return lod
+            lod_lev = int(lod_match.group(2))
+            return lod_lev
 
-        lod = CHLD_LOD_RE.match(lod_obj)
-        if lod:
+        lod_match = CHLD_LOD_RE.match(lod_obj)
+        if lod_match:
             if base:
-                self.name_scheme = self.LOD_NSCHEME_CHLD
-            self.base_name = lod.group(1)
-            lod = int(lod.group(2))
-            return lod
+                # self.name_scheme = self.LOD_NSCHEME_CHLD
+                base_prefix = lod_match.group(1)
+                self.modelname = base_prefix[:base_prefix.rindex("-")]
+                self.base_prefix = base_prefix
+                self.base_suffix = lod_match.group(3)
+                if self.base_suffix is None: self.base_suffix = ""
+            lod_lev = int(lod_match.group(2))
+            return lod_lev
 
         # Assume LOD 0, and "child" LOD naming scheme
         if base:
-            self.name_scheme = self.LOD_NSCHEME_CHLD
+            if self.modelname.rfind(".") > 0:
+                self.base_suffix = self.modelname[self.modelname.rfind("."):]
+                self.modelname = self.modelname[:self.modelname.rfind(".")]
+            self.base_prefix = self.modelname + "-lod"
         return 0
 
     def texs_for_mtl(self, material):
@@ -191,13 +202,7 @@ class ModelManager:
     def setup(self):
         # Scan for valid LOD objects related to the base LOD object
         for lod in range(self.MAX_NUM_LODS):
-            lod_name = ""
-            if self.name_scheme == self.LOD_NSCHEME_DETAIL:
-                lod_name = "detail-{}".format(lod)
-            elif self.name_scheme == self.LOD_NSCHEME_DETAIL2:
-                lod_name = "detail{}".format(lod)
-            elif self.name_scheme == self.LOD_NSCHEME_CHLD:
-                lod_name = "{}-lod{}".format(self.base_name, lod)
+            lod_name = "{}{}{}".format(self.base_prefix, lod, self.base_suffix)
 
             lobj = None
             try:
@@ -380,7 +385,7 @@ class ModelManager:
                 raise ValueError(
                     "Two or more hardpoints of the object {} have the same "
                     "name ({})! (Hardpoint name is stripped of numeric "
-                    "suffix)".format(self.base_name, hp.name))
+                    "suffix)".format(self.modelname, hp.name))
             hpnames.append(hp.name)
         del hpnames
 
@@ -511,7 +516,7 @@ class ModelManager:
 
     @exp_fname.deleter
     def exp_fname(self):
-        self._exp_fname = self.base_name
+        self._exp_fname = self.modelname
 
 
 class ExportBackend:
@@ -681,7 +686,7 @@ class HierarchyManager:
 
         self.root_obj = root_obj
 
-        self.modelname = modelname
+        self.modelname = modelname  # The filename the user specified.
         self.modeldir = modeldir
         self.use_facetex = use_facetex
         self.drang_incval = drang_increment
@@ -817,7 +822,18 @@ class HierarchyManager:
                             not self.main_lod_used):
                         return self.modelname
                     else:
-                        return obj_ch_name.group(1)
+                        obj_mname = obj_ch_name.group(1)
+                        obj_mname = obj_mname[:obj_mname.rindex("-")]
+                        return obj_mname
+
+                else:
+                    if first:
+                        return self.modelname
+                    obj_mname = obj.name
+                    if obj_mname.rfind(".") > 0:
+                        return obj_mname[:obj_mname.rfind(".")]
+                    else:
+                        return obj_mname
 
         if obj.parent is not None:
             hierarchy = parents_of(obj)
