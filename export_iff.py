@@ -695,7 +695,7 @@ class HierarchyManager:
         self.scene_name = scene_name
         self.managers = []
 
-        self.main_lod_used = False
+        self.main_lods_used = set()
         self.hierarchy_objects = self.get_children(root_obj)
 
     def is_valid_obj(self, obj, parent=None):
@@ -707,9 +707,14 @@ class HierarchyManager:
         if CHLD_LOD_RE.match(obj.name):
             return True
         elif MAIN_LOD_RE.match(obj.name):
-            if self.main_lod_used is True:
+            lod_lev = int(MAIN_LOD_RE.match(obj.name).group(2))
+            if lod_lev in self.main_lods_used:
+                raise ValueError("You cannot have more than one detail-x "
+                                 "object in a hierarchy!")
+            elif len(self.main_lods_used) > 0:
                 return False
-            self.main_lod_used = True
+            self.main_lods_used.add(lod_lev)
+            print("main_lods_used:", self.main_lods_used)
             return True
 
     def get_children(self, obj):
@@ -820,7 +825,7 @@ class HierarchyManager:
 
                 elif obj_ch_name:
                     if (first and obj.name == self.root_obj.name and
-                            not self.main_lod_used):
+                            not self.main_lods_used):
                         return self.modelname
                     else:
                         obj_mname = obj_ch_name.group(1)
