@@ -109,8 +109,8 @@ class ModelManager:
         # self.base_name = base_name
         self._exp_fname = base_name  # Export filename
         # self.name_scheme = 0  # See LOD_NSCHEME constants above
-        self.modelname = base_name  # Model base name (ex. Duhiky)
-        self.base_obj = base_obj  # Name of base object (ex. Duhiky-lod0)
+        self.modelname = base_name  # Model name (NAME chunk, ex. "Duhiky")
+        self.base_obj = base_obj  # Name of base object (ex. "Duhiky-lod0")
         self.base_prefix = ""  # Prefix before LOD level number.
         self.base_suffix = ""  # Object name suffix (.000, .001, etc.)
         self.base_parent = str(
