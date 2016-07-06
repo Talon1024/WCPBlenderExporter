@@ -710,7 +710,7 @@ class HierarchyManager:
             lod_lev = int(MAIN_LOD_RE.match(obj.name).group(2))
             if lod_lev in self.main_lods_used:
                 raise ValueError("You cannot have more than one detail-x "
-                                 "object in a hierarchy!")
+                                 "object in a hierarchy tree!")
             elif len(self.main_lods_used) > 0:
                 return False
             self.main_lods_used.add(lod_lev)
@@ -726,6 +726,9 @@ class HierarchyManager:
         3. Visible in Blender's viewport."""
         # List containing an object and its children.
         objects = [obj]
+        obj_main = MAIN_LOD_RE.match(obj.name)
+        if obj_main:
+            self.main_lods_used.add(int(obj_main.group(2)))
 
         def is_valid_hp(obj, parent=None):
             return (str(obj.parent) == str(parent) and obj.hide is False and
