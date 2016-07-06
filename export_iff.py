@@ -743,8 +743,10 @@ class HierarchyManager:
 
             if root:
                 prefix = "{}-lod".format(obj_name)
-                return ["{}{}".format(prefix, lod)
-                        for lod in range(MAX_NUM_LODS)]
+                rv = ["{}{}".format(prefix, lod)
+                      for lod in range(1, MAX_NUM_LODS)]
+                rv.insert(0, obj_name)
+                return rv
             else:
                 return None
 
