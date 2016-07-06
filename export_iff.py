@@ -51,6 +51,9 @@ CHLD_LOD_RE = re.compile(r"^([\w#]+-lod)(\d+)(\.\d+)?$")
 # the suffix appended by Blender to objects with conflicting names.
 HARDPOINT_RE = re.compile(r"^hp-(\w+)(?:\.\d*)?$")
 
+# One of the asteroid models I've looked at (AST_G_01.IFF) has 7 LODs
+MAX_NUM_LODS = 7
+
 # Non-critical warnings will be reported to Blender. Critical errors will be
 # exceptions.
 
@@ -71,15 +74,6 @@ class ModelManager:
     # Manages the LODs for a mesh to export.
     # Each instance of this class should be exportable to a mesh IFF.
     # Scans for a base LOD mesh and other related LODs in a given scene.
-
-    # One of the asteroid models I've looked at (AST_G_01.IFF) has 7 LODs
-    MAX_NUM_LODS = 7
-
-    # The LOD base object uses the 'detail-X' naming scheme.
-    # LOD_NSCHEME_DETAIL = 0
-
-    # The LOD base object used the 'Y-lodX' naming scheme.
-    # LOD_NSCHEME_CHLD = 1
 
     # Name pattern for LOD range info. Group 1 is the range, group 2 is the
     # suffix appended by Blender to objects with conflicting names.
@@ -118,7 +112,7 @@ class ModelManager:
         self.base_lod = self._get_lod(base_obj, True)  # Get base object LOD
 
         # Names of LOD objects
-        self.lods = [None for x in range(self.MAX_NUM_LODS)]
+        self.lods = [None for x in range(MAX_NUM_LODS)]
 
         self.lodms = []  # LOD object meshes (converted from objects)
         self.lods[self.base_lod] = base_obj
@@ -126,12 +120,12 @@ class ModelManager:
         self.hpobnames = []  # Hardpoint Blender object names
 
         # LOD ranges (RANG chunk)
-        self.dranges = [None for x in range(self.MAX_NUM_LODS)]
+        self.dranges = [None for x in range(MAX_NUM_LODS)]
         self.dranges[0] = 0.0
         self.drang_increment = drang_increment
 
         # CNTR/RADI spheres for each LOD.
-        self.dsphrs = [None for x in range(self.MAX_NUM_LODS)]
+        self.dsphrs = [None for x in range(MAX_NUM_LODS)]
 
         self.gen_bsp = gen_bsp
         self.collider = None  # COLL form
@@ -147,8 +141,8 @@ class ModelManager:
             if base:
                 # self.name_scheme = self.LOD_NSCHEME_DETAIL
                 self.base_prefix = lod_match.group(1)
-                self.base_suffix = lod_match.group(3)
-                if self.base_suffix is None: self.base_suffix = ""
+                self.base_suffix = lod_match.group(3) or ""
+                # if self.base_suffix is None: self.base_suffix = ""
                 warnings.warn("detail-x LOD naming scheme is deprecated.",
                               DeprecationWarning)
             lod_lev = int(lod_match.group(2))
@@ -161,8 +155,7 @@ class ModelManager:
                 base_prefix = lod_match.group(1)
                 self.modelname = base_prefix[:base_prefix.rindex("-")]
                 self.base_prefix = base_prefix
-                self.base_suffix = lod_match.group(3)
-                if self.base_suffix is None: self.base_suffix = ""
+                self.base_suffix = lod_match.group(3) or ""
             lod_lev = int(lod_match.group(2))
             return lod_lev
 
@@ -202,7 +195,7 @@ class ModelManager:
     def setup(self):
         print(banner(self.modelname, 70))
         # Scan for valid LOD objects related to the base LOD object
-        for lod in range(self.MAX_NUM_LODS):
+        for lod in range(MAX_NUM_LODS):
             lod_name = "{}{}{}".format(self.base_prefix, lod, self.base_suffix)
 
             lobj = None
@@ -260,7 +253,7 @@ class ModelManager:
 
         # The collider for the lowest (most detailed) LOD takes precedence over
         # colliders for other LODs, and a model can only have one collider.
-        collider_lod = self.MAX_NUM_LODS + 1
+        collider_lod = MAX_NUM_LODS + 1
 
         # LOD ranges can be either a custom property of the LOD object, or the
         # name of an empty object parented to said LOD object. The custom
@@ -729,6 +722,31 @@ class HierarchyManager:
         obj_main = MAIN_LOD_RE.match(obj.name)
         if obj_main:
             self.main_lods_used.add(int(obj_main.group(2)))
+
+        def lods_of(obj_name, root=False):
+            """Gets the names of the LOD objects for the object with the given
+            name."""
+
+            main_match = MAIN_LOD_RE.match(obj_name)
+            if main_match:
+                prefix = main_match.group(1)
+                suffix = main_match.group(3) or ""
+                return ["{}{}{}".format(prefix, lod, suffix)
+                        for lod in range(MAX_NUM_LODS)]
+
+            chld_match = CHLD_LOD_RE.match(obj_name)
+            if chld_match:
+                prefix = main_match.group(1)
+                suffix = main_match.group(3) or ""
+                return ["{}{}{}".format(prefix, lod, suffix)
+                        for lod in range(MAX_NUM_LODS)]
+
+            if root:
+                prefix = "{}-lod"
+                return ["{}{}".format(prefix, lod)
+                        for lod in range(MAX_NUM_LODS)]
+            else:
+                return None
 
         def is_valid_hp(obj, parent=None):
             return (str(obj.parent) == str(parent) and obj.hide is False and
