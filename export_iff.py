@@ -742,7 +742,7 @@ class HierarchyManager:
                         for lod in range(MAX_NUM_LODS)]
 
             if root:
-                prefix = "{}-lod"
+                prefix = "{}-lod".format(obj_name)
                 return ["{}{}".format(prefix, lod)
                         for lod in range(MAX_NUM_LODS)]
             else:
