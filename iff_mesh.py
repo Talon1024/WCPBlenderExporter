@@ -356,8 +356,7 @@ class MeshLODForm(iff.IffForm):
         """Add a "face vertex" to this LOD mesh.
 
         A "face vertex" consists of a vertex index, a normal index, and X/Y UV
-        coordinates. They are somewhat similar and analogous to Blender's BMesh
-        mesh loops."""
+        coordinates. They are somewhat analogous to Blender's BMesh loops."""
 
         if vert_idx < 0:
             raise ValueError("Vertex index must not be negative!")
@@ -505,6 +504,10 @@ class ModelIff(iff.IffFile):
 
         if dranges[0] != 0.0:
             raise ValueError("The first LOD range must be 0.")
+
+        for drange in dranges:
+            if drange < 0:
+                raise ValueError("The LOD ranges must not be negative!")
 
         self._mrang.clear_members()
         for drange in dranges:
