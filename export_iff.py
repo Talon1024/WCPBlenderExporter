@@ -131,8 +131,7 @@ class ModelManager:
         self.collider = None  # COLL form
         self.use_mtltex = not use_facetex
         self.textures = []  # Textures for all LODs
-        self.mtltexs = {}  # Material -> texture dict
-        self.children = []  # Child objects
+        self.mtltexs = {}  # Material -> texnum dict
         self.setup_complete = False
 
     def _get_lod(self, lod_obj, base=False):
@@ -473,7 +472,7 @@ class ModelManager:
 
                 mtldata = (tf_mtf, tf_mlf, tf_img)
                 if mtldata not in self.textures:
-                    self.mtltexs[tf_mtl] = len(self.textures)
+                    # self.mtltexs[tf_mtl] = len(self.textures)
                     self.textures.append(mtldata)
         else:
             for tf_mtl in used_materials:
@@ -482,7 +481,7 @@ class ModelManager:
 
                 mtldata = (tf_mtf, tf_mlf, tf_img)
                 if mtldata not in self.textures:
-                    self.mtltexs[tf_mtl] = len(self.textures)
+                    # self.mtltexs[tf_mtl] = len(self.textures)
                     self.textures.append(mtldata)
 
         print("Materials used by this model:")
@@ -491,6 +490,13 @@ class ModelManager:
                   "(Flat)" if mtl[0] else "(Textured)")
 
         self.setup_complete = True
+
+    def get_materials(self):
+        if self.setup_complete and self.textures:
+            return self.textures
+
+    def assign_materials(self):
+        pass
 
     @property
     def exp_fname(self):
@@ -900,6 +906,14 @@ class HierarchyManager:
         for manager in self.managers:
             manager.setup()
 
+    def get_materials(self):
+        return [mgr.get_materials() for mgr in self.managers]
+
+    def assign_mtltxns(self, mtltxns):
+        if len(mtltxns) != len(self.managers):  # Must be a list of dicts.
+            raise ValueError("mtltxns must be a list of dicts corresponding "
+                             "to each ModelManager of this HierarchyManager!")
+
 
 class IFFExporter(ExportBackend):
 
@@ -923,19 +937,14 @@ class IFFExporter(ExportBackend):
         modelname = bpy.path.display_name_from_filepath(self.filepath)
 
         managers = []
+        used_materials = []
         used_names = set()
         main_lod_used = False
 
         if self.export_active_only:
-            # TODO: Traverse object hierarchy and assign export filenames from
-            # here.
             if bpy.context.active_object is None:
                 raise TypeError("You must have an object selected to export "
                                 "only the active object!")
-
-            # Traversing hierarchy here will allow the object export filename
-            # to be set, as well as removing the need for traversing the
-            # hierarchy in ModelManager.setup(). It's more efficient overall.
 
             managers.append(HierarchyManager(
                 bpy.context.active_object, modelname, modeldir,
@@ -966,6 +975,7 @@ class IFFExporter(ExportBackend):
 
         for manager in managers:
             manager.setup()
+            print(manager.get_materials())
         print("Export took {} seconds.".format(
             time.perf_counter() - export_start))
 
