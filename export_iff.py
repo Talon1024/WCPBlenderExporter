@@ -736,8 +736,8 @@ class HierarchyManager:
 
             chld_match = CHLD_LOD_RE.match(obj_name)
             if chld_match:
-                prefix = main_match.group(1)
-                suffix = main_match.group(3) or ""
+                prefix = chld_match.group(1)
+                suffix = chld_match.group(3) or ""
                 return ["{}{}{}".format(prefix, lod, suffix)
                         for lod in range(MAX_NUM_LODS)]
 
@@ -765,7 +765,7 @@ class HierarchyManager:
         #
         #         return obj.name, obj_bname
 
-        def children_of(parent_obj):
+        def children_of(parent_obj, root):
             """Get the valid child objects for a parent object.
 
             Child objects may be parented directly to the object, or to one of
@@ -773,7 +773,20 @@ class HierarchyManager:
             childnames = []
             children = []
             parent_hps = []
-            for obj in bpy.context.scene.objects:
+            parent_lods = lods_of(parent_obj.name, root)
+            parent_lobjs = [None for lod in range(len(parent_lods))]
+            for lod in range(len(parent_lobjs)):
+                try:
+                    parent_lobjs[lod] = (
+                        bpy.data.scenes[self.scene_name]
+                        .objects[parent_lods[lod]])
+                except KeyError:
+                    del parent_lobjs[-1]
+
+            del parent_lods
+            print("[L787] parent_lobjs:", parent_lobjs)
+
+            for obj in bpy.data.scenes[self.scene_name].objects:
                 if self.is_valid_obj(obj, parent_obj):
                     obj_bname = CHLD_LOD_RE.match(obj.name)
                     if obj_bname:
@@ -786,7 +799,7 @@ class HierarchyManager:
                 if is_valid_hp(obj, parent_obj) and obj not in parent_hps:
                     parent_hps.append(obj)
 
-            for obj in bpy.context.scene.objects:
+            for obj in bpy.data.scenes[self.scene_name].objects:
                 for hp in parent_hps:
                     if self.is_valid_obj(obj, hp):
                         obj_bname = CHLD_LOD_RE.match(obj.name)
@@ -802,11 +815,11 @@ class HierarchyManager:
                 return children
             else:
                 for obj in children:
-                    children.extend(children_of(obj))
+                    children.extend(children_of(obj, False))
 
                 return children
 
-        objects.extend(children_of(obj))
+        objects.extend(children_of(obj, True))
 
         # import code
         # code.interact(banner="Entering REPL (L721).", local=locals())
@@ -877,7 +890,7 @@ class HierarchyManager:
             cur_manager = ModelManager(
                 self.modelname, hobj.name, self.use_facetex,
                 self.drang_incval, self.generate_bsp,
-                bpy.context.scene.name)
+                self.scene_name)
             cur_manager.exp_fname = self.hierarchy_str_for(hobj)
             print("Export filename for {}: {}.iff".format(
                 hobj.name, cur_manager.exp_fname))
