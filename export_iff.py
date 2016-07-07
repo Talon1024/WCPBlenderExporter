@@ -784,20 +784,21 @@ class HierarchyManager:
                     del parent_lobjs[-1]
 
             del parent_lods
-            print("[L787] parent_lobjs:", parent_lobjs)
+            # print("[L787] parent_lobjs:", parent_lobjs)
 
-            for obj in bpy.data.scenes[self.scene_name].objects:
-                if self.is_valid_obj(obj, parent_obj):
-                    obj_bname = CHLD_LOD_RE.match(obj.name)
-                    if obj_bname:
-                        obj_bname = obj_bname.group(1)
-                    else:
-                        obj_bname = self.modelname
-                    if obj_bname not in childnames:
-                        childnames.append(obj_bname)
-                        children.append(obj)
-                if is_valid_hp(obj, parent_obj) and obj not in parent_hps:
-                    parent_hps.append(obj)
+            for plobj in parent_lobjs:
+                for obj in bpy.data.scenes[self.scene_name].objects:
+                    if self.is_valid_obj(obj, plobj):
+                        obj_bname = CHLD_LOD_RE.match(obj.name)
+                        if obj_bname:
+                            obj_bname = obj_bname.group(1)
+                        else:
+                            obj_bname = self.modelname
+                        if obj_bname not in childnames:
+                            childnames.append(obj_bname)
+                            children.append(obj)
+                    if is_valid_hp(obj, plobj) and obj not in parent_hps:
+                        parent_hps.append(obj)
 
             for obj in bpy.data.scenes[self.scene_name].objects:
                 for hp in parent_hps:
