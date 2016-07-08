@@ -685,6 +685,7 @@ class HierarchyManager:
                  drang_increment, generate_bsp, scene_name):
 
         self.root_obj = root_obj
+        self.root_lods = self.lods_of(root_obj.name)
 
         self.modelname = modelname  # The filename the user specified.
         self.modeldir = modeldir
@@ -716,6 +717,33 @@ class HierarchyManager:
             print("main_lods_used:", self.main_lods_used)
             return True
 
+    def lods_of(self, obj_name, root=False):
+        """Gets the names of the LOD objects for the object with the given
+        name."""
+
+        main_match = MAIN_LOD_RE.match(obj_name)
+        if main_match:
+            prefix = main_match.group(1)
+            suffix = main_match.group(3) or ""
+            return ["{}{}{}".format(prefix, lod, suffix)
+                    for lod in range(MAX_NUM_LODS)]
+
+        chld_match = CHLD_LOD_RE.match(obj_name)
+        if chld_match:
+            prefix = chld_match.group(1)
+            suffix = chld_match.group(3) or ""
+            return ["{}{}{}".format(prefix, lod, suffix)
+                    for lod in range(MAX_NUM_LODS)]
+
+        if root:
+            prefix = "{}-lod".format(obj_name)
+            rv = ["{}{}".format(prefix, lod)
+                  for lod in range(1, MAX_NUM_LODS)]
+            rv.insert(0, obj_name)
+            return rv
+        else:
+            return None
+
     def get_children(self, obj):
         """Get a list of the object, and all of its exportable children.
 
@@ -728,33 +756,6 @@ class HierarchyManager:
         obj_main = MAIN_LOD_RE.match(obj.name)
         if obj_main:
             self.main_lods_used.add(int(obj_main.group(2)))
-
-        def lods_of(obj_name, root=False):
-            """Gets the names of the LOD objects for the object with the given
-            name."""
-
-            main_match = MAIN_LOD_RE.match(obj_name)
-            if main_match:
-                prefix = main_match.group(1)
-                suffix = main_match.group(3) or ""
-                return ["{}{}{}".format(prefix, lod, suffix)
-                        for lod in range(MAX_NUM_LODS)]
-
-            chld_match = CHLD_LOD_RE.match(obj_name)
-            if chld_match:
-                prefix = chld_match.group(1)
-                suffix = chld_match.group(3) or ""
-                return ["{}{}{}".format(prefix, lod, suffix)
-                        for lod in range(MAX_NUM_LODS)]
-
-            if root:
-                prefix = "{}-lod".format(obj_name)
-                rv = ["{}{}".format(prefix, lod)
-                      for lod in range(1, MAX_NUM_LODS)]
-                rv.insert(0, obj_name)
-                return rv
-            else:
-                return None
 
         def is_valid_hp(obj, parent=None):
             return (str(obj.parent) == str(parent) and obj.hide is False and
@@ -779,7 +780,7 @@ class HierarchyManager:
             childnames = []
             children = []
             parent_hps = []
-            parent_lods = lods_of(parent_obj.name, root)
+            parent_lods = self.lods_of(parent_obj.name, root)
             parent_lobjs = [None for lod in range(len(parent_lods))]
             for lod in range(len(parent_lobjs)):
                 try:
@@ -867,7 +868,7 @@ class HierarchyManager:
                     return self.modelname
 
                 elif obj_ch_name:
-                    if (first and obj.name == self.root_obj.name and
+                    if (first and obj.name in self.root_lods and
                             not self.main_lods_used):
                         return self.modelname
                     else:
