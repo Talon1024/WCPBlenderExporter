@@ -699,7 +699,12 @@ class HierarchyManager:
         self.hierarchy_objects = self.get_children(root_obj)
 
     def is_valid_obj(self, obj, parent=None):
-        """Ensure the object in question is valid for exporting."""
+        """Ensure the object in question is valid for exporting.
+
+        In order for an object to be exportable, it must:
+        1. Have the given parent.
+        2. Be named such that MAIN_LOD_RE or CHLD_LOD_RE matches its name.
+        3. Be visible in Blender's viewport."""
         if not (str(obj.parent) == str(parent) and obj.hide is False and
                 (obj.type == "MESH" or obj.type == "EMPTY")):
             return False
@@ -745,12 +750,7 @@ class HierarchyManager:
             return None
 
     def get_children(self, obj):
-        """Get a list of the object, and all of its exportable children.
-
-        In order for a child object to be exportable, it must be:
-        1. Parented to another valid LOD object or hardpoint.
-        2. Named such that MAIN_LOD_RE or CHLD_LOD_RE matches its name.
-        3. Visible in Blender's viewport."""
+        """Get a list of the object, and all of its exportable children."""
         # List containing an object and its children.
         objects = [obj]
         obj_main = MAIN_LOD_RE.match(obj.name)
