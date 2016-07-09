@@ -781,13 +781,13 @@ class HierarchyManager:
             parent_hps = []
             parent_lods = self.lods_of(parent_obj.name, root)
             parent_lobjs = [None for lod in range(len(parent_lods))]
-            for lod in range(len(parent_lobjs)):
+            for lod in reversed(range(len(parent_lobjs))):
                 try:
                     parent_lobjs[lod] = (
                         bpy.data.scenes[self.scene_name]
                         .objects[parent_lods[lod]])
                 except KeyError:
-                    del parent_lobjs[-1]
+                    del parent_lobjs[lod]
 
             del parent_lods
             # print("[L787] parent_lobjs:", parent_lobjs)
