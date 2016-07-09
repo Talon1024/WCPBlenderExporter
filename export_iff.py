@@ -430,8 +430,7 @@ class ModelManager:
             else:
                 # Face textures (visible in Multitexture viewport render mode)
                 for tf, tfuv in zip(
-                        lodm.tessfaces,
-                        lodm.tessface_uv_textures.active.data):
+                        lodm.tessfaces, lodm.tessface_uv_textures.active.data):
                     if (tfuv.image is not None and
                             tfuv.image not in used_materials):
                         # Use the face image
@@ -463,31 +462,31 @@ class ModelManager:
 
                 if len(tf_mtexs) == 0:
                     # Flat colour material; Use the colour of the material.
-                    tf_mtf = True
                     tf_img = iff_mesh.colour_texnum(tf_mtl.diffuse_color)
                 else:
                     # Textured material; Use first valid texture slot.
-                    tf_mtf = False
-                    tf_img = tf_mtexs[0].image
+                    tf_img = tf_mtexs[0].image.filepath
 
-                mtldata = (tf_mtf, tf_mlf, tf_img)
+                mtldata = (tf_mlf, tf_img)
                 if mtldata not in self.textures:
                     # self.mtltexs[tf_mtl] = len(self.textures)
                     self.textures.append(mtldata)
         else:
             for tf_mtl in used_materials:
+                tf_img = (tf_mtl.filepath
+                          if isinstance(tf_mtl, bpy.types.Image)
+                          else tf_mtl)
                 tf_mlf = 0
-                tf_mtf = True if isinstance(tf_mtl, int) else False
 
-                mtldata = (tf_mtf, tf_mlf, tf_img)
+                mtldata = (tf_mlf, tf_img)
                 if mtldata not in self.textures:
                     # self.mtltexs[tf_mtl] = len(self.textures)
                     self.textures.append(mtldata)
 
         print("Materials used by this model:")
         for mtl in self.textures:
-            print(mtl[2], "Light flags:", mtl[1],
-                  "(Flat)" if mtl[0] else "(Textured)")
+            print(mtl[1], "Light flags:", mtl[0],
+                  "(Flat)" if isinstance(mtl[1], int) else "(Textured)")
 
         self.setup_complete = True
 
@@ -497,6 +496,19 @@ class ModelManager:
 
     def assign_materials(self):
         pass
+
+    def calc_dplane(self, vert, facenrm):
+        """Calculate the D-Plane of the face.
+
+        vert refers to the first vertex of the face
+        facenrm refers to the face normal
+        The D-Plane is used by the VISION engine for backface culling
+        Thanks to gr1mre4per from CIC for the algorithm!
+        """
+        dplane = -((facenrm[0] * vert[0]) +
+                   (facenrm[1] * vert[1]) +
+                   (facenrm[2] * vert[2]))
+        return dplane
 
     @property
     def exp_fname(self):
@@ -542,20 +554,7 @@ class ExportBackend:
         self.generate_bsp = generate_bsp
         self.modelname = ""
 
-    def calc_dplane(self, vert, facenrm):
-        """Calculate the D-Plane of the face.
-
-        vert refers to the first vertex of the face
-        facenrm refers to the face normal
-        The D-Plane is used by the VISION engine for backface culling
-        Thanks to gr1mre4per from CIC for the algorithm!
-        """
-        dplane = -((facenrm[0] * vert[0]) +
-                   (facenrm[1] * vert[1]) +
-                   (facenrm[2] * vert[2]))
-        return dplane
-
-    def get_materials(self):
+    def get_texnums(self):
         """Convert all of the named material textures to
         texture indices.
 
@@ -658,7 +657,7 @@ class ExportBackend:
                     raise TypeError(error_msg)
         return mtl_texnums
 
-    def get_txinfo(self, mtl_texnums, as_comment=False):
+    def fmt_txinfo(self, mtl_texnums, as_comment=False):
         """Gets a string showing the Image Filename->Texture number"""
         # Used to make the Image Filename->Material Number list
         # easier to read.
