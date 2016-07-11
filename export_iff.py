@@ -907,7 +907,15 @@ class HierarchyManager:
             manager.setup()
 
     def get_materials(self):
-        return [mgr.get_materials() for mgr in self.managers]
+        matlsts = [mgr.get_materials() for mgr in self.managers]
+        mats = []
+
+        for mtlst in matlsts:
+            for mat in mtlst:
+                if mat not in mats and not isinstance(mat[1], int):
+                    mats.append(mat)
+
+        return mats
 
     def assign_mtltxns(self, mtltxns):
         if len(mtltxns) != len(self.managers):  # Must be a list of dicts.
