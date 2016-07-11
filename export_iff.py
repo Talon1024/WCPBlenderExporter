@@ -451,12 +451,11 @@ class ModelManager:
             for tf_mtl in used_materials:
 
                 # Get light flags for this material
+                tf_mlf = 0
                 if tf_mtl.get("light_flags") is not None:
                     tf_mlf = int(tf_mtl.get("light_flags"))
                 elif tf_mtl.use_shadeless:
-                    tf_mlf = LFLAG_FULLBRIGHT
-                else:
-                    tf_mlf = 0
+                    tf_mlf |= LFLAG_FULLBRIGHT
 
                 tf_mtexs = self.texs_for_mtl(tf_mtl)  # Valid texture slots
 
@@ -469,24 +468,33 @@ class ModelManager:
 
                 mtldata = (tf_mlf, tf_img)
                 if mtldata not in self.textures:
-                    # self.mtltexs[tf_mtl] = len(self.textures)
+                    # NOTE: The None value will be replaced with the texnum.
+                    self.mtltexs[tf_mtl.name] = list(mtldata) + [None]
+                    if isinstance(tf_img, int):
+                        self.mtltexs[tf_mtl.name][2] = tf_img  # Flat colour
                     self.textures.append(mtldata)
         else:
             for tf_mtl in used_materials:
                 tf_img = (tf_mtl.filepath
-                          if isinstance(tf_mtl, bpy.types.Image)
-                          else tf_mtl)
+                          if isinstance(tf_mtl, bpy.types.Image)  # Image
+                          else tf_mtl)  # Flat colour
                 tf_mlf = 0
 
                 mtldata = (tf_mlf, tf_img)
                 if mtldata not in self.textures:
-                    # self.mtltexs[tf_mtl] = len(self.textures)
+                    self.mtltexs[tf_mtl] = list(mtldata) + [None]
+                    if isinstance(tf_img, int):
+                        self.mtltexs[tf_mtl][2] = tf_img
                     self.textures.append(mtldata)
 
         print("Materials used by this model:")
         for mtl in self.textures:
             print(mtl[1], "Light flags:", mtl[0],
                   "(Flat)" if isinstance(mtl[1], int) else "(Textured)")
+
+        print("Material -> Texture info stuff:")
+        for mtl in self.mtltexs:
+            print(mtl, self.mtltexs[mtl])
 
         self.setup_complete = True
 
@@ -983,6 +991,8 @@ class IFFExporter(ExportBackend):
 
         for manager in managers:
             manager.setup()
+            print("Materials for all models in this hierarchy that will be "
+                  "exported:")
             print(manager.get_materials())
         print("Export took {} seconds.".format(
             time.perf_counter() - export_start))
