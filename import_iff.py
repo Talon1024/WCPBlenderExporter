@@ -24,9 +24,10 @@ import struct
 from . import iff_read, iff_mesh, mat_read
 from mathutils import Matrix
 from itertools import starmap, count
-from os import sep as dirsep
+from os import sep as dirsep, listdir
 from os.path import normpath, join as joinpath, exists as fexists
 from math import radians
+from glob import glob
 
 MAX_NUM_LODS = 7
 # MAIN_LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
@@ -40,7 +41,7 @@ class ValueWarning(Warning):
     pass
 
 
-def register_texture(texnum, mat_name=None, read_mats=True):
+def register_texture(texnum, read_mats=True):
     """Add a texture to the texture reference if it isn't already there.
 
     Add a texture to the global texture dictionary if it isn't already in it.
@@ -50,23 +51,24 @@ def register_texture(texnum, mat_name=None, read_mats=True):
     texture is already in the dictionary.
 
     @param texnum The texture number to register
-    @param mat_name The optional name of the material to use. If blank, the
-    mesh filename is used.
     """
 
     bl_mat = ""
 
     def get_teximgs(texnum, mat_name):
-        img_extns = ["bmp", "png", "jpg", "jpeg", "tga", "gif", "dds"]
+        img_extns = ("bmp", "png", "jpg", "jpeg", "tga", "gif", "dds", "mat")
 
         mfiledir = mfilepath[:mfilepath.rfind(dirsep)]
-        mat_path = normpath(joinpath(
-            mfiledir, "..{1}mat{1}{0:0>8d}.mat".format(texnum, dirsep)))
+        texfname = "{0:0>8d}".format(texnum)
+        mat_pfx = normpath(joinpath(
+            mfiledir, "..{1}{2}{1}{0:0>8d}.".format(
+                      texnum, dirsep, "[mM][aA][tT]")))
+        print("mat_path:", mat_path)
 
         # Search for and load high-quality images in the same folder first.
         for extn in img_extns:
-            img_path = joinpath(mfiledir, mat_name + "." + extn)
-            if fexists(img_path):
+
+            if img_path:
                 bl_img = bpy.data.images.load(img_path)
                 texmats[texnum][2] = bl_img
 
@@ -127,10 +129,7 @@ def register_texture(texnum, mat_name=None, read_mats=True):
         texmats[texnum] = [mat_name, bl_mat, None]
         if (texnum & 0xff000000) == 0x7f000000:
             # Flat colour material
-            bl_mat.diffuse_color = [
-                float(x + 1) / 256 for x in
-                struct.unpack_from("<BBB", texnum.to_bytes(4, 'big'), 1)
-            ]
+            bl_mat.diffuse_color = iff_mesh.texnum_colour(texnum)
         else:
             # Last element in this list will become the image file path
             get_teximgs(texnum, mat_name)
