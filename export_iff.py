@@ -192,7 +192,7 @@ class ModelManager:
         return valid_slots
 
     def setup(self):
-        print(banner(self.modelname, 70))
+        print(banner(self.modelname))
         # Scan for valid LOD objects related to the base LOD object
         for lod in range(MAX_NUM_LODS):
             lod_name = "{}{}{}".format(self.base_prefix, lod, self.base_suffix)
@@ -768,17 +768,6 @@ class HierarchyManager:
             return (str(obj.parent) == str(parent) and obj.hide is False and
                     obj.type == "EMPTY" and HARDPOINT_RE.match(obj.name))
 
-        # def info_for(obj):
-        #     if is_valid_obj(obj):
-        #         obj_match = CHLD_LOD_RE.match(obj.name)
-        #         if obj_match:
-        #             obj_bname = obj_match.group(1)
-        #         else:
-        #             obj_match = MAIN_LOD_RE.match(obj.name)
-        #             obj_bname = self.modelname
-        #
-        #         return obj.name, obj_bname
-
         def children_of(parent_obj, root):
             """Get the valid child objects for a parent object.
 
@@ -835,9 +824,6 @@ class HierarchyManager:
                 return children
 
         objects.extend(children_of(obj, True))
-
-        # import code
-        # code.interact(banner="Entering REPL (L721).", local=locals())
 
         return objects
 
@@ -994,8 +980,7 @@ class IFFExporter(ExportBackend):
                 mat = mngr_mat[1]
                 if mat not in used_materials:
                     used_materials.append(mat)
-        print("Materials for all models in this hierarchy that will be "
-              "exported:")
+        print(banner("Texture images for all models that will be exported:"))
         print(used_materials)
         print("Export took {} seconds.".format(
             time.perf_counter() - export_start))
@@ -1003,9 +988,9 @@ class IFFExporter(ExportBackend):
 
 def banner(text, width=50):
     str_length = len(text)
+    banner_topbtm = "=" * width
     if str_length > width:
         return banner_topbtm + "\n" + text + "\n" + banner_topbtm
-    banner_topbtm = "=" * width
     num_sideqs = width // 2 - (str_length + 2) // 2
     banner_mid = (
         "=" * num_sideqs + " " + text + " " + "=" * num_sideqs)
