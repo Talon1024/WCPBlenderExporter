@@ -70,8 +70,8 @@ def texnum_colour(texnum):
     def byte_float(x):
         return 1.0 if x == 255 else x / 256.0
 
-    colour[0] = byte_float(texnum & 0x00ff0000 >> 16)  # Red
-    colour[1] = byte_float(texnum & 0x0000ff00 >> 8)  # Green
+    colour[0] = byte_float((texnum & 0x00ff0000) >> 16)  # Red
+    colour[1] = byte_float((texnum & 0x0000ff00) >> 8)  # Green
     colour[2] = byte_float(texnum & 0x000000ff)  # Blue
 
     return colour
