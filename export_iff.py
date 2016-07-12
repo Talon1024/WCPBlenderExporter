@@ -955,7 +955,6 @@ class IFFExporter(ExportBackend):
         managers = []
         used_materials = []
         used_names = set()
-        main_lod_used = False
 
         if self.export_active_only:
             if bpy.context.active_object is None:
@@ -970,8 +969,7 @@ class IFFExporter(ExportBackend):
         else:
             for obj in bpy.context.scene.objects:
                 if obj.parent is None and not obj.hide:
-                    if MAIN_LOD_RE.match(obj.name) and not main_lod_used:
-                        main_lod_used = True
+                    if MAIN_LOD_RE.match(obj.name):
                         managers.append(HierarchyManager(
                             obj, modelname, modeldir, self.use_facetex,
                             self.drang_increment, self.generate_bsp,
@@ -991,9 +989,14 @@ class IFFExporter(ExportBackend):
 
         for manager in managers:
             manager.setup()
-            print("Materials for all models in this hierarchy that will be "
-                  "exported:")
-            print(manager.get_materials())
+            for mngr_mat in manager.get_materials():
+                # Remove next line when the output of get_materials changes.
+                mat = mngr_mat[1]
+                if mat not in used_materials:
+                    used_materials.append(mat)
+        print("Materials for all models in this hierarchy that will be "
+              "exported:")
+        print(used_materials)
         print("Export took {} seconds.".format(
             time.perf_counter() - export_start))
 
