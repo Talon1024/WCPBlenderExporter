@@ -130,8 +130,7 @@ class ModelManager:
         self.gen_bsp = gen_bsp
         self.collider = None  # COLL form
         self.use_mtltex = not use_facetex
-        self.textures = []  # Textures for all LODs
-        self.mtltexs = {}  # Material -> texnum dict
+        self.mtltexs = OrderedDict()  # Material -> texnum dict
         self.setup_complete = False
 
     def _get_lod(self, lod_obj, base=False):
@@ -466,13 +465,11 @@ class ModelManager:
                     # Textured material; Use first valid texture slot.
                     tf_img = tf_mtexs[0].image.filepath
 
-                mtldata = (tf_mlf, tf_img)
-                if mtldata not in self.textures:
-                    # NOTE: The None value will be replaced with the texnum.
-                    self.mtltexs[tf_mtl.name] = list(mtldata) + [None]
-                    if isinstance(tf_img, int):
-                        self.mtltexs[tf_mtl.name][2] = tf_img  # Flat colour
-                    self.textures.append(mtldata)
+                tf_txnm = tf_img if isinstance(tf_img, int) else None
+
+                mtldata = [tf_mlf, tf_img, tf_txnm]
+                if mtldata not in self.mtltexs.values():
+                    self.mtltexs[tf_mtl.name] = mtldata
         else:
             for tf_mtl in used_materials:
                 tf_img = (tf_mtl.filepath
@@ -480,27 +477,30 @@ class ModelManager:
                           else tf_mtl)  # Flat colour
                 tf_mlf = 0
 
-                mtldata = (tf_mlf, tf_img)
-                if mtldata not in self.textures:
-                    self.mtltexs[tf_mtl] = list(mtldata) + [None]
-                    if isinstance(tf_img, int):
-                        self.mtltexs[tf_mtl][2] = tf_img
-                    self.textures.append(mtldata)
+                tf_txnm = tf_img if isinstance(tf_img, int) else None
+
+                mtldata = [tf_mlf, tf_img, tf_txnm]
+                if mtldata not in self.mtltexs.values():
+                    self.mtltexs[tf_mtl] = mtldata
+
+        del used_materials
 
         print("Materials used by this model:")
-        for mtl in self.textures:
-            print(mtl[1], "Light flags:", mtl[0],
-                  "(Flat)" if isinstance(mtl[1], int) else "(Textured)")
-
-        print("Material -> Texture info stuff:")
-        for mtl in self.mtltexs:
-            print(mtl, self.mtltexs[mtl])
+        for mtl, mtx in self.mtltexs.items():
+            print("{}: {} (Light flags: {})".format(mtl, mtx[1], mtx[0]))
 
         self.setup_complete = True
 
     def get_materials(self):
-        if self.setup_complete and self.textures:
-            return self.textures
+        if not self.setup_complete:
+            raise ValueError("You must set the model up first!")
+
+        used_textures = []
+        for mtex in self.mtltexs.values():
+            if not isinstance(mtex[1], int) and mtex[1] not in used_textures:
+                used_textures.append(mtex[1])
+
+        return used_textures
 
     def assign_materials(self):
         pass
@@ -904,9 +904,10 @@ class HierarchyManager:
         matlsts = [mgr.get_materials() for mgr in self.managers]
         mats = []
 
+        # Flatten matlsts
         for mtlst in matlsts:
             for mat in mtlst:
-                if mat not in mats and not isinstance(mat[1], int):
+                if mat not in mats:
                     mats.append(mat)
 
         return mats
@@ -976,10 +977,8 @@ class IFFExporter(ExportBackend):
         for manager in managers:
             manager.setup()
             for mngr_mat in manager.get_materials():
-                # Remove next line when the output of get_materials changes.
-                mat = mngr_mat[1]
-                if mat not in used_materials:
-                    used_materials.append(mat)
+                if mngr_mat not in used_materials:
+                    used_materials.append(mngr_mat)
         print(banner("Texture images for all models that will be exported:"))
         print(used_materials)
         print("Export took {} seconds.".format(
