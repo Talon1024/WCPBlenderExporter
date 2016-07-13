@@ -192,7 +192,7 @@ class ModelManager:
         return valid_slots
 
     def setup(self):
-        print(banner(self.modelname, 70))
+        print(banner(self.modelname))
         # Scan for valid LOD objects related to the base LOD object
         for lod in range(MAX_NUM_LODS):
             lod_name = "{}{}{}".format(self.base_prefix, lod, self.base_suffix)
@@ -451,12 +451,11 @@ class ModelManager:
             for tf_mtl in used_materials:
 
                 # Get light flags for this material
+                tf_mlf = 0
                 if tf_mtl.get("light_flags") is not None:
                     tf_mlf = int(tf_mtl.get("light_flags"))
                 elif tf_mtl.use_shadeless:
-                    tf_mlf = LFLAG_FULLBRIGHT
-                else:
-                    tf_mlf = 0
+                    tf_mlf |= LFLAG_FULLBRIGHT
 
                 tf_mtexs = self.texs_for_mtl(tf_mtl)  # Valid texture slots
 
@@ -469,24 +468,33 @@ class ModelManager:
 
                 mtldata = (tf_mlf, tf_img)
                 if mtldata not in self.textures:
-                    # self.mtltexs[tf_mtl] = len(self.textures)
+                    # NOTE: The None value will be replaced with the texnum.
+                    self.mtltexs[tf_mtl.name] = list(mtldata) + [None]
+                    if isinstance(tf_img, int):
+                        self.mtltexs[tf_mtl.name][2] = tf_img  # Flat colour
                     self.textures.append(mtldata)
         else:
             for tf_mtl in used_materials:
                 tf_img = (tf_mtl.filepath
-                          if isinstance(tf_mtl, bpy.types.Image)
-                          else tf_mtl)
+                          if isinstance(tf_mtl, bpy.types.Image)  # Image
+                          else tf_mtl)  # Flat colour
                 tf_mlf = 0
 
                 mtldata = (tf_mlf, tf_img)
                 if mtldata not in self.textures:
-                    # self.mtltexs[tf_mtl] = len(self.textures)
+                    self.mtltexs[tf_mtl] = list(mtldata) + [None]
+                    if isinstance(tf_img, int):
+                        self.mtltexs[tf_mtl][2] = tf_img
                     self.textures.append(mtldata)
 
         print("Materials used by this model:")
         for mtl in self.textures:
             print(mtl[1], "Light flags:", mtl[0],
                   "(Flat)" if isinstance(mtl[1], int) else "(Textured)")
+
+        print("Material -> Texture info stuff:")
+        for mtl in self.mtltexs:
+            print(mtl, self.mtltexs[mtl])
 
         self.setup_complete = True
 
@@ -760,17 +768,6 @@ class HierarchyManager:
             return (str(obj.parent) == str(parent) and obj.hide is False and
                     obj.type == "EMPTY" and HARDPOINT_RE.match(obj.name))
 
-        # def info_for(obj):
-        #     if is_valid_obj(obj):
-        #         obj_match = CHLD_LOD_RE.match(obj.name)
-        #         if obj_match:
-        #             obj_bname = obj_match.group(1)
-        #         else:
-        #             obj_match = MAIN_LOD_RE.match(obj.name)
-        #             obj_bname = self.modelname
-        #
-        #         return obj.name, obj_bname
-
         def children_of(parent_obj, root):
             """Get the valid child objects for a parent object.
 
@@ -827,9 +824,6 @@ class HierarchyManager:
                 return children
 
         objects.extend(children_of(obj, True))
-
-        # import code
-        # code.interact(banner="Entering REPL (L721).", local=locals())
 
         return objects
 
@@ -907,7 +901,15 @@ class HierarchyManager:
             manager.setup()
 
     def get_materials(self):
-        return [mgr.get_materials() for mgr in self.managers]
+        matlsts = [mgr.get_materials() for mgr in self.managers]
+        mats = []
+
+        for mtlst in matlsts:
+            for mat in mtlst:
+                if mat not in mats and not isinstance(mat[1], int):
+                    mats.append(mat)
+
+        return mats
 
     def assign_mtltxns(self, mtltxns):
         if len(mtltxns) != len(self.managers):  # Must be a list of dicts.
@@ -939,7 +941,6 @@ class IFFExporter(ExportBackend):
         managers = []
         used_materials = []
         used_names = set()
-        main_lod_used = False
 
         if self.export_active_only:
             if bpy.context.active_object is None:
@@ -954,8 +955,7 @@ class IFFExporter(ExportBackend):
         else:
             for obj in bpy.context.scene.objects:
                 if obj.parent is None and not obj.hide:
-                    if MAIN_LOD_RE.match(obj.name) and not main_lod_used:
-                        main_lod_used = True
+                    if MAIN_LOD_RE.match(obj.name):
                         managers.append(HierarchyManager(
                             obj, modelname, modeldir, self.use_facetex,
                             self.drang_increment, self.generate_bsp,
@@ -975,16 +975,22 @@ class IFFExporter(ExportBackend):
 
         for manager in managers:
             manager.setup()
-            print(manager.get_materials())
+            for mngr_mat in manager.get_materials():
+                # Remove next line when the output of get_materials changes.
+                mat = mngr_mat[1]
+                if mat not in used_materials:
+                    used_materials.append(mat)
+        print(banner("Texture images for all models that will be exported:"))
+        print(used_materials)
         print("Export took {} seconds.".format(
             time.perf_counter() - export_start))
 
 
 def banner(text, width=50):
     str_length = len(text)
+    banner_topbtm = "=" * width
     if str_length > width:
         return banner_topbtm + "\n" + text + "\n" + banner_topbtm
-    banner_topbtm = "=" * width
     num_sideqs = width // 2 - (str_length + 2) // 2
     banner_mid = (
         "=" * num_sideqs + " " + text + " " + "=" * num_sideqs)
