@@ -701,6 +701,7 @@ class HierarchyManager:
         self.generate_bsp = generate_bsp
         self.scene_name = scene_name
         self.managers = []
+        self.mgrtexs = []
 
         self.main_lods_used = set()
         self.hierarchy_objects = self.get_children(root_obj)
@@ -900,12 +901,13 @@ class HierarchyManager:
         for manager in self.managers:
             manager.setup()
 
+        self.mgrtexs = [mgr.get_materials() for mgr in self.managers]
+
     def get_materials(self):
-        matlsts = [mgr.get_materials() for mgr in self.managers]
         mats = []
 
         # Flatten matlsts
-        for mtlst in matlsts:
+        for mtlst in self.mgrtexs:
             for mat in mtlst:
                 if mat not in mats:
                     mats.append(mat)
