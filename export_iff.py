@@ -562,108 +562,37 @@ class ExportBackend:
         self.generate_bsp = generate_bsp
         self.modelname = ""
 
-    def get_texnums(self):
-        """Convert all of the named material textures to
-        texture indices.
+    def get_texnums(self, textures):
+        """Convert all of the named textures to texture numbers.
 
-        Returns a mapping from material texture filenames
-        to texture indices."""
-        # Aliases to long function names
-        # Filename w/o extension
-        get_fname = bpy.path.display_name_from_filepath
-        # Filename with extension
-        get_bname = bpy.path.basename
+        Returns a mapping from texture filenames to texture numbers."""
+        RE_NUMERIC_TX = re.compile(r"\b(\d{1,8})(?:\.\w+)?$")
 
-        num_lods = lod_data["num_lods"]
-        # Use OrderedDict to retain order of texture -> texnum
-        # Texture filename -> texture number mapping
-        mtl_texnums = OrderedDict()
-        # Materials used by the mesh
-        used_mtls = []
+        # Keep track of which textures are numeric, and which ones are not.
+        numeric_txs = [None for x in range(len(textures))]
 
-        # Get all of the material names used in each LOD mesh.
-        for lod in range(num_lods):
-            mesh = lod_data["LOD-" + str(lod)].to_mesh(
-                bpy.context.scene, self.apply_modifiers, "PREVIEW")
-            if self.use_facetex:
-                active_idx = None
-                for idx, texmap in enumerate(mesh.tessface_uv_textures):
-                    if texmap.active:
-                        active_idx = idx
-                        break
-                for f in mesh.tessface_uv_textures[active_idx].data:
-                    used_mtls.append(get_bname(f.image.filepath))
-            else:
-                for f in mesh.tessfaces:
-                    cur_mtl = mesh.materials[f.material_index].name
-                    if cur_mtl not in used_mtls:
-                        used_mtls.append(cur_mtl)
-
-        # Get the textures and associate each texture with a material number,
+        # Associate each texture filename with a texture number,
         # beginning at the user's specified starting texture number.
-        num_textures = 0
-        for mtl_name in used_mtls:
-            curr_txnum = self.start_texnum + num_textures
-            if self.use_facetex:
-                img_bname = get_bname(mtl_name)
-                img_fname = get_fname(mtl_name)
-                print(img_fname)
-                if img_fname.isnumeric():
-                    # If the filename is numeric, use it as the
-                    # texture index.
-                    img_num = int(img_fname)
-                    if img_num >= 0 and img_num <= 99999990:
-                        if img_num != curr_txnum:
-                            mtl_texnums[img_bname] = img_num
-                        else:
-                            mtl_texnums[img_bname] = curr_txnum
-                            print(img_fname, "is already in use! Using",
-                                  curr_txnum, "instead.")
-                            num_textures += 1
-                else:
-                    if img_bname not in mtl_texnums.keys():
-                        mtl_texnums[img_bname] = curr_txnum
-                        num_textures += 1
-            else:
-                curr_mtl = bpy.data.materials[mtl_name]
-                curr_tx = self.get_first_texture_slot(curr_mtl).texture
+        texnums = OrderedDict()
+        last_txnum = self.start_texnum
 
-                if curr_tx.type == "IMAGE":
-                    img_bname = get_bname(curr_tx.image.filepath)
-                    img_fname = get_fname(curr_tx.image.filepath)
-                    if img_fname.isnumeric():
-                        # If the filename is numeric, use it as the
-                        # texture index.
-                        img_num = int(img_fname)
-                        if img_num >= 0 and img_num <= 99999990:
-                            # What if the user has two numeric image
-                            # filenames that are the same number?
-                            # i.e. 424242.jpg and 424242.png
-                            if img_num not in mtl_texnums.values():
-                                mtl_texnums[img_bname] = img_num
-                            else:
-                                mtl_texnums[img_bname] = curr_txnum
-                                print(img_fname, "is already in use! Using",
-                                      curr_txnum, "instead.")
-                                num_textures += 1
-                        else:
-                            # If the number is too big,
-                            # use the "default" value.
-                            mtl_texnums[img_bname] = curr_txnum
-                            print(img_fname, "is too big a number",
-                                  "to be used as a texture number! Using",
-                                  curr_txnum, "instead.")
-                            num_textures += 1
-                    # If the image filename is not numeric,
-                    # refer to the user's starting texture number.
-                    else:
-                        if img_bname not in mtl_texnums.keys():
-                            mtl_texnums[img_bname] = curr_txnum
-                            num_textures += 1
-                else:
-                    error_msg = curr_tx.name + " is not an image texture."
-                    raise TypeError(error_msg)
-        return mtl_texnums
+        # See which numeric textures are being used.
+        for idx, txfname in enumerate(textures):
+            numtx_match = RE_NUMERIC_TX.search(txfname)
+            if numtx_match:
+                numeric_txs[idx] = int(numtx_match.group(1))
+
+        for idx, txfname in enumerate(textures):
+            if numeric_txs[idx] is not None:
+                texnums[txfname] = numeric_txs[idx]
+            else:
+                curr_txnum = last_txnum
+                while curr_txnum in numeric_txs:
+                    curr_txnum += 1
+                texnums[txfname] = curr_txnum
+                last_txnum = curr_txnum + 1
+
+        return texnums
 
     def fmt_txinfo(self, mtl_texnums, as_comment=False):
         """Gets a string showing the Image Filename->Texture number"""
@@ -983,6 +912,8 @@ class IFFExporter(ExportBackend):
                     used_materials.append(mngr_mat)
         print(banner("Texture images for all models that will be exported:"))
         print(used_materials)
+        print(banner("Texture numbers:", 70))
+        print(self.get_texnums(used_materials))
         print("Export took {} seconds.".format(
             time.perf_counter() - export_start))
 
