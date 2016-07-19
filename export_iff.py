@@ -510,14 +510,11 @@ class ModelManager:
                 yield mtl
 
     def assign_mtltxns(self, mtltxns):
+        print("Assigning texture numbers to {}...".format(self.modelname))
         for img, txnm in mtltxns.items():
             for mtl in self.mtls_for_img(img):
                 print("Assigning {} to {}...".format(txnm, mtl))
                 self.mtltexs[mtl][2] = txnm
-
-        print("{} - mtltexs after texnum assignment:".format(self.modelname))
-        for mtl, mtex in self.mtltexs.items():
-            print("{}: {}".format(mtl, mtex))
 
     def calc_dplane(self, vert, facenrm):
         """Calculate the D-Plane of the face.
