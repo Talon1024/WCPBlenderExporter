@@ -504,8 +504,20 @@ class ModelManager:
 
         return used_textures
 
+    def mtls_for_img(self, img_fname):
+        for mtl, mtldata in self.mtltexs.items():
+            if img_fname == mtldata[1]:
+                yield mtl
+
     def assign_mtltxns(self, mtltxns):
-        pass
+        for img, txnm in mtltxns.items():
+            for mtl in self.mtls_for_img(img):
+                print("Assigning {} to {}...".format(txnm, mtl))
+                self.mtltexs[mtl][2] = txnm
+
+        print("{} - mtltexs after texnum assignment:".format(self.modelname))
+        for mtl, mtex in self.mtltexs.items():
+            print("{}: {}".format(mtl, mtex))
 
     def calc_dplane(self, vert, facenrm):
         """Calculate the D-Plane of the face.
@@ -846,9 +858,8 @@ class HierarchyManager:
         return mats
 
     def assign_mtltxns(self, mtltxns):
-        if len(mtltxns) != len(self.managers):  # Must be a list of dicts.
-            raise ValueError("mtltxns must be a list of dicts corresponding "
-                             "to each ModelManager of this HierarchyManager!")
+        for manager in self.managers:
+            manager.assign_mtltxns(mtltxns)
 
 
 class IFFExporter(ExportBackend):
@@ -914,10 +925,15 @@ class IFFExporter(ExportBackend):
                     used_materials.append(mngr_mat)
         print(banner("Texture images for all models that will be exported:"))
         print(used_materials)
+
+        mtltexnums = self.get_texnums(used_materials)
+
         print(banner("Texture numbers:", 70))
-        print(self.get_texnums(used_materials))
+        print(mtltexnums)
+
         for manager in managers:
-            manager.assign_mtltxns(used_materials)
+            manager.assign_mtltxns(mtltexnums)
+
         print("Export took {} seconds.".format(
             time.perf_counter() - export_start))
 
