@@ -104,6 +104,8 @@ class ModelManager:
         self._exp_fname = base_name  # Export filename
         # self.name_scheme = 0  # See LOD_NSCHEME constants above
         self.modelname = base_name  # Model name (NAME chunk, ex. "Duhiky")
+
+        # Base object stuff
         self.base_obj = base_obj  # Name of base object (ex. "Duhiky-lod0")
         self.base_prefix = ""  # Prefix before LOD level number.
         self.base_suffix = ""  # Object name suffix (.000, .001, etc.)
@@ -113,9 +115,9 @@ class ModelManager:
 
         # Names of LOD objects
         self.lods = [None for x in range(MAX_NUM_LODS)]
-
         self.lodms = []  # LOD object meshes (converted from objects)
         self.lods[self.base_lod] = base_obj
+
         self.hardpoints = []  # Hardpoints
         self.hpobnames = []  # Hardpoint Blender object names
 
@@ -126,9 +128,9 @@ class ModelManager:
 
         # CNTR/RADI spheres for each LOD.
         self.dsphrs = [None for x in range(MAX_NUM_LODS)]
-
         self.gen_bsp = gen_bsp
         self.collider = None  # COLL form
+
         self.use_mtltex = not use_facetex
         self.mtltexs = OrderedDict()  # Material -> texnum dict
         self.setup_complete = False
@@ -481,7 +483,7 @@ class ModelManager:
 
                 mtldata = [tf_mlf, tf_img, tf_txnm]
                 if mtldata not in self.mtltexs.values():
-                    self.mtltexs[tf_mtl] = mtldata
+                    self.mtltexs[tf_mtl.name] = mtldata
 
         del used_materials
 
@@ -502,7 +504,7 @@ class ModelManager:
 
         return used_textures
 
-    def assign_materials(self):
+    def assign_mtltxns(self, mtltxns):
         pass
 
     def calc_dplane(self, vert, facenrm):
@@ -914,6 +916,8 @@ class IFFExporter(ExportBackend):
         print(used_materials)
         print(banner("Texture numbers:", 70))
         print(self.get_texnums(used_materials))
+        for manager in managers:
+            manager.assign_mtltxns(used_materials)
         print("Export took {} seconds.".format(
             time.perf_counter() - export_start))
 
