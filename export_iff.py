@@ -128,11 +128,15 @@ class ModelManager:
 
         # CNTR/RADI spheres for each LOD.
         self.dsphrs = [None for x in range(MAX_NUM_LODS)]
+        # Collider (Collision sphere/BSP stuff)
         self.gen_bsp = gen_bsp
         self.collider = None  # COLL form
 
+        # Material/texture stuff
         self.use_mtltex = not use_facetex
         self.mtltexs = OrderedDict()  # Material -> texnum dict
+        self.image_txns = OrderedDict()  # Images used by face textures.
+
         self.setup_complete = False
 
     def _get_lod(self, lod_obj, base=False):
@@ -416,77 +420,54 @@ class ModelManager:
             # tf_mtl = None  # The material for this tessface
             # tf_mlf = 0  # The light flags for this tessface
             # tf_mtf = False  # Is the material a flat colour
-            if self.use_mtltex:
-                # Material textures
-                for tf in lodm.tessfaces:
-                    # Ensure material for this face exists
-                    try:
-                        tf_mtl = lodm.materials[tf.material_index]
-                    except IndexError:
-                        raise ValueError("You must have a valid material "
-                                         "assigned to each face!")
+            for tf in lodm.tessfaces:
+                # Ensure material for this face exists
+                try:
+                    tf_mtl = lodm.materials[tf.material_index]
+                except IndexError:
+                    raise ValueError("You must have a valid material "
+                                     "assigned to each face!")
 
-                    if tf_mtl not in used_materials:
-                        used_materials.append(tf_mtl)
-            else:
-                # Face textures (visible in Multitexture viewport render mode)
-                for tf, tfuv in zip(
-                        lodm.tessfaces, lodm.tessface_uv_textures.active.data):
-                    if (tfuv.image is not None and
-                            tfuv.image not in used_materials):
-                        # Use the face image
-                        used_materials.append(tfuv.image)
-                    else:
-                        # Use the face material colour
-                        tf_mtl = lodm.materials[tf.material_index]
-                        tf_clr = iff_mesh.colour_texnum(tf_mtl.diffuse_color)
-
-                        if tf_clr not in used_materials:
-                            used_materials.append(tf_clr)
+                if tf_mtl not in used_materials:
+                    used_materials.append(tf_mtl)
 
         # Get information about materials.
         # TODO: Find out how best to associate the new materials with the
         # individual faces.
         # REVIEW: Ensure all "mtldata" tuples use the same format.
-        if self.use_mtltex:
-            for tf_mtl in used_materials:
+        for tf_mtl in used_materials:
 
-                # Get light flags for this material
-                tf_mlf = 0
-                if tf_mtl.get("light_flags") is not None:
-                    tf_mlf = int(tf_mtl.get("light_flags"))
-                elif tf_mtl.use_shadeless:
-                    tf_mlf |= LFLAG_FULLBRIGHT
+            # Get light flags for this material
+            tf_mlf = 0
+            if tf_mtl.get("light_flags") is not None:
+                tf_mlf = int(tf_mtl.get("light_flags"))
+            elif tf_mtl.use_shadeless:
+                tf_mlf |= LFLAG_FULLBRIGHT
 
-                tf_mtexs = self.texs_for_mtl(tf_mtl)  # Valid texture slots
+            tf_mtexs = self.texs_for_mtl(tf_mtl)  # Valid texture slots
 
-                if len(tf_mtexs) == 0:
-                    # Flat colour material; Use the colour of the material.
-                    tf_img = iff_mesh.colour_texnum(tf_mtl.diffuse_color)
-                else:
-                    # Textured material; Use first valid texture slot.
-                    tf_img = tf_mtexs[0].image.filepath
+            if len(tf_mtexs) == 0 or not self.use_mtltex:
+                # Flat colour material; Use the colour of the material.
+                tf_img = iff_mesh.colour_texnum(tf_mtl.diffuse_color)
+            else:
+                # Textured material; Use first valid texture slot.
+                tf_img = tf_mtexs[0].image.filepath
 
-                tf_txnm = tf_img if isinstance(tf_img, int) else None
+            tf_txnm = tf_img if isinstance(tf_img, int) else None
 
-                mtldata = [tf_mlf, tf_img, tf_txnm]
-                if mtldata not in self.mtltexs.values():
-                    self.mtltexs[tf_mtl.name] = mtldata
-        else:
-            for tf_mtl in used_materials:
-                tf_img = (tf_mtl.filepath
-                          if isinstance(tf_mtl, bpy.types.Image)  # Image
-                          else tf_mtl)  # Flat colour
-                tf_mlf = 0
-
-                tf_txnm = tf_img if isinstance(tf_img, int) else None
-
-                mtldata = [tf_mlf, tf_img, tf_txnm]
-                if mtldata not in self.mtltexs.values():
-                    mtlkey = tf_mtl if isinstance(tf_mtl, int) else tf_mtl.name
-                    self.mtltexs[mtlkey] = mtldata
+            mtldata = [tf_mlf, tf_img, tf_txnm]
+            if mtldata not in self.mtltexs.values():
+                self.mtltexs[tf_mtl.name] = mtldata
 
         del used_materials
+
+        if not self.use_mtltex:
+            for lodm in self.lodms:
+                for tf, tfuv in zip(lodm.tessfaces,
+                                    lodm.tessface_uv_textures.active.data):
+                    if (tfuv.image is not None and tfuv.image.filepath not in
+                            self.image_txns.keys()):
+                        self.image_txns[tfuv.image.filepath] = None
 
         print("Materials used by this model:")
         for mtl, mtx in self.mtltexs.items():
@@ -498,12 +479,16 @@ class ModelManager:
         if not self.setup_complete:
             raise ValueError("You must set the model up first!")
 
-        used_textures = []
-        for mtex in self.mtltexs.values():
-            if not isinstance(mtex[1], int) and mtex[1] not in used_textures:
-                used_textures.append(mtex[1])
+        if self.use_mtltex:
+            used_textures = []
+            for mtex in self.mtltexs.values():
+                if (not isinstance(mtex[1], int) and
+                        mtex[1] not in used_textures):
+                    used_textures.append(mtex[1])
 
-        return used_textures
+            return used_textures
+        else:
+            return self.image_txns.keys()
 
     def mtls_for_img(self, img_fname):
         for mtl, mtldata in self.mtltexs.items():
@@ -512,10 +497,16 @@ class ModelManager:
 
     def assign_mtltxns(self, mtltxns):
         print("Assigning texture numbers to {}...".format(self.modelname))
-        for img, txnm in mtltxns.items():
-            for mtl in self.mtls_for_img(img):
-                print("Assigning {} to {}...".format(txnm, mtl))
-                self.mtltexs[mtl][2] = txnm
+        if self.use_mtltex:
+            for img, txnm in mtltxns.items():
+                for mtl in self.mtls_for_img(img):
+                    print("Assigning {} to {}...".format(txnm, mtl))
+                    self.mtltexs[mtl][2] = txnm
+        else:
+            for img, txnm in mtltxns.items():
+                if img in self.image_txns.keys():
+                    print("Assigning {} to {}...".format(txnm, img))
+                    self.image_txns[img] = txnm
 
     def calc_dplane(self, vert, facenrm):
         """Calculate the D-Plane of the face.
