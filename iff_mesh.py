@@ -20,6 +20,7 @@
 
 # Classes for WCP/SO IFF Meshes
 from . import iff
+import array
 import warnings
 
 
@@ -335,8 +336,13 @@ class MeshLODForm(iff.IffForm):
         self._mesh_form.add_member(self._geom_form)
 
         # Ensure no vertex/face normal is added more than once.
-        self._unique_normals = []
-        self._duplicate_normals = {}
+        self._vtnm_idx = 0
+        self._unique_vnormals = []
+        self._duplicate_vnormals = {}
+
+        self._fnrm_idx = 0
+        self._unique_fnormals = []
+        self._duplicate_fnormals = {}
 
         self.lod_lev = lod_lev
         form_name = "{!s:0>4}".format(self.lod_lev)
@@ -360,18 +366,32 @@ class MeshLODForm(iff.IffForm):
 
     def add_vert_normal(self, nx, ny, nz):
         "Add a vertex normal to this LOD mesh."
-        self._vtnm_chunk.add_member(float(nx))
-        self._vtnm_chunk.add_member(float(ny))
-        self._vtnm_chunk.add_member(float(nz))
+        vtnm = array.array("f", (float(nx), float(ny), float(nz)))
+        if vtnm not in self._unique_vnormals:
+            self._unique_vnormals.append(vtnm)
+            self._vtnm_chunk.add_member(vtnm[0])
+            self._vtnm_chunk.add_member(vtnm[1])
+            self._vtnm_chunk.add_member(vtnm[2])
+        else:
+            self._duplicate_vnormals[self._vtnm_idx] = (
+                self._unique_vnormals.index(vtnm))
+        self._vtnm_idx += 1
 
-    def add_face_normal(self, nx, ny, nz):
+    def add_vert_normal(self, nx, ny, nz):
         "Add a face normal to this LOD mesh."
-        if self._version == 11:
-            self._norm_chunk.add_member(float(nx))
-            self._norm_chunk.add_member(float(ny))
-            self._norm_chunk.add_member(float(nz))
-        elif self._version == 12:
-            self.add_vert_normal(nx, ny, nz)
+        fnm = array.array("f", (float(nx), float(ny), float(nz)))
+        if fnm not in self._unique_fnormals:
+            self._unique_fnormals.append(fnm)
+            self._norm_chunk.add_member(fnm[0])
+            self._norm_chunk.add_member(fnm[1])
+            self._norm_chunk.add_member(fnm[2])
+        else:
+            self._duplicate_fnormals[self._fnrm_idx] = (
+                self._unique_fnormals.index(fnm))
+        self._fnrm_idx += 1
+
+    def vert_normal_idx(self, nidx):
+        pass
 
     def add_fvrt(self, vert_idx, vtnm_idx, uv_x, uv_y):
         """Add a "face vertex" to this LOD mesh.

@@ -89,7 +89,7 @@ class ModelManager:
     COLLMESH_PFX = "collmesh"
 
     def __init__(self, base_name, base_obj, use_facetex, drang_increment,
-                 gen_bsp, scene_name):
+                 gen_bsp, scene_name, wc_matrix):
 
         if not isinstance(base_name, str):
             raise TypeError("Model name must be a string!")
@@ -105,6 +105,9 @@ class ModelManager:
         # self.name_scheme = 0  # See LOD_NSCHEME constants above
         self.modelname = base_name  # Model name (NAME chunk, ex. "Duhiky")
 
+        # Reorientation matrix (Blender -> VISION coordinates)
+        self.wc_orientation_matrix = wc_matrix
+
         # Base object stuff
         self.base_obj = base_obj  # Name of base object (ex. "Duhiky-lod0")
         self.base_prefix = ""  # Prefix before LOD level number.
@@ -117,7 +120,9 @@ class ModelManager:
         self.lods = [None for x in range(MAX_NUM_LODS)]
         self.lodms = []  # LOD object meshes (converted from objects)
         self.lods[self.base_lod] = base_obj
+        self.lod_empty = [False for x in range(MAX_NUM_LODS)]  # Empty LODs
 
+        # Hardpoint stuff
         self.hardpoints = []  # Hardpoints
         self.hpobnames = []  # Hardpoint Blender object names
 
@@ -209,6 +214,7 @@ class ModelManager:
                 lobj = None
                 del self.dranges[-1]
                 del self.dsphrs[-1]
+                del self.lod_empty[-1]
             if lobj is not None and lod_name != self.base_obj:
                 if self.lods[lod] is None:
                     if lobj.type == "MESH" or lobj.type == "EMPTY":
@@ -403,7 +409,7 @@ class ModelManager:
         print("Collider:", self.collider)
 
         # Convert all LOD objects to meshes to populate the LOD mesh list.
-        for lod in self.lods:
+        for lidx, lod in enumerate(self.lods):
             try:
                 self.lodms.append(
                     bpy.data.scenes[self.scene].objects[lod].to_mesh(
@@ -411,7 +417,7 @@ class ModelManager:
                 )
             except RuntimeError:
                 print("Object {} is an empty.".format(lod))
-                # self.lodms.append(None)
+                self.lod_empty[lidx] = True
 
         # Get the textures used by all LODs for this model
         used_materials = []
@@ -541,6 +547,34 @@ class ModelManager:
     def exp_fname(self):
         self._exp_fname = self.modelname
 
+    def export(self):
+        modelfile = iff_mesh.ModelIff(self.exp_fname, self.include_far_chunk)
+
+        modelfile.set_collider(self.collider)
+        for hardpt in self.hardpoints:
+            modelfile.add_hardpt(hardpt)
+
+        for drange, lodi in zip(self.dranges, range(len(self.lods))):
+            if self.lod_empty is False:
+                ilodm = iff_mesh.MeshLODForm(lodi)
+                ilodm.set_name(self.modelname)
+                ilodm.set_cntradi(self.dsphrs[lodi])
+
+                cur_lodm = self.lodms[lodi]
+
+                for vert in cur_lodm.vertices:
+                    ilodm.add_vertex(*vert.co)
+                    ilodm.add_vert_normal(*vert.normal)
+
+                for tf, tfuv in zip(
+                        cur_lodm.tessfaces,
+                        cur_lodm.tessface_uv_textures.active.data):
+                    pass
+            else:
+                ilodm = iff_mesh.EmptyLODForm(lodi)
+
+            modelfile.add_lod(ilodm, drange)
+
 
 class ExportBackend:
 
@@ -621,7 +655,7 @@ class HierarchyManager:
     """A valid object, and its valid children."""
 
     def __init__(self, root_obj, modelname, modeldir, use_facetex,
-                 drang_increment, generate_bsp, scene_name):
+                 drang_increment, generate_bsp, scene_name, wc_matrix):
 
         self.root_obj = root_obj
         self.root_lods = self.lods_of(root_obj.name)
@@ -632,6 +666,7 @@ class HierarchyManager:
         self.drang_incval = drang_increment
         self.generate_bsp = generate_bsp
         self.scene_name = scene_name
+        self.wc_orientation_matrix = wc_matrix
         self.managers = []
         self.mgrtexs = []
 
@@ -824,7 +859,7 @@ class HierarchyManager:
             cur_manager = ModelManager(
                 self.modelname, hobj.name, self.use_facetex,
                 self.drang_incval, self.generate_bsp,
-                self.scene_name)
+                self.scene_name, self.wc_matrix)
             cur_manager.exp_fname = self.hierarchy_str_for(hobj)
             print("Export filename for {}: {}.iff".format(
                 hobj.name, cur_manager.exp_fname))
@@ -849,6 +884,10 @@ class HierarchyManager:
     def assign_mtltxns(self, mtltxns):
         for manager in self.managers:
             manager.assign_mtltxns(mtltxns)
+
+    def export(self):
+        for manager in self.managers:
+            manager.export()
 
 
 class IFFExporter(ExportBackend):
@@ -884,7 +923,7 @@ class IFFExporter(ExportBackend):
             managers.append(HierarchyManager(
                 bpy.context.active_object, modelname, modeldir,
                 self.use_facetex, self.drang_incval, self.generate_bsp,
-                bpy.context.scene.name))
+                bpy.context.scene.name, self.wc_orientation_matrix))
 
         else:
             for obj in bpy.context.scene.objects:
@@ -893,7 +932,7 @@ class IFFExporter(ExportBackend):
                         managers.append(HierarchyManager(
                             obj, modelname, modeldir, self.use_facetex,
                             self.drang_increment, self.generate_bsp,
-                            bpy.context.scene.name
+                            bpy.context.scene.name, self.wc_orientation_matrix
                         ))
                         warnings.warn("detail-x LOD naming scheme is "
                                       "deprecated.", DeprecationWarning)
@@ -903,7 +942,8 @@ class IFFExporter(ExportBackend):
                             managers.append(HierarchyManager(
                                 obj, modelname, modeldir, self.use_facetex,
                                 self.drang_increment, self.generate_bsp,
-                                bpy.context.scene.name
+                                bpy.context.scene.name,
+                                self.wc_orientation_matrix
                             ))
                             used_names.add(obj_match.group(1))
 
