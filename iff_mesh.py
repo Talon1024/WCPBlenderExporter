@@ -340,9 +340,12 @@ class MeshLODForm(iff.IffForm):
         self._unique_vnormals = []
         self._vnormrefs = {}
 
-        self._fnrm_idx = 0
-        self._unique_fnormals = []
-        self._fnormrefs = {}
+        if self._version == 11:
+            self._fnrm_idx = 0
+            self._unique_fnormals = []
+            self._fnormrefs = {}
+        elif self._version >= 12:
+            self._fnrm_idx = None  # Index of first face normal
 
         self.lod_lev = lod_lev
         form_name = "{!s:0>4}".format(self.lod_lev)
@@ -380,6 +383,8 @@ class MeshLODForm(iff.IffForm):
     def add_face_normal(self, nx, ny, nz):
         "Add a face normal to this LOD mesh."
         if self._version >= 12:
+            if self._fnrm_idx is None:
+                self._fnrm_idx = len(self._unique_vnormals) - 1
             self.add_vert_normal(nx, ny, nz)
         else:
             fnm = array.array("f", (float(nx), float(ny), float(nz)))
@@ -400,7 +405,8 @@ class MeshLODForm(iff.IffForm):
 
     def face_normal_idx(self, nidx):
         if self._version >= 12:
-            return self.vert_normal_idx(nx, ny, nz)
+            nidx += self._fnrm_idx
+            return self.vert_normal_idx(nidx)
         else:
             return self._fnormrefs[nidx]
 
