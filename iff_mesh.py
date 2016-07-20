@@ -338,11 +338,11 @@ class MeshLODForm(iff.IffForm):
         # Ensure no vertex/face normal is added more than once.
         self._vtnm_idx = 0
         self._unique_vnormals = []
-        self._duplicate_vnormals = {}
+        self._vnormrefs = {}
 
         self._fnrm_idx = 0
         self._unique_fnormals = []
-        self._duplicate_fnormals = {}
+        self._fnormrefs = {}
 
         self.lod_lev = lod_lev
         form_name = "{!s:0>4}".format(self.lod_lev)
@@ -369,29 +369,40 @@ class MeshLODForm(iff.IffForm):
         vtnm = array.array("f", (float(nx), float(ny), float(nz)))
         if vtnm not in self._unique_vnormals:
             self._unique_vnormals.append(vtnm)
+            self._vnormrefs[self._vtnm_idx] = len(self._unique_vnormals) - 1
             self._vtnm_chunk.add_member(vtnm[0])
             self._vtnm_chunk.add_member(vtnm[1])
             self._vtnm_chunk.add_member(vtnm[2])
         else:
-            self._duplicate_vnormals[self._vtnm_idx] = (
-                self._unique_vnormals.index(vtnm))
+            self._vnormrefs[self._vtnm_idx] = self._unique_vnormals.index(vtnm)
         self._vtnm_idx += 1
 
-    def add_vert_normal(self, nx, ny, nz):
+    def add_face_normal(self, nx, ny, nz):
         "Add a face normal to this LOD mesh."
-        fnm = array.array("f", (float(nx), float(ny), float(nz)))
-        if fnm not in self._unique_fnormals:
-            self._unique_fnormals.append(fnm)
-            self._norm_chunk.add_member(fnm[0])
-            self._norm_chunk.add_member(fnm[1])
-            self._norm_chunk.add_member(fnm[2])
+        if self._version >= 12:
+            self.add_vert_normal(nx, ny, nz)
         else:
-            self._duplicate_fnormals[self._fnrm_idx] = (
-                self._unique_fnormals.index(fnm))
-        self._fnrm_idx += 1
+            fnm = array.array("f", (float(nx), float(ny), float(nz)))
+            if fnm not in self._unique_fnormals:
+                self._unique_fnormals.append(fnm)
+                self._fnormrefs[self._fnrm_idx] = (
+                    len(self._unique_fnormals) - 1)
+                self._norm_chunk.add_member(fnm[0])
+                self._norm_chunk.add_member(fnm[1])
+                self._norm_chunk.add_member(fnm[2])
+            else:
+                self._fnormrefs[self._fnrm_idx] = (
+                    self._unique_fnormals.index(fnm))
+            self._fnrm_idx += 1
 
     def vert_normal_idx(self, nidx):
-        pass
+        return self._vnormrefs[nidx]
+
+    def face_normal_idx(self, nidx):
+        if self._version >= 12:
+            return self.vert_normal_idx(nx, ny, nz)
+        else:
+            return self._fnormrefs[nidx]
 
     def add_fvrt(self, vert_idx, vtnm_idx, uv_x, uv_y):
         """Add a "face vertex" to this LOD mesh.
@@ -405,7 +416,7 @@ class MeshLODForm(iff.IffForm):
             raise ValueError("Vertex normal index must not be negative!")
 
         self._fvrt_chunk.add_member(int(vert_idx))
-        self._fvrt_chunk.add_member(int(vtnm_idx))
+        self._fvrt_chunk.add_member(self.vert_normal_idx(int(vtnm_idx)))
         self._fvrt_chunk.add_member(float(uv_x))
         self._fvrt_chunk.add_member(float(uv_y))
 
@@ -419,13 +430,13 @@ class MeshLODForm(iff.IffForm):
         if num_verts < 0:
             raise ValueError("Number of vertices must not be negative!")
 
-        self._face_chunk.add_member(int(vtnm_idx))  # Face normal index
+        self._face_chunk.add_member(self.face_normal_idx(int(vtnm_idx)))
         self._face_chunk.add_member(float(dplane))  # D-Plane
         self._face_chunk.add_member(int(texnum))  # Texture number
         self._face_chunk.add_member(int(fvrt_idx))  # Index of first FVRT
-        self._face_chunk.add_member(int(num_verts))  # Number of vertices
+        self._face_chunk.add_member(int(num_verts))  # Number of vertices/edges
         self._face_chunk.add_member(int(light_flags))  # Lighting flags
-        self._face_chunk.add_member(int(alt_mat))  # Unknown (alternate MAT?)
+        self._face_chunk.add_member(int(alt_mat))  # Alternate/flat colour MAT
 
     def set_cntradi(self, sphere):
         "Set the center and radius of this LOD mesh."
