@@ -405,8 +405,7 @@ class MeshLODForm(iff.IffForm):
 
     def face_normal_idx(self, nidx):
         if self._version >= 12:
-            nidx += self._fnrm_idx
-            return self.vert_normal_idx(nidx)
+            return self.vert_normal_idx(self._fnrm_idx + nidx)
         else:
             return self._fnormrefs[nidx]
 
