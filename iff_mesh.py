@@ -384,7 +384,7 @@ class MeshLODForm(iff.IffForm):
         "Add a face normal to this LOD mesh."
         if self._version >= 12:
             if self._fnrm_idx is None:
-                self._fnrm_idx = len(self._unique_vnormals) - 1
+                self._fnrm_idx = self._vtnm_idx
             self.add_vert_normal(nx, ny, nz)
         else:
             fnm = array.array("f", (float(nx), float(ny), float(nz)))
