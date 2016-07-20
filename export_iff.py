@@ -566,10 +566,24 @@ class ModelManager:
                     ilodm.add_vertex(*vert.co)
                     ilodm.add_vert_normal(*vert.normal)
 
+                fnrm_idx = 0
                 for tf, tfuv in zip(
                         cur_lodm.tessfaces,
                         cur_lodm.tessface_uv_textures.active.data):
-                    pass
+                    first_vert = cur_lodm.vertices[tf.vertices[-1]]
+                    uv_idx = len(tf.vertices) * 2 - 2
+                    for fvrt in reversed(tf.vertices):
+                        ilodm.add_fvrt(fvrt, fvrt,
+                                       tfuv.uv[uv_idx],
+                                       tfuv.uv[uv_idx + 1])
+                        uv_idx -= 2
+                    del uv_idx
+                    ilodm.add_face_normal(*tf.normal)
+                    ilodm.add_face(
+                        fnrm_idx,
+                        self.calc_dplane(first_vert.co, first_vert.normal),
+                        0, fnrm_idx, len(tf.vertices), 0)
+                    fnrm_idx += len(tf.vertices)
             else:
                 ilodm = iff_mesh.EmptyLODForm(lodi)
 
