@@ -91,6 +91,10 @@ class IffForm:
         """Remove a member from this FORM"""
         self._members.remove(memberToRemove)
 
+    def replace_member(self, memberToReplace, newMember):
+        """Replace a member in this FORM with another one."""
+        self._members[self._members.index(memberToReplace)] = newMember
+
     def to_xmf(self):
         """Convert this FORM to an XMF (IFF Source) string"""
         xmf_string = io.StringIO()

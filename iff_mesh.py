@@ -469,7 +469,9 @@ class ModelIff(iff.IffFile):
             raise TypeError("collider must be a valid Collider in order to "
                             "use it for this model!")
 
-        self._mcoll = collider.to_coll_form()
+        collform = collider.to_coll_form()
+        self.root_form.replace_member(self._mcoll, collform)
+        self._mcoll = collform
 
     def add_hardpt(self, hardpt):
         """Add a hardpoint to this model."""
