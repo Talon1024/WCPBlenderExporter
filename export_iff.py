@@ -605,7 +605,7 @@ class ModelManager:
                             vnrm = array.array("f", (nx, ny, nz))
                             vtnm_idx = unique_normals.index(vnrm)
                         ilodm.add_fvrt(fvrt, vtnm_idx, tfuv.uv[uv_idx][0],
-                                       tfuv.uv[uv_idx][1])
+                                       1 - tfuv.uv[uv_idx][1])
                         uv_idx -= 1
                     del uv_idx
 
