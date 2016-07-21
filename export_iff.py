@@ -89,7 +89,7 @@ class ModelManager:
     COLLMESH_PFX = "collmesh"
 
     def __init__(self, base_name, base_obj, use_facetex, drang_increment,
-                 gen_bsp, scene_name, wc_matrix):
+                 modeldir, gen_bsp, scene_name, wc_matrix):
 
         if not isinstance(base_name, str):
             raise TypeError("Model name must be a string!")
@@ -104,6 +104,7 @@ class ModelManager:
         self._exp_fname = base_name  # Export filename
         # self.name_scheme = 0  # See LOD_NSCHEME constants above
         self.modelname = base_name  # Model name (NAME chunk, ex. "Duhiky")
+        self.modeldir = modeldir  # Folder to write the model file in.
 
         # Reorientation matrix (Blender -> VISION coordinates)
         self.wc_orientation_matrix = wc_matrix
@@ -546,7 +547,8 @@ class ModelManager:
         self._exp_fname = self.modelname
 
     def export(self):
-        modelfile = iff_mesh.ModelIff(self.exp_fname, self.include_far_chunk)
+        modelfile = iff_mesh.ModelIff(self.modeldir + dirsep + self._exp_fname,
+                                      self.include_far_chunk)
 
         modelfile.set_collider(self.collider)
         for hardpt in self.hardpoints:
@@ -564,6 +566,7 @@ class ModelManager:
                     ilodm.add_vertex(*vert.co)
 
                 unique_normals = []
+                fvrt_idx = 0
                 for tf, tfuv in zip(
                         cur_lodm.tessfaces,
                         cur_lodm.tessface_uv_textures.active.data):
@@ -621,10 +624,10 @@ class ModelManager:
 
                     # Add the face
                     ilodm.add_face(
-                        fnrm_idx,
+                        unique_normals.index(fnrm),
                         self.calc_dplane(first_vert.co, first_vert.normal),
-                        texnum, fnrm_idx, len(tf.vertices), light_flags)
-                    fnrm_idx += len(tf.vertices)
+                        texnum, fvrt_idx, len(tf.vertices), light_flags)
+                    fvrt_idx += len(tf.vertices)
             else:
                 ilodm = iff_mesh.EmptyLODForm(lodi)
 
@@ -913,7 +916,7 @@ class HierarchyManager:
         for hobj in self.hierarchy_objects:
             cur_manager = ModelManager(
                 self.modelname, hobj.name, self.use_facetex,
-                self.drang_incval, self.generate_bsp,
+                self.drang_incval, self.modeldir, self.generate_bsp,
                 self.scene_name, self.wc_orientation_matrix)
             cur_manager.exp_fname = self.hierarchy_str_for(hobj)
             print("Export filename for {}: {}.iff".format(
