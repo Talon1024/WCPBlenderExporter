@@ -89,7 +89,7 @@ class ModelManager:
     COLLMESH_PFX = "collmesh"
 
     def __init__(self, base_name, base_obj, use_facetex, drang_increment,
-                 modeldir, gen_bsp, scene_name, wc_matrix):
+                 far_chunk, modeldir, gen_bsp, scene_name, wc_matrix):
 
         if not isinstance(base_name, str):
             raise TypeError("Model name must be a string!")
@@ -131,6 +131,7 @@ class ModelManager:
         self.dranges = [None for x in range(MAX_NUM_LODS)]
         self.dranges[0] = 0.0
         self.drang_increment = drang_increment
+        self.far_chunk = far_chunk
 
         # CNTR/RADI spheres for each LOD.
         self.dsphrs = [None for x in range(MAX_NUM_LODS)]
@@ -548,7 +549,7 @@ class ModelManager:
 
     def export(self):
         modelfile = iff_mesh.ModelIff(self.modeldir + dirsep + self._exp_fname,
-                                      self.include_far_chunk)
+                                      self.far_chunk)
 
         modelfile.set_collider(self.collider)
         for hardpt in self.hardpoints:
@@ -632,6 +633,7 @@ class ModelManager:
                 ilodm = iff_mesh.EmptyLODForm(lodi)
 
             modelfile.add_lod(ilodm, drange)
+        modelfile.write_file_bin()
 
 
 class ExportBackend:
@@ -712,7 +714,7 @@ class ExportBackend:
 class HierarchyManager:
     """A valid object, and its valid children."""
 
-    def __init__(self, root_obj, modelname, modeldir, use_facetex,
+    def __init__(self, root_obj, modelname, modeldir, use_facetex, far_chunk
                  drang_increment, generate_bsp, scene_name, wc_matrix):
 
         self.root_obj = root_obj
@@ -721,6 +723,7 @@ class HierarchyManager:
         self.modelname = modelname  # The filename the user specified.
         self.modeldir = modeldir
         self.use_facetex = use_facetex
+        self.far_chunk = far_chunk
         self.drang_incval = drang_increment
         self.generate_bsp = generate_bsp
         self.scene_name = scene_name
@@ -916,8 +919,8 @@ class HierarchyManager:
         for hobj in self.hierarchy_objects:
             cur_manager = ModelManager(
                 self.modelname, hobj.name, self.use_facetex,
-                self.drang_incval, self.modeldir, self.generate_bsp,
-                self.scene_name, self.wc_orientation_matrix)
+                self.drang_incval, self.far_chunk, self.modeldir,
+                self.generate_bsp, self.scene_name, self.wc_orientation_matrix)
             cur_manager.exp_fname = self.hierarchy_str_for(hobj)
             print("Export filename for {}: {}.iff".format(
                 hobj.name, cur_manager.exp_fname))
@@ -980,8 +983,9 @@ class IFFExporter(ExportBackend):
 
             managers.append(HierarchyManager(
                 bpy.context.active_object, modelname, modeldir,
-                self.use_facetex, self.drang_incval, self.generate_bsp,
-                bpy.context.scene.name, self.wc_orientation_matrix))
+                self.use_facetex, self.include_far_chunk, self.drang_incval,
+                self.generate_bsp, bpy.context.scene.name,
+                self.wc_orientation_matrix))
 
         else:
             for obj in bpy.context.scene.objects:
@@ -989,8 +993,9 @@ class IFFExporter(ExportBackend):
                     if MAIN_LOD_RE.match(obj.name):
                         managers.append(HierarchyManager(
                             obj, modelname, modeldir, self.use_facetex,
-                            self.drang_increment, self.generate_bsp,
-                            bpy.context.scene.name, self.wc_orientation_matrix
+                            self.include_far_chunk, self.drang_increment,
+                            self.generate_bsp, bpy.context.scene.name,
+                            self.wc_orientation_matrix
                         ))
                         warnings.warn("detail-x LOD naming scheme is "
                                       "deprecated.", DeprecationWarning)
@@ -999,8 +1004,8 @@ class IFFExporter(ExportBackend):
                         if obj_match.group(1) not in used_names:
                             managers.append(HierarchyManager(
                                 obj, modelname, modeldir, self.use_facetex,
-                                self.drang_increment, self.generate_bsp,
-                                bpy.context.scene.name,
+                                self.include_far_chunk, self.drang_increment,
+                                self.generate_bsp, bpy.context.scene.name,
                                 self.wc_orientation_matrix
                             ))
                             used_names.add(obj_match.group(1))
@@ -1020,6 +1025,7 @@ class IFFExporter(ExportBackend):
 
         for manager in managers:
             manager.assign_mtltxns(mtltexnums)
+            manager.export()
 
         print("Export took {} seconds.".format(
             time.perf_counter() - export_start))
