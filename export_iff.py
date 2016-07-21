@@ -714,7 +714,7 @@ class ExportBackend:
 class HierarchyManager:
     """A valid object, and its valid children."""
 
-    def __init__(self, root_obj, modelname, modeldir, use_facetex, far_chunk
+    def __init__(self, root_obj, modelname, modeldir, use_facetex, far_chunk,
                  drang_increment, generate_bsp, scene_name, wc_matrix):
 
         self.root_obj = root_obj
