@@ -214,7 +214,6 @@ class ModelManager:
                 lobj = None
                 del self.dranges[-1]
                 del self.dsphrs[-1]
-                del self.lod_empty[-1]
             if lobj is not None and lod_name != self.base_obj:
                 if self.lods[lod] is None:
                     if lobj.type == "MESH" or lobj.type == "EMPTY":
@@ -913,7 +912,7 @@ class HierarchyManager:
             cur_manager = ModelManager(
                 self.modelname, hobj.name, self.use_facetex,
                 self.drang_incval, self.generate_bsp,
-                self.scene_name, self.wc_matrix)
+                self.scene_name, self.wc_orientation_matrix)
             cur_manager.exp_fname = self.hierarchy_str_for(hobj)
             print("Export filename for {}: {}.iff".format(
                 hobj.name, cur_manager.exp_fname))
