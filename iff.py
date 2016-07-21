@@ -149,7 +149,7 @@ class IffChunk(IffForm):
         memblength = 0
         if members is not None and len(members) > 0:
             for m in members:
-                membtype = is_member_valid(m)
+                membtype = self.is_member_valid(m)
                 if membtype == 1:
                     memblength += 4  # Number
                 elif membtype == 2:
