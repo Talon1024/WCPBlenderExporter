@@ -319,7 +319,7 @@ class MeshLODForm(iff.IffForm):
         self._geom_form = iff.IffForm("{!s:0>4}".format(version))
         self._name_chunk = iff.IffChunk("NAME")
         self._vert_chunk = iff.IffChunk("VERT")
-        if self._version == 11:
+        if self._version <= 11:
             self._norm_chunk = iff.IffChunk("NORM")
         self._vtnm_chunk = iff.IffChunk("VTNM")
         self._fvrt_chunk = iff.IffChunk("FVRT")
@@ -334,18 +334,6 @@ class MeshLODForm(iff.IffForm):
         self._geom_form.add_member(self._cntr_chunk)
         self._geom_form.add_member(self._radi_chunk)
         self._mesh_form.add_member(self._geom_form)
-
-        # Ensure no vertex/face normal is added more than once.
-        self._vtnm_idx = 0
-        self._unique_vnormals = []
-        self._vnormrefs = {}
-
-        if self._version == 11:
-            self._fnrm_idx = 0
-            self._unique_fnormals = []
-            self._fnormrefs = {}
-        elif self._version >= 12:
-            self._fnrm_idx = None  # Index of first face normal
 
         self.lod_lev = lod_lev
         form_name = "{!s:0>4}".format(self.lod_lev)
@@ -369,45 +357,18 @@ class MeshLODForm(iff.IffForm):
 
     def add_vert_normal(self, nx, ny, nz):
         "Add a vertex normal to this LOD mesh."
-        vtnm = array.array("f", (float(nx), float(ny), float(nz)))
-        if vtnm not in self._unique_vnormals:
-            self._unique_vnormals.append(vtnm)
-            self._vnormrefs[self._vtnm_idx] = len(self._unique_vnormals) - 1
-            self._vtnm_chunk.add_member(vtnm[0])
-            self._vtnm_chunk.add_member(vtnm[1])
-            self._vtnm_chunk.add_member(vtnm[2])
-        else:
-            self._vnormrefs[self._vtnm_idx] = self._unique_vnormals.index(vtnm)
-        self._vtnm_idx += 1
+        self._vtnm_chunk.add_member(float(nx))
+        self._vtnm_chunk.add_member(float(ny))
+        self._vtnm_chunk.add_member(float(nz))
 
     def add_face_normal(self, nx, ny, nz):
         "Add a face normal to this LOD mesh."
         if self._version >= 12:
-            if self._fnrm_idx is None:
-                self._fnrm_idx = self._vtnm_idx
             self.add_vert_normal(nx, ny, nz)
         else:
-            fnm = array.array("f", (float(nx), float(ny), float(nz)))
-            if fnm not in self._unique_fnormals:
-                self._unique_fnormals.append(fnm)
-                self._fnormrefs[self._fnrm_idx] = (
-                    len(self._unique_fnormals) - 1)
-                self._norm_chunk.add_member(fnm[0])
-                self._norm_chunk.add_member(fnm[1])
-                self._norm_chunk.add_member(fnm[2])
-            else:
-                self._fnormrefs[self._fnrm_idx] = (
-                    self._unique_fnormals.index(fnm))
-            self._fnrm_idx += 1
-
-    def vert_normal_idx(self, nidx):
-        return self._vnormrefs[nidx]
-
-    def face_normal_idx(self, nidx):
-        if self._version >= 12:
-            return self.vert_normal_idx(self._fnrm_idx + nidx)
-        else:
-            return self._fnormrefs[nidx]
+            self._norm_chunk.add_member(float(nx))
+            self._norm_chunk.add_member(float(ny))
+            self._norm_chunk.add_member(float(nz))
 
     def add_fvrt(self, vert_idx, vtnm_idx, uv_x, uv_y):
         """Add a "face vertex" to this LOD mesh.
@@ -421,11 +382,11 @@ class MeshLODForm(iff.IffForm):
             raise ValueError("Vertex normal index must not be negative!")
 
         self._fvrt_chunk.add_member(int(vert_idx))
-        self._fvrt_chunk.add_member(self.vert_normal_idx(int(vtnm_idx)))
+        self._fvrt_chunk.add_member(int(vtnm_idx))
         self._fvrt_chunk.add_member(float(uv_x))
         self._fvrt_chunk.add_member(float(uv_y))
 
-    def add_face(self, vtnm_idx, dplane, texnum,
+    def add_face(self, norm_idx, dplane, texnum,
                  fvrt_idx, num_verts, light_flags, alt_mat=0x7F0096FF):
         """Add a face to this LOD mesh."""
         if vtnm_idx < 0:
@@ -435,7 +396,7 @@ class MeshLODForm(iff.IffForm):
         if num_verts < 0:
             raise ValueError("Number of vertices must not be negative!")
 
-        self._face_chunk.add_member(self.face_normal_idx(int(vtnm_idx)))
+        self._face_chunk.add_member(int(norm_idx))
         self._face_chunk.add_member(float(dplane))  # D-Plane
         self._face_chunk.add_member(int(texnum))  # Texture number
         self._face_chunk.add_member(int(fvrt_idx))  # Index of first FVRT
