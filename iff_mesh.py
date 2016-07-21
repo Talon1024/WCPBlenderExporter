@@ -389,8 +389,8 @@ class MeshLODForm(iff.IffForm):
     def add_face(self, norm_idx, dplane, texnum,
                  fvrt_idx, num_verts, light_flags, alt_mat=0x7F0096FF):
         """Add a face to this LOD mesh."""
-        if vtnm_idx < 0:
-            raise ValueError("Vertex normal index must not be negative!")
+        if norm_idx < 0:
+            raise ValueError("Face normal index must not be negative!")
         if fvrt_idx < 0:
             raise ValueError("FVRT index must not be negative!")
         if num_verts < 0:
