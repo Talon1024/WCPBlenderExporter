@@ -212,8 +212,10 @@ class ModelManager:
                 lobj = bpy.data.scenes[self.scene].objects[lod_name]
             except KeyError:
                 lobj = None
-                del self.dranges[-1]
-                del self.dsphrs[-1]
+                if lod > 0:
+                    del self.dranges[-1]
+                    del self.dsphrs[-1]
+                    del self.lod_empty[-1]
             if lobj is not None and lod_name != self.base_obj:
                 if self.lods[lod] is None:
                     if lobj.type == "MESH" or lobj.type == "EMPTY":
