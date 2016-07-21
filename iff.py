@@ -93,7 +93,12 @@ class IffForm:
 
     def replace_member(self, memberToReplace, newMember):
         """Replace a member in this FORM with another one."""
-        self._members[self._members.index(memberToReplace)] = newMember
+        if (isinstance(memberToReplace, int) and
+                memberToReplace < len(self._members)):
+            membidx = memberToReplace
+        else:
+            membidx = self._members.index(memberToReplace)
+        self._members[membidx] = newMember
 
     def to_xmf(self):
         """Convert this FORM to an XMF (IFF Source) string"""
@@ -207,6 +212,28 @@ class IffChunk(IffForm):
         else:
             self._length -= len(memberToRemove)
         self._members.remove(memberToRemove)
+
+    def replace_member(self, memberToReplace, newMember):
+        if memberToReplace > len(self._members):
+            raise ValueError("Member index cannot be larger than the internal"
+                             "member list length!")
+
+        new_member_type = self.is_member_valid(newMember)
+        if new_member_type == 1:
+            new_member_length = 4
+        elif new_member_type == 2:
+            new_member_length = len(newMember) + 1
+        else:
+            raise TypeError("Member is of an invalid type for an IffChunk!")
+
+        old_member_type = self.is_member_valid(self._members[memberToReplace])
+        if old_member_type == 1:
+            old_member_length = 4
+        elif old_member_type == 2:
+            old_member_length = len(self._members[memberToReplace]) + 1
+
+        self._length += (new_member_length - old_member_length)
+        self._members[memberToReplace] = newMember
 
     def clear_members(self):
         """Remove all members from this FORM"""
