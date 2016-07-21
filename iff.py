@@ -70,35 +70,35 @@ class IffForm:
         else:
             return 0
 
-    def add_member(self, memberToAdd):
+    def add_member(self, member_to_add):
         """Add a member to this FORM
 
         Only CHUNKs or other FORMs may be added to a FORM
         """
         # Only add a member if it is a CHUNK or a FORM
-        if self.is_member_valid(memberToAdd):
-            self._members.append(memberToAdd)
+        if self.is_member_valid(member_to_add):
+            self._members.append(member_to_add)
         else:
             raise TypeError
 
-    def insert_member(self, memberToAdd, pos):
-        if self.is_member_valid(memberToAdd):
-            self._members.insert(pos, memberToAdd)
+    def insert_member(self, member_to_add, pos):
+        if self.is_member_valid(member_to_add):
+            self._members.insert(pos, member_to_add)
         else:
             raise TypeError
 
-    def remove_member(self, memberToRemove):
+    def remove_member(self, member_to_remove):
         """Remove a member from this FORM"""
-        self._members.remove(memberToRemove)
+        self._members.remove(member_to_remove)
 
-    def replace_member(self, memberToReplace, newMember):
+    def replace_member(self, member_to_replace, new_member):
         """Replace a member in this FORM with another one."""
-        if (isinstance(memberToReplace, int) and
-                memberToReplace < len(self._members)):
-            membidx = memberToReplace
+        if (isinstance(member_to_replace, int) and
+                member_to_replace < len(self._members)):
+            membidx = member_to_replace
         else:
-            membidx = self._members.index(memberToReplace)
-        self._members[membidx] = newMember
+            membidx = self._members.index(member_to_replace)
+        self._members[membidx] = new_member
 
     def to_xmf(self):
         """Convert this FORM to an XMF (IFF Source) string"""
@@ -174,66 +174,67 @@ class IffChunk(IffForm):
         else:
             return 0
 
-    def add_member(self, memberToAdd):
+    def add_member(self, member_to_add):
         """Add a member to this CHUNK
 
         Only ints, floats, and strings can be added to a CHUNK.
         """
-        membtype = self.is_member_valid(memberToAdd)
+        membtype = self.is_member_valid(member_to_add)
         if membtype > 0:
-            self._members.append(memberToAdd)
+            self._members.append(member_to_add)
             if membtype == 1:  # Numeric (int/float)
                 self._length += 4
             elif membtype == 2:  # String
-                self._length += len(memberToAdd) + 1  # Null-terminated
+                self._length += len(member_to_add) + 1  # Null-terminated
         else:
             raise TypeError("Tried to add an invalid piece of data!")
 
-    def insert_member(self, memberToAdd, pos):
-        membtype = self.is_member_valid(memberToAdd)
+    def insert_member(self, member_to_add, pos):
+        membtype = self.is_member_valid(member_to_add)
         omembtype = (
             self.is_member_valid(self._members[pos - 1]) if pos > 0 else 0)
         if membtype > 0:
-            self._members.insert(pos, memberToAdd)
+            self._members.insert(pos, member_to_add)
             if membtype == 1:
                 if omembtype == 2:
                     self._length += 1
                 self._length += 4
             elif membtype == 2:
-                self._length += len(memberToAdd)
+                self._length += len(member_to_add)
         else:
             raise TypeError
 
-    def remove_member(self, memberToRemove):
+    def remove_member(self, member_to_remove):
         """Remove a member from this FORM"""
-        if (isinstance(memberToRemove, int) or
-                isinstance(memberToRemove, float)):
+        if (isinstance(member_to_remove, int) or
+                isinstance(member_to_remove, float)):
             self._length -= 4
         else:
-            self._length -= len(memberToRemove)
-        self._members.remove(memberToRemove)
+            self._length -= len(member_to_remove)
+        self._members.remove(member_to_remove)
 
-    def replace_member(self, memberToReplace, newMember):
-        if memberToReplace > len(self._members):
+    def replace_member(self, member_to_replace, new_member):
+        if member_to_replace > len(self._members):
             raise ValueError("Member index cannot be larger than the internal"
                              "member list length!")
 
-        new_member_type = self.is_member_valid(newMember)
+        new_member_type = self.is_member_valid(new_member)
         if new_member_type == 1:
             new_member_length = 4
         elif new_member_type == 2:
-            new_member_length = len(newMember) + 1
+            new_member_length = len(new_member) + 1
         else:
             raise TypeError("Member is of an invalid type for an IffChunk!")
 
-        old_member_type = self.is_member_valid(self._members[memberToReplace])
+        old_member_type = self.is_member_valid(
+            self._members[member_to_replace])
         if old_member_type == 1:
             old_member_length = 4
         elif old_member_type == 2:
-            old_member_length = len(self._members[memberToReplace]) + 1
+            old_member_length = len(self._members[member_to_replace]) + 1
 
         self._length += (new_member_length - old_member_length)
-        self._members[memberToReplace] = newMember
+        self._members[member_to_replace] = new_member
 
     def clear_members(self):
         """Remove all members from this FORM"""
