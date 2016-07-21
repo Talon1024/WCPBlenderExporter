@@ -462,7 +462,7 @@ class ModelManager:
             tf_txnm = tf_img if isinstance(tf_img, int) else None
 
             mtldata = [tf_mlf, tf_img, tf_txnm]
-            if mtldata not in self.mtltexs.values():
+            if tf_mtl.name not in self.mtltexs.keys():
                 self.mtltexs[tf_mtl.name] = mtldata
 
         del used_materials
