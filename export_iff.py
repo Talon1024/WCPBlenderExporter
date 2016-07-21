@@ -438,9 +438,6 @@ class ModelManager:
                     used_materials.append(tf_mtl)
 
         # Get information about materials.
-        # TODO: Find out how best to associate the new materials with the
-        # individual faces.
-        # REVIEW: Ensure all "mtldata" tuples use the same format.
         for tf_mtl in used_materials:
 
             # Get light flags for this material
@@ -555,7 +552,7 @@ class ModelManager:
             modelfile.add_hardpt(hardpt)
 
         for drange, lodi in zip(self.dranges, range(len(self.lods))):
-            if self.lod_empty is False:
+            if self.lod_empty[lodi] is False:
                 ilodm = iff_mesh.MeshLODForm(lodi)
                 ilodm.set_name(self.modelname)
                 ilodm.set_cntradi(self.dsphrs[lodi])
@@ -571,18 +568,35 @@ class ModelManager:
                         cur_lodm.tessfaces,
                         cur_lodm.tessface_uv_textures.active.data):
                     first_vert = cur_lodm.vertices[tf.vertices[-1]]
-                    uv_idx = len(tf.vertices) * 2 - 2
+
+                    # Add the FVRTs for the face
+                    uv_idx = len(tf.vertices) - 1
                     for fvrt in reversed(tf.vertices):
-                        ilodm.add_fvrt(fvrt, fvrt,
-                                       tfuv.uv[uv_idx],
-                                       tfuv.uv[uv_idx + 1])
-                        uv_idx -= 2
+                        ilodm.add_fvrt(fvrt, fvrt, tfuv.uv[uv_idx][0],
+                                       tfuv.uv[uv_idx][1])
+                        uv_idx -= 1
                     del uv_idx
+
+                    # Get the texnum and light flags
+                    if self.use_mtltex:
+                        texnum = self.mtltexs[
+                            cur_lodm.materials[tf.material_index].name][2]
+                    else:
+                        if tfuv.image is not None:
+                            texnum = self.image_txns[tfuv.image.filepath]
+                        else:
+                            # This should be a flat colour
+                            texnum = self.mtltexs[
+                                cur_lodm.materials[tf.material_index].name][2]
+                    light_flags = self.mtltexs[
+                        cur_lodm.materials[tf.material_index].name][0]
+
+                    # Add the face
                     ilodm.add_face_normal(*tf.normal)
                     ilodm.add_face(
                         fnrm_idx,
                         self.calc_dplane(first_vert.co, first_vert.normal),
-                        0, fnrm_idx, len(tf.vertices), 0)
+                        texnum, fnrm_idx, len(tf.vertices), light_flags)
                     fnrm_idx += len(tf.vertices)
             else:
                 ilodm = iff_mesh.EmptyLODForm(lodi)
