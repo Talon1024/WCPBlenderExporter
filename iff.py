@@ -49,7 +49,7 @@ class IffForm:
                 )
 
             for member in members:
-                if not self.is_member_valid(member):
+                if self.is_member_valid(member) == 0:
                     raise TypeError(
                         "Member %r is of an invalid type for an %s!" %
                         (member, type(self).__name__)
@@ -58,7 +58,6 @@ class IffForm:
         # Make a slice copy of the member list so that every FORM can have
         # different members. If this is not done, all IffForm objects will have
         # the same members
-        self._length = 4  # Account for FORM name
         self._members = [] if members is None else members
 
     def __str__(self):
@@ -79,26 +78,17 @@ class IffForm:
         # Only add a member if it is a CHUNK or a FORM
         if self.is_member_valid(memberToAdd):
             self._members.append(memberToAdd)
-            self._length += memberToAdd.get_length() + 8
-            if memberToAdd.get_length() % 2 == 1:
-                self._length += 1
         else:
             raise TypeError
 
     def insert_member(self, memberToAdd, pos):
         if self.is_member_valid(memberToAdd):
             self._members.insert(pos, memberToAdd)
-            self._length += memberToAdd.get_length() + 8
-            if memberToAdd.get_length() % 2 == 1:
-                self._length += 1
         else:
             raise TypeError
 
     def remove_member(self, memberToRemove):
         """Remove a member from this FORM"""
-        self._length -= memberToRemove.get_length() + 8
-        if memberToRemove.get_length() % 2 == 1:
-            self._length -= 1
         self._members.remove(memberToRemove)
 
     def to_xmf(self):
@@ -112,15 +102,18 @@ class IffForm:
 
     def to_bytes(self):
         iffbytes = bytearray()
+        form_length = 4  # Account for form header/name
         for x in self._members:
             iffbytes.extend(x.to_bytes())
+            form_length += 8 + x.get_length()
             # If the chunk contains an odd number of bytes,
             # add an extra 0-byte for padding.
-            if x.get_length() % 2 == 1:
+            if form_length % 2 == 1:
                 iffbytes.append(0)
+                form_length += 1
 
         iffbytes = (b"FORM" +
-                    struct.pack(">l", self._length) +
+                    struct.pack(">l", form_length) +
                     self._name.encode("ascii", "replace") +
                     iffbytes)
         return iffbytes
@@ -137,7 +130,14 @@ class IffForm:
         self._length = 4
 
     def get_length(self):
-        return self._length
+        form_length = 4
+        for x in self._members:
+            form_length += 8 + x.get_length()
+            # If the chunk contains an odd number of bytes,
+            # add an extra 0-byte for padding.
+            if form_length % 2 == 1:
+                form_length += 1
+        return form_length
 
 
 class IffChunk(IffForm):
@@ -146,8 +146,15 @@ class IffChunk(IffForm):
 
     def __init__(self, name, members=None):
         super().__init__(name, members)
-        self._length = 0
-        self._last_type_added = 0
+        memblength = 0
+        if members is not None and len(members) > 0:
+            for m in members:
+                membtype = is_member_valid(m)
+                if membtype == 1:
+                    memblength += 4  # Number
+                elif membtype == 2:
+                    memblength += len(m)  # String
+        self._length = memblength
 
     def is_member_valid(self, member):
         if (isinstance(member, int) or
@@ -170,7 +177,6 @@ class IffChunk(IffForm):
                 self._length += 4
             elif membtype == 2:  # String
                 self._length += len(memberToAdd) + 1  # Null-terminated
-            self._last_type_added = membtype
         else:
             raise TypeError("Tried to add an invalid piece of data!")
 
@@ -235,6 +241,9 @@ class IffChunk(IffForm):
                     struct.pack(">l", self._length) +
                     iffbytes)
         return iffbytes
+
+    def get_length(self):
+        return self._length
 
 
 class IffFile:
