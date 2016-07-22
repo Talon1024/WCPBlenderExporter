@@ -462,7 +462,7 @@ class ModelManager:
             tf_txnm = tf_img if isinstance(tf_img, int) else None
 
             mtldata = [tf_mlf, tf_img, tf_txnm]
-            if tf_mtl.name not in self.mtltexs.keys():
+            if tf_mtl.name not in self.mtltexs:
                 self.mtltexs[tf_mtl.name] = mtldata
 
         del used_materials
@@ -472,7 +472,7 @@ class ModelManager:
                 for tf, tfuv in zip(lodm.tessfaces,
                                     lodm.tessface_uv_textures.active.data):
                     if (tfuv.image is not None and tfuv.image.filepath not in
-                            self.image_txns.keys()):
+                            self.image_txns):
                         self.image_txns[tfuv.image.filepath] = None
 
         print("Materials used by this model:")
@@ -566,7 +566,8 @@ class ModelManager:
                 for vert in cur_lodm.vertices:
                     ilodm.add_vertex(*vert.co)
 
-                unique_normals = []
+                unique_normals = {}
+                norm_idx = 0
                 fvrt_idx = 0
                 for tf, tfuv in zip(
                         cur_lodm.tessfaces,
@@ -579,18 +580,20 @@ class ModelManager:
                         # Smooth - use individual vertex normals
                         for vert in tf.vertices:
                             nx, ny, nz = cur_lodm.vertices[vert].normal
-                            vnrm = array.array("f", (nx, ny, nz))
+                            vnrm = array.array("f", (nx, ny, nz)).tobytes()
                             if vnrm not in unique_normals:
-                                unique_normals.append(vnrm)
+                                unique_normals[vnrm] = norm_idx
                                 ilodm.add_vert_normal(nx, ny, nz)
+                                norm_idx += 1
 
                     # Flat - use face normal. This normal will be added anyway,
                     # since it is referenced by the FACE chunk.
                     nx, ny, nz = tf.normal
-                    fnrm = array.array("f", (nx, ny, nz))
+                    fnrm = array.array("f", (nx, ny, nz)).tobytes()
                     if fnrm not in unique_normals:
-                        unique_normals.append(fnrm)
+                        unique_normals[fnrm] = norm_idx
                         ilodm.add_face_normal(nx, ny, nz)
+                        norm_idx += 1
 
                     # Add the FVRTs for the face
                     uv_idx = len(tf.vertices) - 1
@@ -598,12 +601,12 @@ class ModelManager:
                         vtnm_idx = None
                         if tf.use_smooth:
                             nx, ny, nz = cur_lodm.vertices[fvrt].normal
-                            vnrm = array.array("f", (nx, ny, nz))
-                            vtnm_idx = unique_normals.index(vnrm)
+                            vnrm = array.array("f", (nx, ny, nz)).tobytes()
+                            vtnm_idx = unique_normals[vnrm]
                         else:
                             nx, ny, nz = tf.normal
-                            vnrm = array.array("f", (nx, ny, nz))
-                            vtnm_idx = unique_normals.index(vnrm)
+                            vnrm = array.array("f", (nx, ny, nz)).tobytes()
+                            vtnm_idx = unique_normals[vnrm]
                         ilodm.add_fvrt(fvrt, vtnm_idx, tfuv.uv[uv_idx][0],
                                        1 - tfuv.uv[uv_idx][1])
                         uv_idx -= 1
@@ -625,7 +628,7 @@ class ModelManager:
 
                     # Add the face
                     ilodm.add_face(
-                        unique_normals.index(fnrm),
+                        unique_normals[fnrm],
                         self.calc_dplane(first_vert.co, first_vert.normal),
                         texnum, fvrt_idx, len(tf.vertices), light_flags)
                     fvrt_idx += len(tf.vertices)
