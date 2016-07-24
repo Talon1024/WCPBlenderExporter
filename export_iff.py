@@ -273,58 +273,52 @@ class ModelManager:
         # property takes precedence, however.
         drange_prop = [False for x in range(len(self.lods))]
 
-        for obj in bpy.data.scenes[self.scene].objects:
-            if obj.parent is not None and obj.parent.name in self.lods:
-                par_lod = int(obj.parent.name[-1])
-                if obj.type == "EMPTY" and obj.hide is False:
+        for lod, lobj_name in enumerate(self.lods):
+            if lod > 0:
+                drange = cobj.get("drange")
+                if drange is not None:
+                    self.dranges[lod] = drange
+                    drange_prop[lod] = True
+            for cobj in bpy.context.scene.objects[lobj_name].children:
+                if cobj.type == "EMPTY" and cobj.hide is False:
 
-                    if self.DRANGE_RE.match(obj.name) and par_lod > 0:
+                    if self.DRANGE_RE.match(cobj.name) and lod > 0:
                         # LOD Range object
-                        if drange_prop[par_lod] is False:
-                            drange = self.DRANGE_RE.match(obj.name).group(1)
+                        if drange_prop[lod] is False:
+                            drange = self.DRANGE_RE.match(cobj.name).group(1)
                             # A comma is used in place of a period in the
                             # drange object name because Blender likes to add
                             # .000, .001, etc. to objects with duplicate names.
                             drange = float(drange.translate({44: 46}))
-                            self.dranges[par_lod] = drange
+                            self.dranges[lod] = drange
 
-                    elif (obj.name.lower().startswith(self.CNTRADI_PFX) and
-                          obj.empty_draw_type == "SPHERE"):
+                    elif (cobj.name.lower().startswith(self.CNTRADI_PFX) and
+                          cobj.empty_draw_type == "SPHERE"):
                         # CNTR/RADI object
-                        x, z, y = obj.location
-                        self.dsphrs[par_lod] = iff_mesh.Sphere(
-                            x, y, z, max(obj.scale)
+                        x, y, z = cobj.location
+                        self.dsphrs[lod] = iff_mesh.Sphere(
+                            x, y, z, max(cobj.scale)
                         )
 
-                    elif (obj.name.lower().startswith(self.COLLSPHR_PFX) and
-                          obj.empty_draw_type == "SPHERE"):
+                    elif (cobj.name.lower().startswith(self.COLLSPHR_PFX) and
+                          cobj.empty_draw_type == "SPHERE"):
                         # COLLSPHR object
-                        if par_lod < collider_lod:
-                            x, z, y = obj.location
+                        if lod < collider_lod:
+                            x, z, y = cobj.location
                             self.collider = iff_mesh.Collider(
                                 "sphere",
-                                iff_mesh.Sphere(x, y, z, max(obj.scale))
+                                iff_mesh.Sphere(x, y, z, max(cobj.scale))
                             )
-                            collider_lod = par_lod
+                            collider_lod = lod
 
-                    elif HARDPOINT_RE.match(obj.name):
+                    elif HARDPOINT_RE.match(cobj.name):
                         # Hardpoint object
-                        hpname = HARDPOINT_RE.match(obj.name).group(1)
-                        hpmatrix = obj.rotation_euler.to_matrix().to_3x3()
-                        hardpt = iff_mesh.Hardpoint(hpmatrix, obj.location,
+                        hpname = HARDPOINT_RE.match(cobj.name).group(1)
+                        hpmatrix = cobj.rotation_euler.to_matrix().to_3x3()
+                        hardpt = iff_mesh.Hardpoint(hpmatrix, cobj.location,
                                                     hpname)
                         self.hardpoints.append(hardpt)
-                        self.hpobnames.append(obj.name)
-
-            elif obj.name in self.lods:
-                obj_lod = self.lods.index(obj.name)
-                if obj_lod > 0:
-                    # LOD range for LOD 0 is always ignored; it is always 0.
-                    drange = obj.get("drange")
-                    if drange is not None:
-                        self.dranges[obj_lod] = drange
-                        drange_prop[obj_lod] = True
-                        continue
+                        self.hpobnames.append(cobj.name)
 
         del collider_lod
         del drange_prop
@@ -822,7 +816,7 @@ class HierarchyManager:
             # print("[L787] parent_lobjs:", parent_lobjs)
 
             for plobj in parent_lobjs:
-                for obj in bpy.data.scenes[self.scene_name].objects:
+                for obj in plobj.children:
                     if self.is_valid_obj(obj, plobj):
                         obj_bname = CHLD_LOD_RE.match(obj.name)
                         if obj_bname:
@@ -835,8 +829,8 @@ class HierarchyManager:
                     if is_valid_hp(obj, plobj) and obj not in parent_hps:
                         parent_hps.append(obj)
 
-            for obj in bpy.data.scenes[self.scene_name].objects:
-                for hp in parent_hps:
+            for hp in parent_hps:
+                for obj in hp.children:
                     if self.is_valid_obj(obj, hp):
                         obj_bname = CHLD_LOD_RE.match(obj.name)
                         if obj_bname:
