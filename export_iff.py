@@ -383,7 +383,10 @@ class ModelManager:
                 lod_obj = (
                     bpy.data.scenes[self.scene].objects[self.lods[lod_idx]])
 
-                x, z, y = lod_obj.location
+                dsphr_vec = lod_obj.location.copy()
+                dsphr_vec.rotate(self.wc_matrix)
+
+                x, y, z = dsphr_vec
                 r = max(lod_obj.dimensions) / 2
                 self.dsphrs[lod_idx] = iff_mesh.Sphere(x, y, z, r)
 
@@ -407,10 +410,13 @@ class ModelManager:
         # Generate the collider for this model if it doesn't exist.
         if self.collider is None:
             lod_obj = bpy.data.scenes[self.scene].objects[self.lods[0]]
-            x, z, y = lod_obj.location
-            radius = max(lod_obj.dimensions) / 2
+            coll_vec = lod_obj.location.copy()
+            coll_vec.rotate(self.wc_matrix)
+
+            x, y, z = coll_vec
+            r = max(lod_obj.dimensions) / 2
             self.collider = iff_mesh.Collider(
-                "sphere", iff_mesh.Sphere(x, y, z, radius)
+                "sphere", iff_mesh.Sphere(x, y, z, r)
             )
 
         print("Collider:", self.collider)
