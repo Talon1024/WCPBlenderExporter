@@ -628,7 +628,7 @@ class ModelManager:
                     # Add the face
                     ilodm.add_face(
                         unique_normals[fnrm],
-                        self.calc_dplane(first_vert.co, first_vert.normal),
+                        self.calc_dplane(first_vert.co, tf.normal),
                         texnum, fvrt_idx, len(tf.vertices), light_flags)
                     fvrt_idx += len(tf.vertices)
             else:
