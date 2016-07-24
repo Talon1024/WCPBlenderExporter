@@ -109,7 +109,7 @@ else
   fi
   zip -r $zipname io_scene_wcp
   rm -r io_scene_wcp
-  if [[ -f $zipname ]]; then
+  if [[ -f "$zipname.zip" ]]; then
     echo "Created $zipname.zip."
     build_success=0
   else
