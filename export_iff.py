@@ -89,8 +89,8 @@ class ModelManager:
     COLLMESH_PFX = "collmesh"
 
     def __init__(self, base_name, base_obj, use_facetex, drang_increment,
-                 far_chunk, modeldir, gen_bsp, scene_name, wc_matrix, up_axis,
-                 fwd_axis, test_run):
+                 far_chunk, modeldir, gen_bsp, scene_name, wc_matrix,
+                 test_run):
 
         if not isinstance(base_name, str):
             raise TypeError("Model name must be a string!")
@@ -108,9 +108,7 @@ class ModelManager:
         self.modeldir = modeldir  # Folder to write the model file in.
 
         # Reorientation matrix (Blender -> VISION coordinates)
-        self.up_axis = up_axis
-        self.fwd_axis = fwd_axis
-        self.wc_orientation_matrix = wc_matrix
+        self.wc_matrix = wc_matrix
 
         # Base object stuff
         self.base_obj = base_obj  # Name of base object (ex. "Duhiky-lod0")
@@ -301,7 +299,9 @@ class ModelManager:
                     elif (cobj.name.lower().startswith(self.CNTRADI_PFX) and
                           cobj.empty_draw_type == "SPHERE"):
                         # CNTR/RADI object
-                        x, y, z = cobj.location
+                        cntr_vec = cobj.location.copy()
+                        cntr_vec.rotate(self.wc_matrix)
+                        x, y, z = cntr_vec
                         self.dsphrs[lod] = iff_mesh.Sphere(
                             x, y, z, max(cobj.scale)
                         )
@@ -310,7 +310,9 @@ class ModelManager:
                           cobj.empty_draw_type == "SPHERE"):
                         # COLLSPHR object
                         if lod < collider_lod:
-                            x, z, y = cobj.location
+                            cntr_vec = cobj.location.copy()
+                            cntr_vec.rotate(self.wc_matrix)
+                            x, y, z = cntr_vec
                             self.collider = iff_mesh.Collider(
                                 "sphere",
                                 iff_mesh.Sphere(x, y, z, max(cobj.scale))
@@ -319,10 +321,12 @@ class ModelManager:
 
                     elif HARDPOINT_RE.match(cobj.name):
                         # Hardpoint object
-                        hpname = HARDPOINT_RE.match(cobj.name).group(1)
-                        hpmatrix = cobj.rotation_euler.to_matrix().to_3x3()
-                        hardpt = iff_mesh.Hardpoint(hpmatrix, cobj.location,
-                                                    hpname)
+                        hp_name = HARDPOINT_RE.match(cobj.name).group(1)
+                        hp_matrix = cobj.rotation_euler.to_matrix()
+                        hp_matrix.rotate(self.wc_matrix)
+                        hp_loc = cobj.location.copy()
+                        hp_loc.rotate(self.wc_matrix)
+                        hardpt = iff_mesh.Hardpoint(hp_matrix, hp_loc, hp_name)
                         self.hardpoints.append(hardpt)
                         self.hpobnames.append(cobj.name)
 
@@ -648,24 +652,20 @@ class ExportBackend:
                  apply_modifiers=True,
                  export_active_only=True,
                  use_facetex=False,
-                 wc_orientation_matrix=None,
+                 wc_matrix=None,
                  include_far_chunk=True,
                  drang_increment=500.0,
                  generate_bsp=False,
-                 up_axis="Z",
-                 fwd_axis="Y",
                  test_run=False):
         self.filepath = filepath
         self.start_texnum = start_texnum
         self.apply_modifiers = apply_modifiers
         self.export_active_only = export_active_only
         self.use_facetex = use_facetex
-        self.wc_orientation_matrix = wc_orientation_matrix
+        self.wc_matrix = wc_matrix
         self.include_far_chunk = include_far_chunk
         self.drang_incval = drang_increment
         self.generate_bsp = generate_bsp
-        self.up_axis = up_axis
-        self.fwd_axis = fwd_axis
         self.test_run = test_run
         self.modelname = ""
 
@@ -725,8 +725,8 @@ class HierarchyManager:
     """A valid object, and its valid children."""
 
     def __init__(self, root_obj, modelname, modeldir, use_facetex, far_chunk,
-                 drang_increment, generate_bsp, scene_name, wc_matrix, up_axis,
-                 fwd_axis, test_run):
+                 drang_increment, generate_bsp, scene_name, wc_matrix,
+                 test_run):
 
         self.root_obj = root_obj
         self.root_lods = self.lods_of(root_obj.name)
@@ -738,9 +738,7 @@ class HierarchyManager:
         self.drang_incval = drang_increment
         self.generate_bsp = generate_bsp
         self.scene_name = scene_name
-        self.wc_orientation_matrix = wc_matrix
-        self.up_axis = up_axis
-        self.fwd_axis = fwd_axis
+        self.wc_matrix = wc_matrix
         self.test_run = test_run
         self.managers = []
         self.mgrtexs = []
@@ -934,8 +932,8 @@ class HierarchyManager:
             cur_manager = ModelManager(
                 self.modelname, hobj.name, self.use_facetex,
                 self.drang_incval, self.far_chunk, self.modeldir,
-                self.generate_bsp, self.scene_name, self.wc_orientation_matrix,
-                self.up_axis, self.fwd_axis, self.test_run)
+                self.generate_bsp, self.scene_name, self.wc_matrix,
+                self.test_run)
             cur_manager.exp_fname = self.hierarchy_str_for(hobj)
             print("Export filename for {}: {}.iff".format(
                 hobj.name, cur_manager.exp_fname))
@@ -1000,8 +998,7 @@ class IFFExporter(ExportBackend):
                 bpy.context.active_object, modelname, modeldir,
                 self.use_facetex, self.include_far_chunk, self.drang_incval,
                 self.generate_bsp, bpy.context.scene.name,
-                self.wc_orientation_matrix, self.up_axis, self.fwd_axis,
-                self.test_run))
+                self.wc_matrix, self.test_run))
 
         else:
             for obj in bpy.context.scene.objects:
@@ -1011,8 +1008,7 @@ class IFFExporter(ExportBackend):
                             obj, modelname, modeldir, self.use_facetex,
                             self.include_far_chunk, self.drang_increment,
                             self.generate_bsp, bpy.context.scene.name,
-                            self.wc_orientation_matrix, self.up_axis,
-                            self.fwd_axis, self.test_run
+                            self.wc_matrix, self.test_run
                         ))
                         warnings.warn("detail-x LOD naming scheme is "
                                       "deprecated.", DeprecationWarning)
@@ -1023,8 +1019,7 @@ class IFFExporter(ExportBackend):
                                 obj, modelname, modeldir, self.use_facetex,
                                 self.include_far_chunk, self.drang_increment,
                                 self.generate_bsp, bpy.context.scene.name,
-                                self.wc_orientation_matrix, self.up_axis,
-                                self.fwd_axis, self.test_run
+                                self.wc_matrix, self.test_run
                             ))
                             used_names.add(obj_match.group(1))
 

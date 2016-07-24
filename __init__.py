@@ -240,7 +240,7 @@ class ExportIFF(Operator, ExportHelper):
             self.filepath, self.texnum, self.apply_modifiers,
             self.active_as_lod0, self.use_facetex, wc_orientation_matrix,
             self.include_far_chunk, self.drang_increment, self.generate_bsp,
-            self.axis_up, self.axis_forward, self.test_run
+            self.test_run
         )
 
         exporter.export()
