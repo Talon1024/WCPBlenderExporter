@@ -279,12 +279,13 @@ class ModelManager:
         drange_prop = [False for x in range(len(self.lods))]
 
         for lod, lobj_name in enumerate(self.lods):
-            if lod > 0:
-                drange = cobj.get("drange")
+            cur_lobj = bpy.context.scene.objects[lobj_name]
+            if lod > 0:  # LOD Range custom property 'drange'
+                drange = cur_lobj.get("drange")
                 if drange is not None:
                     self.dranges[lod] = drange
                     drange_prop[lod] = True
-            for cobj in bpy.context.scene.objects[lobj_name].children:
+            for cobj in cur_lobj.children:
                 if cobj.type == "EMPTY" and cobj.hide is False:
 
                     if self.DRANGE_RE.match(cobj.name) and lod > 0:
