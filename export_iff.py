@@ -435,6 +435,8 @@ class ModelManager:
         # Get the textures used by all LODs for this model
         used_materials = []
         for lodm in self.lodms:
+            lodm.transform(self.wc_matrix.to_4x4())
+            lodm.calc_normals()
             lodm.calc_tessface()
             # tf_mtl = None  # The material for this tessface
             # tf_mlf = 0  # The light flags for this tessface
