@@ -202,15 +202,12 @@ class ExportIFF(Operator, ExportHelper):
         default=500.0
     )
 
-    # Useless. Other exporters for Blender use separate classes for other
-    # formats.
-    # output_format = EnumProperty(
-    #         name="Output Format",
-    #         items=(('Binary', "Binary IFF Format", ""),
-    #               ('Source', "IFF Source Code", "")
-    #               ),
-    #         default='Binary',
-    #         )
+    test_run = BoolProperty(
+        name="Test run",
+        description="Do a test run; don't actually export anything. Prevents "
+        "Wing Blender from writing IFF files.",
+        default=True  # NOTE: Remember to change this for the final release!
+    )
 
     # output_version = EnumProperty(
     #     name="Mesh version",
@@ -242,7 +239,8 @@ class ExportIFF(Operator, ExportHelper):
         exporter = getattr(export_iff, self.backend_class_name)(
             self.filepath, self.texnum, self.apply_modifiers,
             self.active_as_lod0, self.use_facetex, wc_orientation_matrix,
-            self.include_far_chunk, self.drang_increment, self.generate_bsp
+            self.include_far_chunk, self.drang_increment, self.generate_bsp,
+            self.axis_up, self.axis_forward, self.test_run
         )
 
         exporter.export()
