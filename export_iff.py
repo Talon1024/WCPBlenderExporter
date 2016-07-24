@@ -933,7 +933,8 @@ class HierarchyManager:
             cur_manager = ModelManager(
                 self.modelname, hobj.name, self.use_facetex,
                 self.drang_incval, self.far_chunk, self.modeldir,
-                self.generate_bsp, self.scene_name, self.wc_orientation_matrix)
+                self.generate_bsp, self.scene_name, self.wc_orientation_matrix,
+                self.up_axis, self.fwd_axis, self.test_run)
             cur_manager.exp_fname = self.hierarchy_str_for(hobj)
             print("Export filename for {}: {}.iff".format(
                 hobj.name, cur_manager.exp_fname))
