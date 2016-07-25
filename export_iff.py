@@ -302,6 +302,7 @@ class ModelManager:
                         cntr_vec = cobj.location.copy()
                         cntr_vec.rotate(self.wc_matrix)
                         x, y, z = cntr_vec
+                        x *= -1
                         self.dsphrs[lod] = iff_mesh.Sphere(
                             x, y, z, max(cobj.scale)
                         )
@@ -313,6 +314,7 @@ class ModelManager:
                             cntr_vec = cobj.location.copy()
                             cntr_vec.rotate(self.wc_matrix)
                             x, y, z = cntr_vec
+                            x *= -1
                             self.collider = iff_mesh.Collider(
                                 "sphere",
                                 iff_mesh.Sphere(x, y, z, max(cobj.scale))
@@ -326,6 +328,7 @@ class ModelManager:
                         hp_matrix.rotate(self.wc_matrix)
                         hp_loc = cobj.location.copy()
                         hp_loc.rotate(self.wc_matrix)
+                        hp_loc.x *= -1
                         hardpt = iff_mesh.Hardpoint(hp_matrix, hp_loc, hp_name)
                         self.hardpoints.append(hardpt)
                         self.hpobnames.append(cobj.name)
@@ -387,6 +390,7 @@ class ModelManager:
                 dsphr_vec.rotate(self.wc_matrix)
 
                 x, y, z = dsphr_vec
+                x *= -1
                 r = max(lod_obj.dimensions) / 2
                 self.dsphrs[lod_idx] = iff_mesh.Sphere(x, y, z, r)
 
@@ -414,6 +418,7 @@ class ModelManager:
             coll_vec.rotate(self.wc_matrix)
 
             x, y, z = coll_vec
+            x *= -1
             r = max(lod_obj.dimensions) / 2
             self.collider = iff_mesh.Collider(
                 "sphere", iff_mesh.Sphere(x, y, z, r)
@@ -576,7 +581,7 @@ class ModelManager:
                 cur_lodm = self.lodms[lodi]
 
                 for vert in cur_lodm.vertices:
-                    ilodm.add_vertex(*vert.co)
+                    ilodm.add_vertex(vert.co.x * -1, vert.co.y, vert.co.z)
 
                 unique_normals = {}
                 norm_idx = 0
@@ -584,7 +589,6 @@ class ModelManager:
                 for tf, tfuv in zip(
                         cur_lodm.tessfaces,
                         cur_lodm.tessface_uv_textures.active.data):
-                    first_vert = cur_lodm.vertices[tf.vertices[-1]]
 
                     # Get vertex normals. This depends on whether or not the
                     # faces are smooth or flat shaded.
@@ -592,6 +596,7 @@ class ModelManager:
                         # Smooth - use individual vertex normals
                         for vert in tf.vertices:
                             nx, ny, nz = cur_lodm.vertices[vert].normal
+                            nx *= -1
                             vnrm = array.array("f", (nx, ny, nz)).tobytes()
                             if vnrm not in unique_normals:
                                 unique_normals[vnrm] = norm_idx
@@ -601,6 +606,7 @@ class ModelManager:
                     # Flat - use face normal. This normal will be added anyway,
                     # since it is referenced by the FACE chunk.
                     nx, ny, nz = tf.normal
+                    nx *= -1
                     fnrm = array.array("f", (nx, ny, nz)).tobytes()
                     if fnrm not in unique_normals:
                         unique_normals[fnrm] = norm_idx
@@ -613,10 +619,12 @@ class ModelManager:
                         vtnm_idx = None
                         if tf.use_smooth:
                             nx, ny, nz = cur_lodm.vertices[fvrt].normal
+                            nx *= -1
                             vnrm = array.array("f", (nx, ny, nz)).tobytes()
                             vtnm_idx = unique_normals[vnrm]
                         else:
                             nx, ny, nz = tf.normal
+                            nx *= -1
                             vnrm = array.array("f", (nx, ny, nz)).tobytes()
                             vtnm_idx = unique_normals[vnrm]
                         ilodm.add_fvrt(fvrt, vtnm_idx, tfuv.uv[uv_idx][0],
@@ -638,10 +646,16 @@ class ModelManager:
                     light_flags = self.mtltexs[
                         cur_lodm.materials[tf.material_index].name][0]
 
+                    first_vert = cur_lodm.vertices[tf.vertices[-1]].co.copy()
+                    first_vert.x *= -1
+
+                    face_nrm = tf.normal.copy()
+                    face_nrm.x *= -1
+
                     # Add the face
                     ilodm.add_face(
                         unique_normals[fnrm],
-                        self.calc_dplane(first_vert.co, tf.normal),
+                        self.calc_dplane(first_vert, face_nrm),
                         texnum, fvrt_idx, len(tf.vertices), light_flags)
                     fvrt_idx += len(tf.vertices)
             else:
