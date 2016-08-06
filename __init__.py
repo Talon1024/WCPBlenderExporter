@@ -204,9 +204,10 @@ class ExportIFF(Operator, ExportHelper):
 
     test_run = BoolProperty(
         name="Test run",
-        description="Do a test run; don't actually export anything. Prevents "
-        "Wing Blender from writing IFF files.",
-        default=True  # NOTE: Remember to change this for the final release!
+        description="Do a test run; don't actually export anything. "
+        "Prevents Wing Blender from writing IFF files.",
+        default=False,
+        options={"HIDDEN"}
     )
 
     # output_version = EnumProperty(
