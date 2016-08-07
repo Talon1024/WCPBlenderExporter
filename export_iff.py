@@ -26,7 +26,7 @@ import array
 import time
 from os import sep as dirsep
 from . import iff_mesh
-from math import sin, cos
+from math import sin, cos, radians
 from collections import OrderedDict
 from itertools import repeat, starmap
 
@@ -87,6 +87,9 @@ class ModelManager:
 
     # prefix for BSP collider definition objects
     COLLMESH_PFX = "collmesh"
+
+    # Transformation to convert hardpoints to WC orientation.
+    HP_WC_XFM = mathutils.Euler((radians(90), 0, radians(180)), "XYZ")
 
     def __init__(self, base_name, base_obj, use_facetex, drang_increment,
                  far_chunk, modeldir, gen_bsp, scene_name, wc_matrix,
@@ -331,6 +334,7 @@ class ModelManager:
                         hp_name = HARDPOINT_RE.match(cobj.name).group(1)
                         hp_matrix = cobj.rotation_euler.to_matrix()
                         hp_matrix.rotate(self.wc_matrix)
+                        hp_matrix.rotate(self.HP_WC_XFM)
                         hp_loc = cobj.location.copy()
                         hp_loc.rotate(self.wc_matrix)
                         hp_loc.x *= -1
