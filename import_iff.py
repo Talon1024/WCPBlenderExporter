@@ -53,95 +53,76 @@ def register_texture(texnum, read_mats=True):
     @param texnum The texture number to register
     """
 
-    bl_mat = ""
+    bmtl_name = "{0:0>8d}".format(texnum)
 
-    def get_teximgs(texnum, mat_name):
-        img_extns = ("bmp", "png", "jpg", "jpeg", "tga", "gif", "dds", "mat")
-
+    def get_teximg(texnum, bl_mat):
         mfiledir = mfilepath[:mfilepath.rfind(dirsep)]
-        texfname = "{0:0>8d}".format(texnum)
-        mat_pfx = normpath(joinpath(
-            mfiledir, "..{1}{2}{1}{0:0>8d}.".format(
-                      texnum, dirsep, "[mM][aA][tT]")))
-        print("mat_path:", mat_path)
+        mat_pfx = "//" + bmtl_name + "."
 
-        # Search for and load high-quality images in the same folder first.
-        for extn in img_extns:
+        def get_img_fname():
+            img_extns = ("bmp", "png", "jpg", "jpeg", "tga", "gif", "dds",
+                         "mat")
+            # Search for high-quality images first.
+            for eidx, entry in enumerate(listdir(mfiledir)):
+                for extn in img_extns:
+                    mat_fname = mat_pfx + extn
+                    if entry.lower() == mat_fname:
+                        return entry
+            return None
 
-            if img_path:
-                bl_img = bpy.data.images.load(img_path)
+        mat_fname = get_img_fname()
+
+        if mat_fname is not None:
+            # mat_fname is not a MAT.
+            if not mat_fname.lower().endswith("mat"):
+                bl_img = bpy.data.images.load(mat_fname)
                 texmats[texnum][2] = bl_img
 
                 bl_mtexslot = bl_mat.texture_slots.add()
                 bl_mtexslot.texture_coords = "UV"
-                bl_mtexslot.uv_layer = "UVMap"
 
-                bl_mtex = bpy.data.textures.new(mat_name, "IMAGE")
+                bl_mtex = bpy.data.textures.new(mat_fname, "IMAGE")
                 bl_mtex.image = bl_img
 
                 bl_mtexslot.texture = bl_mtex
-                break
+            else:
+                # mat_fname is a MAT.
+                if read_mats:
+                    mat_reader = mat_read.MATReader(mat_fname)
+                    mat_reader.read()
+                    bl_img = bpy.data.images.new(
+                        mat_path[mat_path.rfind(dirsep):],
+                        mat_reader.img_width,
+                        mat_reader.img_height,
+                        True
+                    )
+                    bl_img.pixels = [
+                        x / 255 for x in mat_reader.pixels.tolist()]
+
+                    bl_mtexslot = bl_mat.texture_slots.add()
+                    bl_mtexslot.texture_coords = "UV"
+                    bl_mtexslot.uv_layer = "UVMap"
+
+                    bl_mtex = bpy.data.textures.new(mat_fname, "IMAGE")
+                    bl_mtex.image = bl_img
+
+                    bl_mtexslot.texture = bl_mtex
         else:
-            print("High-quality texture image not found!",
-                  "Searching for MAT texture...")
+            print("Image not found for texture {0:0>8d}!".format(texnum))
 
-        print("Looking for MAT texture at", mat_path)
+    if texnum in texmats.keys():
+        return texmats[texnum][1]
+    else:
+        bl_mat = bpy.data.materials.new(bmtl_name)
 
-        if fexists(mat_path):
-            print("Found MAT file:", mat_path)
-
-            if read_mats:
-                mat_reader = mat_read.MATReader(mat_path)
-                mat_reader.read()
-                mat_reader.flip_y()
-                bl_img = bpy.data.images.new(
-                    mat_path[mat_path.rfind(dirsep):],
-                    mat_reader.img_width,
-                    mat_reader.img_height,
-                    True
-                )
-                bl_img.pixels = [x / 255 for x in mat_reader.pixels.tolist()]
-
-                bl_mtexslot = bl_mat.texture_slots.add()
-                bl_mtexslot.texture_coords = "UV"
-                bl_mtexslot.uv_layer = "UVMap"
-
-                bl_mtex = bpy.data.textures.new(mat_name, "IMAGE")
-                bl_mtex.image = bl_img
-
-                bl_mtexslot.texture = bl_mtex
-        else:
-            print("MAT texture {0:0>8d}.mat not found!".format(texnum))
-        if "textureRefDoc" in bpy.data.texts:
-            textureRefDoc = bpy.data.texts["textureRefDoc"]
-        else:
-            textureRefDoc = bpy.data.texts.new("textureRefDoc")
-        textureRefDoc.write("{0:0>8d}.mat -> {1}\n".format(texnum, mat_name))
-
-    if mat_name is None:
-        mat_name = mfilepath[mfilepath.rfind(dirsep) + 1:mfilepath.rfind(".")]
-
-    if texnum not in texmats.keys():
-        mat_name += str(len(texmats) + 1)
-        # print("mat_name:", mat_name)
-        bl_mat = bpy.data.materials.new(mat_name)
-
-        texmats[texnum] = [mat_name, bl_mat, None]
+        texmats[texnum] = [bmtl_name, bl_mat, None]
         if (texnum & 0xff000000) == 0x7f000000:
             # Flat colour material
             bl_mat.diffuse_color = iff_mesh.texnum_colour(texnum)
         else:
             # Last element in this list will become the image file path
-            get_teximgs(texnum, mat_name)
-    else:
-        mat_name += str(len(texmats))
-        # print("mat_name:", mat_name)
-        bl_mat = texmats[texnum][1]
-        if bl_mat is None:
-            bl_mat = bpy.data.materials.new(mat_name)
-            texmats[texnum][1] = bl_mat
-            get_teximgs(texnum, mat_name)
-    return bl_mat
+            get_teximg(texnum, bl_mat)
+        return bl_mat
 
 
 def approx_equal(num1, num2, error):
