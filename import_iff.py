@@ -57,13 +57,14 @@ def register_texture(texnum, read_mats=True):
 
     def get_teximg(texnum, bl_mat):
         mfiledir = mfilepath[:mfilepath.rfind(dirsep)]
-        mat_pfx = "//" + bmtl_name + "."
+        mat_pfx = bmtl_name + "."
 
         def get_img_fname():
             img_extns = ("bmp", "png", "jpg", "jpeg", "tga", "gif", "dds",
                          "mat")
+            print("Searching", mfiledir, "for textures...")
             # Search for high-quality images first.
-            for eidx, entry in enumerate(listdir(mfiledir)):
+            for entry in listdir(mfiledir):
                 for extn in img_extns:
                     mat_fname = mat_pfx + extn
                     if entry.lower() == mat_fname:
