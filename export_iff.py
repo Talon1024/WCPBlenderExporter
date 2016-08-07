@@ -332,9 +332,11 @@ class ModelManager:
                     elif HARDPOINT_RE.match(cobj.name):
                         # Hardpoint object
                         hp_name = HARDPOINT_RE.match(cobj.name).group(1)
-                        hp_matrix = cobj.rotation_euler.to_matrix()
-                        hp_matrix.rotate(self.wc_matrix)
-                        hp_matrix.rotate(self.HP_WC_XFM)
+                        hp_euler = cobj.rotation_euler.copy()
+                        hp_euler.rotate(self.wc_matrix)
+                        hp_euler.rotate(self.HP_WC_XFM)
+                        hp_euler.x *= -1
+                        hp_matrix = hp_euler.to_matrix()
                         hp_loc = cobj.location.copy()
                         hp_loc.rotate(self.wc_matrix)
                         hp_loc.x *= -1
