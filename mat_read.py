@@ -93,6 +93,7 @@ class MATReader:
         else:
             raise TypeError("Invalid texture! (root form is {})".format(
                             root_form["name"]))
+        self.iff_reader.close()
 
     def flip_y(self):
         # Flip the image vertically, row by row

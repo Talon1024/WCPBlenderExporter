@@ -64,7 +64,7 @@ def texnum_colour(texnum):
     colour = [0.0, 0.0, 0.0]
     try:
         import mathutils
-        colour = mathutils.Color(0.0, 0.0, 0.0)
+        colour = mathutils.Color((0.0, 0.0, 0.0))
     except ImportError:
         pass
 
