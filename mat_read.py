@@ -40,9 +40,7 @@ class MATReader:
 
     def read_palette(self, cmap_chunk):
         # Each colour is three bytes (R, G, B)
-        pal_struct = "<" + "B" * cmap_chunk["length"]  # Little endian uchars
-        self.palette = array.array(
-            "B", struct.unpack(pal_struct, cmap_chunk["data"]))
+        self.palette = array.array("B", cmap_chunk["data"])
 
     def read_pxls(self, pxls_chunk):
         # One byte references a colour in the palette

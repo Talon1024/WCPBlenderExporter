@@ -89,7 +89,8 @@ def register_texture(texnum, read_mats=True):
             else:
                 # mat_fname is a MAT.
                 if read_mats:
-                    mat_reader = mat_read.MATReader(mat_fname)
+                    mat_reader = mat_read.MATReader(
+                        mfiledir + dirsep + mat_fname)  # Full path
                     mat_reader.read()
                     bl_img = bpy.data.images.new(
                         mat_path[mat_path.rfind(dirsep):],
