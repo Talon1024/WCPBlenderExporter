@@ -227,6 +227,10 @@ class ExportIFF(Operator, ExportHelper):
 
     backend_class_name = "IFFExporter"
 
+    def check(self, context):
+        from bpy_extras.io_utils import axis_conversion_ensure
+        return axis_conversion_ensure(self, "axis_forward", "axis_up")
+
     def execute(self, context):
         warnings.resetwarnings()
 
