@@ -80,7 +80,7 @@ class ImportIFF(Operator, ImportHelper):
     read_mats = BoolProperty(
         name="Read MATs",
         description="Attempt to read MAT files (experimental)",
-        default=False
+        default=True
     )
 
     backend_class_name = "IFFImporter"
