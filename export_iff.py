@@ -234,6 +234,11 @@ class ModelManager:
                                         self.base_lod, self.base_parent))
 
                             self.lods[lod] = lod_name
+                        else:
+                            # Don't export hidden LODs.
+                            del self.dranges[-1]
+                            del self.dsphrs[-1]
+                            del self.lod_empty[-1]
 
                     else:
                         raise TypeError("Object {} is not a mesh or empty!"
