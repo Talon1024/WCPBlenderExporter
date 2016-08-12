@@ -26,17 +26,18 @@ from . import export_iff
 # ExportHelper is a helper class, defines filename and
 # invoke() function which calls the file selector.
 from bpy_extras.io_utils import ImportHelper, ExportHelper, axis_conversion
-from bpy.props import StringProperty, IntProperty, BoolProperty, EnumProperty
+from bpy.props import (StringProperty, IntProperty, BoolProperty, EnumProperty,
+                       FloatProperty)
 from bpy.types import Operator
 
 bl_info = {
     "name": "WCP/SO Mesh File",
     "author": "Kevin Caccamo",
     "description": "Export to a WCP/SO mesh file.",
-    "version": (1, 6, 3),
+    "version": (2, 0, 0),
     "blender": (2, 65, 0),
     "location": "File > Export",
-    "warning": "",
+    "warning": "%{GIT_COMMIT}",
     "wiki_url": "http://www.ciinet.org/kevin/"
     "bl_wcp_exporter/bl_wcp_export_manual.html",
     "category": "Import-Export"
@@ -79,12 +80,14 @@ class ImportIFF(Operator, ImportHelper):
     read_mats = BoolProperty(
         name="Read MATs",
         description="Attempt to read MAT files (experimental)",
-        default=False
+        default=True
     )
 
     backend_class_name = "IFFImporter"
 
     def execute(self, context):
+        warnings.resetwarnings()
+
         # WIP
         wc_orientation_matrix = axis_conversion("Z", "Y").to_4x4()
 
@@ -136,18 +139,20 @@ class ExportIFF(Operator, ExportHelper):
     )
 
     active_as_lod0 = BoolProperty(
-        name="Active object is LOD0",
-        description="Use the active object as the LOD 0 mesh",
+        name="Export only active object",
+        description="Only export the active object and its LODs.",
         default=True
     )
 
-    # Not implemented as of now
-    # generate_bsp = BoolProperty(
-    #         name = "Generate BSP",
-    #         description = "Generate a BSP tree "
-    #         "(for corvette and capship hull/component meshes)",
-    #         default = False
-    #     )
+    # NOTE: BSP Tree generation is not implemented!
+    # As a fallback measure, I'm hard-coding this attribute for now.
+    generate_bsp = BoolProperty(
+        name="Generate BSP",
+        description="Generate a BSP tree "
+        "(for corvette and capship hull/component meshes)",
+        default=False,
+        options={"HIDDEN"}
+    )
 
     axis_forward = EnumProperty(
         name="Forward Axis",
@@ -181,44 +186,66 @@ class ExportIFF(Operator, ExportHelper):
 
     include_far_chunk = BoolProperty(
         name="Include FAR Chunk",
-        description="Include the 'FAR ' CHUNK when exporting to IFF. Only "
-        "required if the ship being exported is a fighter.",
-        default=True
+        description="Include the 'FAR' CHUNK when exporting to IFF. Only "
+        "required if the mesh being exported is a fighter mesh.",
+        default=False
     )
 
-    # Useless. Other exporters for Blender use separate classes for other
-    # formats.
-    # output_format = EnumProperty(
-    #         name="Output Format",
-    #         items=(('Binary', "Binary IFF Format", ""),
-    #               ('Source', "IFF Source Code", "")
-    #               ),
-    #         default='Binary',
-    #         )
+    drang_increment = FloatProperty(
+        name="LOD Range increment",
+        description="The default increment value for LOD ranges, if the user "
+        "did not supply LOD ranges.",
+        subtype="UNSIGNED",
+        unit="LENGTH",
+        min=0.0,
+        max=10000.0,
+        default=500.0
+    )
+
+    test_run = BoolProperty(
+        name="Test run",
+        description="Do a test run; don't actually export anything. "
+        "Prevents Wing Blender from writing IFF files.",
+        default=False,
+        options={"HIDDEN"}
+    )
+
+    # output_version = EnumProperty(
+    #     name="Mesh version",
+    #     items=(("8", "Mesh version 8", "Use mesh version 8"),
+    #            ("9", "Mesh version 9", "Use mesh version 9"),
+    #            ("10", "Mesh version 10", "Use mesh version 10"),
+    #            ("11", "Mesh version 11", "Use mesh version 11"),
+    #            ("12", "Mesh version 12", "Use mesh version 12"),
+    #            ("13", "Mesh version 13", "Use mesh version 13")),
+    #     description="The mesh version to export the model(s) as. This "
+    #                 "determines how the game loads and uses the model(s). "
+    #                 "You should really leave this alone, unless you really "
+    #                 "know what you are doing.",
+    #     default="12"
+    # )
 
     backend_class_name = "IFFExporter"
 
+    def check(self, context):
+        from bpy_extras.io_utils import axis_conversion_ensure
+        return axis_conversion_ensure(self, "axis_forward", "axis_up")
+
     def execute(self, context):
+        warnings.resetwarnings()
+
         # Get the matrix to transform the model to "WCP/SO" orientation
         wc_orientation_matrix = axis_conversion(
             self.axis_forward, self.axis_up, "Z", "Y"
         ).to_4x4()
 
-        # Create the output file if it doesn't already exist
-        try:
-            outfile = open(self.filepath, "x")
-            outfile.close()
-        except FileExistsError:
-            self.report({"INFO"}, "File already exists!")
-
-        # NOTE: BSP Tree generation is not implemented!
-        # As a fallback measure, I'm hard-coding this attribute for now.
-        self.generate_bsp = False
+        # self.output_version = "12"
 
         exporter = getattr(export_iff, self.backend_class_name)(
             self.filepath, self.texnum, self.apply_modifiers,
             self.active_as_lod0, self.use_facetex, wc_orientation_matrix,
-            self.include_far_chunk, self.generate_bsp
+            self.include_far_chunk, self.drang_increment, self.generate_bsp,
+            self.test_run
         )
 
         exporter.export()
@@ -308,6 +335,8 @@ class ExportXMF(Operator, ExportHelper):
     backend_class_name = "XMFExporter"
 
     def execute(self, context):
+        warnings.resetwarnings()
+
         # Get the matrix to transform the model to "WCP/SO" orientation
         wc_orientation_matrix = axis_conversion(
             self.axis_forward, self.axis_up, "Z", "Y"

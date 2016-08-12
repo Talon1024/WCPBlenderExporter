@@ -2,3 +2,6 @@
 __pycache__
 # Blender file backups
 *.blend[0-9]*
+# Exported .iff files - usually for testing
+*.iff
+

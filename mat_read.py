@@ -40,9 +40,7 @@ class MATReader:
 
     def read_palette(self, cmap_chunk):
         # Each colour is three bytes (R, G, B)
-        pal_struct = "<" + "B" * cmap_chunk["length"]  # Little endian uchars
-        self.palette = array.array(
-            "B", struct.unpack(pal_struct, cmap_chunk["data"]))
+        self.palette = array.array("B", cmap_chunk["data"])
 
     def read_pxls(self, pxls_chunk):
         # One byte references a colour in the palette
@@ -95,6 +93,7 @@ class MATReader:
         else:
             raise TypeError("Invalid texture! (root form is {})".format(
                             root_form["name"]))
+        self.iff_reader.close()
 
     def flip_y(self):
         # Flip the image vertically, row by row
@@ -106,7 +105,6 @@ class MATReader:
             cur_row_end = cur_row_start + self.img_width * 4
 
             img_rows.append(self.pixels[cur_row_start:cur_row_end])
-            print("img row length:", len(self.pixels[cur_row_start:cur_row_end]))
 
         self.pixels = array.array("B")
 

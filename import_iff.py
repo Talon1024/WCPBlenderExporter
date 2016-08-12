@@ -21,21 +21,27 @@
 import bpy
 import warnings
 import struct
-from . import iff_read, mat_read
+from . import iff_read, iff_mesh, mat_read
 from mathutils import Matrix
 from itertools import starmap, count
-from os import sep as dirsep
+from os import sep as dirsep, listdir
 from os.path import normpath, join as joinpath, exists as fexists
 from math import radians
+from glob import glob
 
-MAX_NUM_LODS = 5
-LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
+MAX_NUM_LODS = 7
+# MAIN_LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
+CHLD_LOD_NAMES = ["{{0}}-lod{0:d}".format(lod) for lod in range(MAX_NUM_LODS)]
 
 mfilepath = None  # These are Initialized in ImportBackend constructor
 texmats = None
 
 
-def register_texture(texnum, mat_name=None, read_mats=True):
+class ValueWarning(Warning):
+    pass
+
+
+def register_texture(texnum, read_mats=True):
     """Add a texture to the texture reference if it isn't already there.
 
     Add a texture to the global texture dictionary if it isn't already in it.
@@ -45,90 +51,81 @@ def register_texture(texnum, mat_name=None, read_mats=True):
     texture is already in the dictionary.
 
     @param texnum The texture number to register
-    @param mat_name The optional name of the material to use. If blank, the
-    mesh filename is used.
     """
 
-    def get_teximgs(texnum, mat_name):
-        img_extns = ["bmp", "png", "jpg", "jpeg", "tga", "gif", "dds"]
+    bmtl_name = "{0:0>8d}".format(texnum)
 
+    def get_teximg(texnum, bl_mat):
         mfiledir = mfilepath[:mfilepath.rfind(dirsep)]
-        mat_path = normpath(joinpath(
-            mfiledir, "..{1}mat{1}{0:0>8d}.mat".format(texnum, dirsep)))
+        mat_pfx = bmtl_name + "."
 
-        # Search for and load high-quality images in the same folder first.
-        for extn in img_extns:
-            img_path = joinpath(mfiledir, mat_name + "." + extn)
-            if fexists(img_path):
-                bl_img = bpy.data.images.load(img_path)
+        def get_img_fname():
+            img_extns = ("bmp", "png", "jpg", "jpeg", "tga", "gif", "dds",
+                         "mat")
+            print("Searching", mfiledir, "for textures...")
+            # Search for high-quality images first.
+            for entry in listdir(mfiledir):
+                for extn in img_extns:
+                    mat_fname = mat_pfx + extn
+                    if entry.lower() == mat_fname:
+                        return entry
+            return None
+
+        mat_fname = get_img_fname()
+
+        if mat_fname is not None:
+            # mat_fname is not a MAT.
+            if not mat_fname.lower().endswith("mat"):
+                bl_img = bpy.data.images.load(mat_fname)
                 texmats[texnum][2] = bl_img
 
                 bl_mtexslot = bl_mat.texture_slots.add()
                 bl_mtexslot.texture_coords = "UV"
-                bl_mtexslot.uv_layer = "UVMap"
 
-                bl_mtex = bpy.data.textures.new(mat_name, "IMAGE")
+                bl_mtex = bpy.data.textures.new(mat_fname, "IMAGE")
                 bl_mtex.image = bl_img
 
                 bl_mtexslot.texture = bl_mtex
-                break
+            else:
+                # mat_fname is a MAT.
+                if read_mats:
+                    mat_path = mfiledir + dirsep + mat_fname
+                    mat_reader = mat_read.MATReader(mat_path)
+                    mat_reader.read()
+                    mat_reader.flip_y()
+                    bl_img = bpy.data.images.new(
+                        mat_path[mat_path.rfind(dirsep):],
+                        mat_reader.img_width,
+                        mat_reader.img_height,
+                        True
+                    )
+                    bl_img.pixels = [
+                        x / 255 for x in mat_reader.pixels.tolist()]
+
+                    bl_mtexslot = bl_mat.texture_slots.add()
+                    bl_mtexslot.texture_coords = "UV"
+                    bl_mtexslot.uv_layer = "UVMap"
+
+                    bl_mtex = bpy.data.textures.new(mat_fname, "IMAGE")
+                    bl_mtex.image = bl_img
+
+                    bl_mtexslot.texture = bl_mtex
         else:
-            print("High-quality texture image not found!",
-                  "Searching for MAT texture...")
+            print("Image not found for texture {0:0>8d}!".format(texnum))
 
-        print("Looking for MAT texture at", mat_path)
-
-        if fexists(mat_path):
-            print("Found MAT file:", mat_path)
-
-            if read_mats:
-                mat_reader = mat_read.MATReader(mat_path)
-                mat_reader.read()
-                mat_reader.flip_y()
-                bl_img = bpy.data.images.new(
-                    mat_path[mat_path.rfind(dirsep):],
-                    mat_reader.img_width,
-                    mat_reader.img_height,
-                    True
-                )
-                bl_img.pixels = [x / 255 for x in mat_reader.pixels.tolist()]
-
-                bl_mtexslot = bl_mat.texture_slots.add()
-                bl_mtexslot.texture_coords = "UV"
-                bl_mtexslot.uv_layer = "UVMap"
-
-                bl_mtex = bpy.data.textures.new(mat_name, "IMAGE")
-                bl_mtex.image = bl_img
-
-                bl_mtexslot.texture = bl_mtex
-        else:
-            print("MAT texture {0:0>8d}.mat not found!".format(texnum))
-        if "textureRefDoc" in bpy.data.texts:
-            textureRefDoc = bpy.data.texts["textureRefDoc"]
-        else:
-            textureRefDoc = bpy.data.texts.new("textureRefDoc")
-        textureRefDoc.write("{0:0>8d}.mat -> {1}\n".format(texnum, mat_name))
-
-    if mat_name is None:
-        mat_name = mfilepath[mfilepath.rfind(dirsep) + 1:mfilepath.rfind(".")]
-
-    if texnum not in texmats.keys():
-        mat_name += str(len(texmats) + 1)
-        # print("mat_name:", mat_name)
-        bl_mat = bpy.data.materials.new(mat_name)
-
-        # Last element in this list will become the image file path
-        texmats[texnum] = [mat_name, bl_mat, None]
-        get_teximgs(texnum, mat_name)
+    if texnum in texmats.keys():
+        return texmats[texnum][1]
     else:
-        mat_name += str(len(texmats))
-        # print("mat_name:", mat_name)
-        bl_mat = texmats[texnum][1]
-        if bl_mat is None:
-            bl_mat = bpy.data.materials.new(mat_name)
-            texmats[texnum][1] = bl_mat
-            get_teximgs(texnum, mat_name)
-    return bl_mat
+        bl_mat = bpy.data.materials.new(bmtl_name)
+
+        texmats[texnum] = [bmtl_name, bl_mat, None]
+        if (texnum & 0xff000000) == 0x7f000000:
+            # Flat colour material
+            bl_mat.diffuse_color = iff_mesh.texnum_colour(texnum)
+        else:
+            # Last element in this list will become the image file path
+            get_teximg(texnum, bl_mat)
+        return bl_mat
 
 
 def approx_equal(num1, num2, error):
@@ -157,6 +154,9 @@ class ImportBackend:
         self.use_facetex = use_facetex
         self.import_bsp = import_bsp
         self.read_mats = read_mats
+        self.dranges = None
+        self.lod_objs = []
+        self.base_name = ""
 
         if texname.isspace() or texname == "":
             # Get material/texture name from file name
@@ -174,6 +174,8 @@ class LODMesh:
         self._fvrts = []
         self._faces = []
         self._name = ""
+        self._cntr = (0.0, 0.0, 0.0)
+        self._radi = 0.0
         self.texname = texname
         self.mtlrefs = {}
 
@@ -227,6 +229,12 @@ class LODMesh:
             self._cntr = cntr
         else:
             raise TypeError("{0!r} ain't no CNTR!".format(cntr))
+
+    def set_radi(self, radi):
+        """Set the radius of this mesh."""
+        if not isinstance(radi, float):
+            raise TypeError("{0!r} is not a valid radius!".format(radi))
+        self._radi = radi
 
     def edges_from_verts(self, verts):
         """Generates vertex reference tuples for edges."""
@@ -349,49 +357,14 @@ class LODMesh:
         # code.interact(banner=banner, local=locals())
 
 
-class Hardpoint:
-
-    def __init__(self, pos_data, name):
-        # Initialize rotation matrix data structure
-        # so we don't get access violations.
-        self._rot_matrix = [
-            [None, None, None],
-            [None, None, None],
-            [None, None, None]
-        ]
-        self._rot_matrix[0][0] = pos_data[0]
-        self._rot_matrix[0][1] = pos_data[1]
-        self._rot_matrix[0][2] = pos_data[2]
-        self._x = pos_data[3]
-        self._rot_matrix[1][0] = pos_data[4]
-        self._rot_matrix[1][1] = pos_data[5]
-        self._rot_matrix[1][2] = pos_data[6]
-        self._y = pos_data[7]
-        self._rot_matrix[2][0] = pos_data[8]
-        self._rot_matrix[2][1] = pos_data[9]
-        self._rot_matrix[2][2] = pos_data[10]
-        self._z = pos_data[11]
-        self._name = name
-
-    def to_bl_obj(self):
-        bl_obj = bpy.data.objects.new("hp-" + self._name, None)
-        bl_obj.empty_draw_type = "ARROWS"
-
-        matrix_rot = Matrix(self._rot_matrix).to_4x4()
-
-        # Convert position/rotation from WC
-        euler_rot = matrix_rot.to_euler("XYZ")
-        euler_rot.y, euler_rot.z = -euler_rot.z, -euler_rot.y
-        euler_rot.x *= -1
-
-        matrix_rot = euler_rot.to_matrix().to_4x4()
-        matrix_loc = Matrix.Translation((self._x, self._z, self._y))
-
-        bl_obj.matrix_basis = matrix_loc * matrix_rot
-        return bl_obj
-
-
 class IFFImporter(ImportBackend):
+
+    def read_rang_chunk(self, rang_chunk):
+        if rang_chunk["length"] % 4 != 0:
+            raise ValueError("RANG chunk has an invalid length!")
+        num_dranges = rang_chunk["length"] // 4
+        dranges = struct.unpack("<" + ("f" * num_dranges), rang_chunk["data"])
+        return dranges
 
     def parse_major_mesh_form(self, mesh_form):
         mjrmsh_read = 4
@@ -403,6 +376,14 @@ class IFFImporter(ImportBackend):
             mnrmsh = self.iff_reader.read_data()
             if mnrmsh["type"] == "form" and mnrmsh["name"] == b"MESH":
                 self.parse_minor_mesh_form(mnrmsh, lod_lev)
+            elif mnrmsh["type"] == "form" and mnrmsh["name"] == b"EMPT":
+                if self.base_name != "":
+                    bl_obname = CHLD_LOD_NAMES[lod_lev].format(self.base_name)
+                else:
+                    bl_obname = "detail-{}".format(lod_lev)
+                bl_ob = bpy.data.objects.new(bl_obname, None)
+                bpy.context.scene.objects.link(bl_ob)
+                self.lod_objs.append(bl_ob)
 
             mjrmsh_read += 8 + lod_form["length"]
             print("mjrmsh_read:", mjrmsh_read, "of", mesh_form["length"])
@@ -436,6 +417,8 @@ class IFFImporter(ImportBackend):
             # Internal name of "minor" mesh/LOD mesh
             if geom_data["name"] == b"NAME":
                 name_str = self.read_cstring(geom_data["data"], 0)
+                if self.base_name == "":
+                    self.base_name = name_str
                 lodm.set_name(name_str)
 
             # Vertices
@@ -493,8 +476,19 @@ class IFFImporter(ImportBackend):
             bl_mesh = lodm.to_bl_mesh()
             if isinstance(self.reorient_matrix, Matrix):
                 bl_mesh.transform(self.reorient_matrix)
-            bl_ob = bpy.data.objects.new(LOD_NAMES[lod_lev], bl_mesh)
+            bl_obname = CHLD_LOD_NAMES[lod_lev].format(self.base_name)
+            bl_ob = bpy.data.objects.new(bl_obname, bl_mesh)
             bpy.context.scene.objects.link(bl_ob)
+            if lod_lev > 0:
+                # Set drange custom property
+                try:
+                    bl_ob["drange"] = self.dranges[lod_lev]
+                except IndexError:
+                    try:
+                        del bl_ob["drange"]
+                    except KeyError:
+                        pass
+            self.lod_objs.append(bl_ob)
         except AssertionError:
             lodm.debug_info()
 
@@ -502,31 +496,22 @@ class IFFImporter(ImportBackend):
         mjrf_bytes_read = 4
         while mjrf_bytes_read < major_form["length"]:
             hardpt_chunk = self.iff_reader.read_data()
-            # ALWAYS add 8 when you read a chunk (because the chunk header is
-            # 8 bytes long)
             mjrf_bytes_read += hardpt_chunk["length"] + 8
 
-            hardpt_data = struct.unpack_from(
-                "<ffffffffffff", hardpt_chunk["data"], 0)
-
-            hardpt_name_ofs = 48
-            hardpt_name = self.read_cstring(
-                hardpt_chunk["data"], hardpt_name_ofs)
-
-            hardpt = Hardpoint(hardpt_data, hardpt_name)
+            hardpt = iff_mesh.Hardpoint.from_chunk(hardpt_chunk["data"])
             bl_ob = hardpt.to_bl_obj()
 
             bpy.context.scene.objects.link(bl_ob)
+            bl_ob.parent = self.lod_objs[0]
 
     def read_coll_data(self):
         coll_data = self.iff_reader.read_data()
         if coll_data["name"] == b"SPHR":
-            bl_obj = bpy.data.objects.new("collsphr", None)
-            bl_obj.empty_draw_type = "SPHERE"
-            x, y, z, r = struct.unpack("<ffff", coll_data["data"])
-            bl_obj.scale = r, r, r
-            bl_obj.location = x, z, y
+            coll_sphere = iff_mesh.Sphere.from_sphr_chunk(coll_data["data"])
+
+            bl_obj = coll_sphere.to_bl_obj("collsphr")
             bpy.context.scene.objects.link(bl_obj)
+            bl_obj.parent = self.lod_objs[0]
 
     def read_cstring(self, data, ofs):
         cstring = bytearray()
@@ -550,7 +535,7 @@ class IFFImporter(ImportBackend):
                     mjrfs_read += major_form["length"] + 8
                     # print("Reading major form:", major_form["name"])
                     if major_form["name"] == b"RANG":
-                        pass  # RANG data is useless to Blender.
+                        self.dranges = self.read_rang_chunk(major_form)
                     elif major_form["name"] == b"MESH":
                         self.parse_major_mesh_form(major_form)
                     elif major_form["name"] == b"HARD":
