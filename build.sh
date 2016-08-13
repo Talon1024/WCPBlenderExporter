@@ -107,7 +107,7 @@ else
   else
     zipname="${zipname}_${gvers}"
   fi
-  zip -r $zipname io_scene_wcp
+  zip -r $zipname.zip io_scene_wcp
   rm -r io_scene_wcp
   if [[ -f "$zipname.zip" ]]; then
     echo "Created $zipname.zip."
