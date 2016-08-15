@@ -38,8 +38,7 @@ bl_info = {
     "blender": (2, 65, 0),
     "location": "File > Export",
     "warning": "%{GIT_COMMIT}",
-    "wiki_url": "http://www.ciinet.org/kevin/"
-    "bl_wcp_exporter/bl_wcp_export_manual.html",
+    "wiki_url": "http://www.ciinet.org/kevin/bl_wcp_exporter/",
     "category": "Import-Export"
 }
 
