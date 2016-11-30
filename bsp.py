@@ -7,6 +7,13 @@ class BSPNode:
     def __init__(self, a, b, c, d, back=None, front=None, boundary=None):
         # I think VISION's BSP system is based on the plane equation
         # Ax + By + Cz + D = 0
+        #
+        # Here are the calculations for A, B, C, and D...
+        # A = (-By - Cz - D) / x
+        # B = (-Ax - Cz - D) / y
+        # C = (-Ax - By - D) / z
+        # D = -Ax - By - Cz
+
         self.a = float(a)
         self.b = float(b)
         self.c = float(c)
@@ -18,9 +25,9 @@ class BSPNode:
 
     def to_iff(self):
         data_chunk = iff.IffChunk(
-            # I used 0 and -1 as the first and last members because that's what
-            # I noticed when I looked at the DATA chunks in models from the
-            # original game.
+            # I used 0 and -1 (0xFFFF) as the first and last members because
+            # that's what I noticed when I looked at the DATA chunks in models
+            # from the original game.
             "DATA", 0, self.a, self.b, self.c, self.d, -1)
         back_form = iff.IffForm("BACK", self.back)
         front_form = iff.IffForm("FRNT", self.front)
