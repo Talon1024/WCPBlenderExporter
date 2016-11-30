@@ -26,7 +26,7 @@ import array
 import time
 from os import sep as dirsep
 from . import iff_mesh
-from math import sin, cos, radians
+from math import radians
 from collections import OrderedDict
 from itertools import repeat, starmap
 
