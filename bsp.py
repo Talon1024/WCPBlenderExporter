@@ -25,9 +25,9 @@ class BSPNode:
 
     def to_iff(self):
         data_chunk = iff.IffChunk(
-            # I used 0 and -1 (0xFFFF) as the first and last members because
-            # that's what I noticed when I looked at the DATA chunks in models
-            # from the original game.
+            # I used 0 and -1 (0xFFFFFFFF) as the first and last members
+            # because that's what I noticed when I looked at the DATA chunks in
+            # models from the original game.
             "DATA", 0, self.a, self.b, self.c, self.d, -1)
         back_form = iff.IffForm("BACK", self.back)
         front_form = iff.IffForm("FRNT", self.front)
