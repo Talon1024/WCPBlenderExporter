@@ -19,15 +19,12 @@
 # <pep8-80 compliant>
 
 import bpy
-import warnings
 import struct
 from . import iff_read, iff_mesh, mat_read
 from mathutils import Matrix
 from itertools import starmap, count
 from os import sep as dirsep, listdir
-from os.path import normpath, join as joinpath, exists as fexists
-from math import radians
-from glob import glob
+from collections import OrderedDict
 
 MAX_NUM_LODS = 7
 # MAIN_LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
@@ -177,7 +174,7 @@ class LODMesh:
         self._cntr = (0.0, 0.0, 0.0)
         self._radi = 0.0
         self.texname = texname
-        self.mtlrefs = {}
+        self.mtlrefs = OrderedDict()
 
     def add_vert(self, vert):
         """Add VERT data to this mesh."""
@@ -293,10 +290,12 @@ class LODMesh:
                         eidx = face_edges.index(tuple(reversed(ed)))
                 edge_refs[fidx].append(eidx)
 
-            if f[2] in texmats.keys():
-                if texmats[f[2]][0] not in bl_mesh.materials:
-                    self.mtlrefs[f[2]] = len(bl_mesh.materials)
-                    bl_mesh.materials.append(texmats[f[2]][1])
+            # Get texture info
+            self.mtlrefs[(f[2], f[5])] = None  # Assign material later
+            # if f[2] in texmats.keys():
+            #     if texmats[f[2]][0] not in bl_mesh.materials:
+            #         self.mtlrefs[f[2]] = len(bl_mesh.materials)
+            #         bl_mesh.materials.append(texmats[f[2]][1])
 
         bl_mesh.edges.add(len(face_edges))
         for eidx, ed in enumerate(face_edges):
@@ -318,7 +317,8 @@ class LODMesh:
             bl_mesh.polygons[fidx].vertices = f_verts
 
             # Assign corresponding material to polygon
-            bl_mesh.polygons[fidx].material_index = self.mtlrefs[f[2]]
+            bl_mesh.polygons[fidx].material_index = (
+                list(self.mtlrefs).index((f[2], f[5])))
             # Assign corresponding image to UV image texture (AKA facetex)
             bl_mesh.uv_texture_stencil.data[fidx].image = texmats[f[2]][2]
 
