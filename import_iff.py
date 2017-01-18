@@ -155,6 +155,8 @@ class ImportBackend:
         self.lod_objs = []
         self.base_name = ""
 
+    def
+
 
 class LODMesh:
 
@@ -367,11 +369,11 @@ class LODMesh:
                 # Assign corresponding image to UV image texture (AKA facetex)
                 for fi, f in enumerate(self.bl_mesh.polygons):
                     if f.material_index == mi:
-                        self.bl_mesh.uv_layers["UVMap"].data[fi].image = (
+                        self.bl_mesh.uv_textures["UVMap"].data[fi].image = (
                             mtl_image(mtl))
 
     def get_bl_mesh(self):
-        if self.bl_mesh and setup_complete:
+        if self.bl_mesh and self.setup_complete:
             return self.bl_mesh
 
 
