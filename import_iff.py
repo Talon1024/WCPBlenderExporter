@@ -347,8 +347,18 @@ class LODMesh:
         return self.mtlinfo
 
     def assign_materials(self, materials):
+        mtxslots = {}  # Optimization
+
         def mtl_image(material):
-            pass
+            # Get material image for face texture
+            if material not in mtxslots:
+                for tsi, ts in enumerate(material.texture_slots):
+                    if (ts.use and ts.use_map_color_diffuse and
+                            ts.texture.type == "IMAGE"):
+                        mtxslots[material] = tsi
+                        return ts.texture.image
+            else:
+                return material.texture_slots[mtxslots[material]].texture.image
 
         for mi, mtl in enumerate(materials):
             if isinstance(mtl, Material):
