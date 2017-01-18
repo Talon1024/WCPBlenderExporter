@@ -353,7 +353,7 @@ class LODMesh:
 
         def mtl_image(material):
             # Get material image for face texture
-            if material not in mtxslots:
+            if material not in mtximgs:
                 for ts in material.texture_slots:
                     if (ts.use and ts.use_map_color_diffuse and
                             ts.texture.type == "IMAGE"):
