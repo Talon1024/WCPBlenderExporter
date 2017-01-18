@@ -155,66 +155,20 @@ class ImportBackend:
         self.lod_objs = []
         self.base_name = ""
 
-        if texname.isspace() or texname == "":
-            # Get material/texture name from file name
-            self.texname = bpy.path.basename(filepath)
-            self.texname = self.texname[:self.texname.rfind(".")]
-        else:
-            self.texname = texname
-
 
 class LODMesh:
 
-    def __init__(self, texname):
-        self._verts = []
-        self._norms = []
-        self._fvrts = []
-        self._faces = []
+    def __init__(self, vert_data, vtnm_data, fvrt_data, face_data):
+        # self._verts = []
+        # self._norms = []
+        # self._fvrts = []
+        # self._faces = []
         self._name = ""
         self._cntr = (0.0, 0.0, 0.0)
         self._radi = 0.0
-        self.texname = texname
-        self.mtlrefs = OrderedDict()
-
-    def add_vert(self, vert):
-        """Add VERT data to this mesh."""
-        if len(vert) == 3 and all(map(lambda e: isinstance(e, float), vert)):
-            self._verts.append(vert)
-        else:
-            raise TypeError("{0!r} ain't no vertex!".format(vert))
-
-    def add_norm(self, norm):
-        """Add VTNM data to this mesh."""
-        if len(norm) == 3 and all(map(lambda e: isinstance(e, float), norm)):
-            self._norms.append(norm)
-        else:
-            raise TypeError("{0!r} ain't no vertex normal!".format(norm))
-
-    def add_fvrt(self, fvrt):
-        """Add FVRT data to this mesh."""
-        def validate_fvrt(idx, fvrt_el):
-            if idx < 2:
-                return isinstance(fvrt_el, int)
-            else:
-                return isinstance(fvrt_el, float)
-
-        if len(fvrt) == 4 and all(starmap(validate_fvrt, enumerate(fvrt))):
-            self._fvrts.append(fvrt)
-        else:
-            raise TypeError("{0!r} ain't no FVRT!".format(fvrt))
-
-    def add_face(self, face):
-        """Add FACE data to this mesh."""
-        def validate_face(idx, face_el):
-            if idx == 1:
-                return isinstance(face_el, float)
-            else:
-                return isinstance(face_el, int)
-
-        if len(face) == 6 and all(starmap(validate_face, enumerate(face))):
-            self._faces.append(face)
-        else:
-            raise TypeError("{0!r} ain't no FACE!".format(face))
+        self.mtlinfo = OrderedDict()
+        self.setup_complete = False
+        self.bl_mesh = None
 
     def set_name(self, name):
         """Set the name of this mesh."""
@@ -244,19 +198,19 @@ class LODMesh:
         else:
             raise TypeError("{0!r} ain't vertex references!")
 
-    def to_bl_mesh(self):
+    def setup(self):
         """Take the WC mesh data and convert it to Blender mesh data."""
         assert(
             len(self._verts) > 0 and len(self._norms) > 0 and
             len(self._fvrts) > 0 and len(self._faces) > 0 and
             self._name != "")
 
-        bl_mesh = bpy.data.meshes.new(self._name)
-        bl_mesh.vertices.add(len(self._verts))
+        self.bl_mesh = bpy.data.meshes.new(self._name)
+        self.bl_mesh.vertices.add(len(self._verts))
 
         for vidx, v in enumerate(self._verts):
-            bl_mesh.vertices[vidx].co = v
-            bl_mesh.vertices[vidx].co[0] *= -1
+            self.bl_mesh.vertices[vidx].co = v
+            self.bl_mesh.vertices[vidx].co[0] *= -1
 
         face_edges = []  # The edges (tuples of indices of two verts)
         edge_refs = []  # indices of edges of faces, as lists per face
@@ -271,10 +225,10 @@ class LODMesh:
                 cur_fvrt = f[3] + fvrt_ofs  # f[3] is index of first FVRT
                 cur_face_verts.append(self._fvrts[cur_fvrt][0])
 
-                bl_mesh.vertices[self._fvrts[cur_fvrt][0]].normal = (
+                self.bl_mesh.vertices[self._fvrts[cur_fvrt][0]].normal = (
                     self._norms[self._fvrts[cur_fvrt][1]])
 
-                bl_mesh.vertices[self._fvrts[cur_fvrt][0]].normal[0] *= -1
+                self.bl_mesh.vertices[self._fvrts[cur_fvrt][0]].normal[0] *= -1
                 # used_fvrts.append(f[3] + fvrt_ofs)
             edge_refs.append([])
 
@@ -291,18 +245,19 @@ class LODMesh:
                 edge_refs[fidx].append(eidx)
 
             # Get texture info
-            self.mtlrefs[(f[2], f[5])] = None  # Assign material later
+            # f[2] = Texture number, f[5] = Light flags
+            self.mtlinfo[(f[2], f[5])] = None  # Assign material later
             # if f[2] in texmats.keys():
-            #     if texmats[f[2]][0] not in bl_mesh.materials:
-            #         self.mtlrefs[f[2]] = len(bl_mesh.materials)
-            #         bl_mesh.materials.append(texmats[f[2]][1])
+            #     if texmats[f[2]][0] not in self.bl_mesh.materials:
+            #         self.mtlinfo[f[2]] = len(self.bl_mesh.materials)
+            #         self.bl_mesh.materials.append(texmats[f[2]][1])
 
-        bl_mesh.edges.add(len(face_edges))
+        self.bl_mesh.edges.add(len(face_edges))
         for eidx, ed in enumerate(face_edges):
-            bl_mesh.edges[eidx].vertices = ed
+            self.bl_mesh.edges[eidx].vertices = ed
 
-        bl_mesh.polygons.add(len(self._faces))
-        bl_mesh.uv_textures.new("UVMap")
+        self.bl_mesh.polygons.add(len(self._faces))
+        self.bl_mesh.uv_textures.new("UVMap")
         num_loops = 0
 
         for fidx, f in enumerate(self._faces):
@@ -314,13 +269,11 @@ class LODMesh:
             f_edgerefs = edge_refs[fidx]
             f_startloop = num_loops
 
-            bl_mesh.polygons[fidx].vertices = f_verts
+            self.bl_mesh.polygons[fidx].vertices = f_verts
 
             # Assign corresponding material to polygon
-            bl_mesh.polygons[fidx].material_index = (
-                list(self.mtlrefs).index((f[2], f[5])))
-            # Assign corresponding image to UV image texture (AKA facetex)
-            bl_mesh.uv_texture_stencil.data[fidx].image = texmats[f[2]][2]
+            self.bl_mesh.polygons[fidx].material_index = (
+                list(self.mtlinfo).index((f[2], f[5])))
 
             assert(len(f_verts) == len(f_edgerefs) == f[4])
 
@@ -331,30 +284,44 @@ class LODMesh:
             # only reverse the vertices.
             for fvidx, vrt, edg in zip(
                     count(), reversed(f_verts), f_edgerefs):
-                bl_mesh.loops.add(1)
-                bl_mesh.loops[num_loops].edge_index = edg
-                bl_mesh.loops[num_loops].vertex_index = vrt
+                self.bl_mesh.loops.add(1)
+                self.bl_mesh.loops[num_loops].edge_index = edg
+                self.bl_mesh.loops[num_loops].vertex_index = vrt
 
                 # print("Loop", num_loops, "vertex index:", vrt)
                 # print("Loop", num_loops, "edge index:", edg)
                 # print("Edge", edg, "vertices",
-                #       bl_mesh.edges[edg].vertices[0],
-                #       bl_mesh.edges[edg].vertices[1])
+                #       self.bl_mesh.edges[edg].vertices[0],
+                #       self.bl_mesh.edges[edg].vertices[1])
 
-                bl_mesh.uv_layers["UVMap"].data[num_loops].uv = f_uvs[fvidx]
+                self.bl_mesh.uv_layers["UVMap"].data[num_loops].uv = (
+                    f_uvs[fvidx])
                 num_loops += 1
 
-            bl_mesh.polygons[fidx].loop_start = f_startloop
-            bl_mesh.polygons[fidx].loop_total = f[4]
+            self.bl_mesh.polygons[fidx].loop_start = f_startloop
+            self.bl_mesh.polygons[fidx].loop_total = f[4]
+        # Materials need to be assigned afterwards
 
-        return bl_mesh
+    def get_mtlinfo(self):
+        return self.mtlinfo
 
-    def debug_info(self):
-        print("Oops! Something didn't work properly.")
-        # banner = "Oops! Something didn't work properly. Maybe you can "
-        # "find out what the issue is. Press ctrl-D to exit the REPL."
-        # import code
-        # code.interact(banner=banner, local=locals())
+    def assign_materials(self, materials):
+        def mtl_image(material):
+            pass
+
+        for mi, mtl in enumerate(materials):
+            if isinstance(mtl, Material):
+                # Add material to list of materials for the mesh
+                self.bl_mesh.materials.append(mtl)
+                # Assign corresponding image to UV image texture (AKA facetex)
+                for fi, f in enumerate(self.bl_mesh.polygons):
+                    if f.material_index == mi:
+                        self.bl_mesh.uv_layers["UVMap"].data[fi].image = (
+                            mtl_image(mtl))
+
+    def get_bl_mesh(self):
+        if self.bl_mesh and setup_complete:
+            return self.bl_mesh
 
 
 class IFFImporter(ImportBackend):
@@ -389,7 +356,7 @@ class IFFImporter(ImportBackend):
             print("mjrmsh_read:", mjrmsh_read, "of", mesh_form["length"])
 
     def parse_minor_mesh_form(self, mesh_form, lod_lev=0):
-        lodm = LODMesh(self.texname)
+        lodm = LODMesh()
 
         mnrmsh_read = 4
 
