@@ -158,41 +158,58 @@ class ImportBackend:
 
 class LODMesh:
 
-    def __init__(self, vert_data, vtnm_data, fvrt_data, face_data):
-        self._name = ""
-        self._cntr = (0.0, 0.0, 0.0)
-        self._radi = 0.0
+    def __init__(self, version, name, vert_data, vtnm_data, fvrt_data,
+                 face_data, cntr_data, radi_data):
+        self._name = name
+        self._cntr = None
+        self._radi = None
         self.mtlinfo = OrderedDict()
         self.setup_complete = False
+        self.version = version
         self.bl_mesh = None
 
+        # Vertices
         structlen = 12  # 4 bytes * 3 floats (XYZ)
+        structstr = "<fff"
         num_verts = len(vert_data) // structlen
         self._verts = [None] * num_verts
         for idx in range(num_verts):
             self._verts[idx] = struct.unpack_from(
-                "<fff", vert_data, idx * structlen)
+                structstr, vert_data, idx * structlen)
 
+        # Vertex Normals
         structlen = 12  # 4 bytes * 3 floats (XYZ)
+        structstr = "<fff"
         num_norms = len(vtnm_data) // structlen
         self._norms = [None] * num_norms
         for idx in range(num_norms):
             self._norms[idx] = struct.unpack_from(
-                "<fff", vtnm_data, idx * structlen)
+                structstr, vtnm_data, idx * structlen)
 
+        # Face vertices
+        structstr = "<iiff"
         structlen = 16  # 4 bytes * (2 ints + 2 floats)
         num_fvrts = len(fvrt_data) // structlen
         self._fvrts = [None] * num_fvrts
         for idx in range(num_norms):
             self._fvrts[idx] = struct.unpack_from(
-                "<iiff", vtnm_data, idx * structlen)
+                structstr, vtnm_data, idx * structlen)
 
-        structlen = 28  # 4 bytes * (6 ints + 1 float)
+        # Faces
+        structstr = "<ifiiii" if version >= 11 else "<ifiii"
+        structlen = 28 if version >= 11 else 24  # 4 bytes * (6 ints + 1 float)
         num_faces = len(face_data) // structlen
         self._faces = [None] * num_faces
         for idx in range(num_faces):
             self._faces[idx] = struct.unpack_from(
-                "<ifiiii", vtnm_data, idx * structlen)
+                structstr, vtnm_data, idx * structlen)
+
+        # Center
+        structstr = "<fff"
+        self._cntr = struct.unpack(structstr, cntr_data)
+
+        structstr = "<f"
+        self._radi = struct.unpack(structstr, radi_data)[0]  # Tuple
 
     def set_name(self, name):
         """Set the name of this mesh."""
@@ -380,7 +397,7 @@ class IFFImporter(ImportBackend):
             print("mjrmsh_read:", mjrmsh_read, "of", mesh_form["length"])
 
     def parse_minor_mesh_form(self, mesh_form, lod_lev=0):
-        lodm = LODMesh()
+        # lodm = LODMesh()
 
         mnrmsh_read = 4
 
@@ -392,71 +409,55 @@ class IFFImporter(ImportBackend):
             lod_lev, mesh_vers
         ))
 
-        vec3_struct = "<fff"
-        fvrt_struct = "<iiff"
-        face_struct = "<ifiiii"
         # Use 28 to skip the "unknown2" value, present in mesh versions 11+
         face_size = 28 if mesh_vers >= 11 else 24
+        mesh_name = ""
+        vert_data = None
+        vtnm_data = None
+        fvrt_data = None
+        face_data = None
+        cntr_data = None
+        radi_data = None
 
         while mnrmsh_read < mesh_form["length"]:
             geom_data = self.iff_reader.read_data()
             mnrmsh_read += 8 + geom_data["length"]
             print("mnrmsh_read:", mnrmsh_read, "of", mesh_form["length"])
 
-            # RADI and NORM chunks are ignored
+            # NORM chunk is ignored
 
             # Internal name of "minor" mesh/LOD mesh
             if geom_data["name"] == b"NAME":
-                name_str = self.read_cstring(geom_data["data"], 0)
+                mesh_name = self.read_cstring(geom_data["data"], 0)
                 if self.base_name == "":
-                    self.base_name = name_str
-                lodm.set_name(name_str)
+                    self.base_name = mesh_name
 
             # Vertices
             elif geom_data["name"] == b"VERT":
-                vert_idx = 0
-                while vert_idx * 12 < geom_data["length"]:
-                    lodm.add_vert(struct.unpack_from(
-                        vec3_struct, geom_data["data"], vert_idx * 12))
-                    vert_idx += 1
+                vert_data = geom_data["data"]
 
             # Vertex normals.
             elif geom_data["name"] == b"VTNM" and mesh_vers != 9:
-                vtnm_idx = 0
-                while vtnm_idx * 12 < geom_data["length"]:
-                    lodm.add_norm(struct.unpack_from(
-                        vec3_struct, geom_data["data"], vtnm_idx * 12))
-                    vtnm_idx += 1
+                vtnm_data = geom_data["data"]
 
             # Vertex normals (mesh version 9).
             elif geom_data["name"] == b"NORM" and mesh_vers == 9:
-                vtnm_idx = 0
-                while vtnm_idx * 12 < geom_data["length"]:
-                    lodm.add_norm(struct.unpack_from(
-                        vec3_struct, geom_data["data"], vtnm_idx * 12))
-                    vtnm_idx += 1
+                vtnm_data = geom_data["data"]
 
             # Vertices for each face
             elif geom_data["name"] == b"FVRT":
-                fvrt_idx = 0
-                while fvrt_idx * 16 < geom_data["length"]:
-                    lodm.add_fvrt(struct.unpack_from(
-                        fvrt_struct, geom_data["data"], fvrt_idx * 16))
-                    fvrt_idx += 1
+                fvrt_data = geom_data["data"]
 
             # Face info
             elif geom_data["name"] == b"FACE":
-                face_idx = 0
-                while face_idx * face_size < geom_data["length"]:
-                    face_data = struct.unpack_from(
-                        face_struct, geom_data["data"], face_idx * face_size)
-                    lodm.add_face(face_data)
-                    register_texture(face_data[2], read_mats=self.read_mats)
-                    face_idx += 1
+                face_data = geom_data["data"]
 
             # Center point
             elif geom_data["name"] == b"CNTR":
-                lodm.set_cntr(struct.unpack(vec3_struct, geom_data["data"]))
+                cntr_data = geom_data["data"]
+
+            elif geom_data["name"] == b"RADI":
+                radi_data = geom_data["data"]
 
             # print(
             #     "geom length:", geom["length"],
@@ -464,7 +465,10 @@ class IFFImporter(ImportBackend):
             #     "current position:", self.iff_file.tell()
             # )
         try:
-            bl_mesh = lodm.to_bl_mesh()
+            lodm = LODMesh(mesh_vers, mesh_name, vert_data, vtnm_data,
+                           fvrt_data, face_data, cntr_data, radi_data)
+            lodm.setup()
+            mtlinfo = lodm.get_mtlinfo()
             if isinstance(self.reorient_matrix, Matrix):
                 bl_mesh.transform(self.reorient_matrix)
             bl_obname = CHLD_LOD_NAMES[lod_lev].format(self.base_name)
