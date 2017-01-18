@@ -159,16 +159,40 @@ class ImportBackend:
 class LODMesh:
 
     def __init__(self, vert_data, vtnm_data, fvrt_data, face_data):
-        # self._verts = []
-        # self._norms = []
-        # self._fvrts = []
-        # self._faces = []
         self._name = ""
         self._cntr = (0.0, 0.0, 0.0)
         self._radi = 0.0
         self.mtlinfo = OrderedDict()
         self.setup_complete = False
         self.bl_mesh = None
+
+        structlen = 12  # 4 bytes * 3 floats (XYZ)
+        num_verts = len(vert_data) // structlen
+        self._verts = [None] * num_verts
+        for idx in range(num_verts):
+            self._verts[idx] = struct.unpack_from(
+                "<fff", vert_data, idx * structlen)
+
+        structlen = 12  # 4 bytes * 3 floats (XYZ)
+        num_norms = len(vtnm_data) // structlen
+        self._norms = [None] * num_norms
+        for idx in range(num_norms):
+            self._norms[idx] = struct.unpack_from(
+                "<fff", vtnm_data, idx * structlen)
+
+        structlen = 16  # 4 bytes * (2 ints + 2 floats)
+        num_fvrts = len(fvrt_data) // structlen
+        self._fvrts = [None] * num_fvrts
+        for idx in range(num_norms):
+            self._fvrts[idx] = struct.unpack_from(
+                "<iiff", vtnm_data, idx * structlen)
+
+        structlen = 28  # 4 bytes * (6 ints + 1 float)
+        num_faces = len(face_data) // structlen
+        self._faces = [None] * num_faces
+        for idx in range(num_faces):
+            self._faces[idx] = struct.unpack_from(
+                "<ifiiii", vtnm_data, idx * structlen)
 
     def set_name(self, name):
         """Set the name of this mesh."""
