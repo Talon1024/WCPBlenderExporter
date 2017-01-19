@@ -63,27 +63,26 @@ class ImportBackend:
         self.base_name = filepath[filepath.rfind(dirsep):-3]
 
     def load_materials(self):
-        """Add a texture to the texture reference if it isn't already there.
+        """Load the textures into the material dictionary.
 
-        Add a texture to the texture dictionary if it isn't already in it.
-        New entries in the dictionary have the texture number and light flags
-        as the key, and the Blender material as the value. Return the Blender
-        material associated with the newly-registered texture, or the existing
-        Blender material if said texture is already in the dictionary.
-
-        @param texnum The texture number to register
+        Entries in the dictionary have the texture number and light flags
+        as the key, and will have their values replaced by the Blender material
+        and image.
         """
 
+        tximgs = {}
         for mtl in self.texmats.keys():
             bmtl_name = "{0:0>8d}_{:d}".format(*mtl)
 
             def get_teximg(texnum, bl_mat):
+                if texnum in tximgs:
+                    return tximgs[texnum]
                 mfiledir = self.mfilepath[:self.mfilepath.rfind(dirsep)]
                 mat_pfx = bmtl_name + "."
 
                 def get_img_fname():
-                    img_extns = ("bmp", "png", "jpg", "jpeg", "tga", "gif", "dds",
-                                 "mat")
+                    img_extns = ("bmp", "png", "jpg", "jpeg", "tga", "gif",
+                                 "dds", "mat")
                     print("Searching", mfiledir, "for textures...")
                     # Search for high-quality images first.
                     for entry in listdir(mfiledir):
@@ -96,21 +95,8 @@ class ImportBackend:
                 mat_fname = get_img_fname()
 
                 if mat_fname is not None:
-                    # mat_fname is not a MAT.
-                    if not mat_fname.lower().endswith("mat"):
-                        bl_img = bpy.data.images.load(mat_fname)
-                        self.texmats[texnum][2] = bl_img
-
-                        bl_mtexslot = bl_mat.texture_slots.add()
-                        bl_mtexslot.texture_coords = "UV"
-
-                        bl_mtex = bpy.data.textures.new(mat_fname, "IMAGE")
-                        bl_mtex.image = bl_img
-
-                        bl_mtexslot.texture = bl_mtex
-                    else:
-                        # mat_fname is a MAT.
-                        if read_mats:
+                    if mat_fname.lower().endswith("mat"):
+                        if self.read_mats:
                             mat_path = mfiledir + dirsep + mat_fname
                             mat_reader = mat_read.MATReader(mat_path)
                             mat_reader.read()
@@ -132,22 +118,46 @@ class ImportBackend:
                             bl_mtex.image = bl_img
 
                             bl_mtexslot.texture = bl_mtex
-                else:
-                    print("Image not found for texture {0:0>8d}!".format(texnum))
 
-            if texnum in self.texmats.keys():
-                return self.texmats[texnum][1]
+                            tximgs[texnum] = bl_img
+                            return bl_img
+                    else:
+                        # mat_fname is not a MAT.
+                        bl_img = bpy.data.images.load(mat_fname)
+                        self.texmats[texnum][2] = bl_img
+
+                        bl_mtexslot = bl_mat.texture_slots.add()
+                        bl_mtexslot.texture_coords = "UV"
+
+                        bl_mtex = bpy.data.textures.new(mat_fname, "IMAGE")
+                        bl_mtex.image = bl_img
+
+                        bl_mtexslot.texture = bl_mtex
+
+                        tximgs[texnum] = bl_img
+                        return bl_img
+                else:
+                    print("Image not found for texture {0:0>8d}!".format(
+                          texnum))
+
+            bl_mat = bpy.data.materials.new(bmtl_name)
+            bl_img = None
+
+            if (mat[0] & 0xff000000) == 0x7f000000:
+                # Flat colour material
+                bl_mat.diffuse_color = iff_mesh.texnum_colour(mat[0])
             else:
-                bl_mat = bpy.data.materials.new(bmtl_name)
+                # Last element in this list will become the image file path
+                bl_img = get_teximg(mtl[0], bl_mat)
 
-                self.texmats[texnum] = [bmtl_name, bl_mat, None]
-                if (texnum & 0xff000000) == 0x7f000000:
-                    # Flat colour material
-                    bl_mat.diffuse_color = iff_mesh.texnum_colour(texnum)
-                else:
-                    # Last element in this list will become the image file path
-                    get_teximg(texnum, bl_mat)
-                return bl_mat
+            if mat[1] == 2:
+                bl_mat.use_shadeless = True
+            elif mat[1] != 0 or mat[1] != 2:
+                if mat[1] & 2 == 2:
+                    bl_mat.use_shadeless = True
+                bl_mat["light_flags"] = mat[1]
+
+            self.texmats[mtl] = [bl_mat, bl_img]
 
 
 class LODMesh:
@@ -339,28 +349,13 @@ class LODMesh:
         return self.mtlinfo
 
     def assign_materials(self, materials):
-        mtximgs = {}  # Optimization
-
-        def mtl_image(material):
-            # Get material image for face texture
-            if material not in mtximgs:
-                for ts in material.texture_slots:
-                    if (ts.use and ts.use_map_color_diffuse and
-                            ts.texture.type == "IMAGE"):
-                        mtximgs[material] = ts.texture.image
-                        return ts.texture.image
-            else:
-                return mtximgs[material]
-
         for mi, mtl in enumerate(materials):
-            if isinstance(mtl, Material):
-                # Add material to list of materials for the mesh
-                self.bl_mesh.materials.append(mtl)
-                # Assign corresponding image to UV image texture (AKA facetex)
-                for fi, f in enumerate(self.bl_mesh.polygons):
-                    if f.material_index == mi:
-                        self.bl_mesh.uv_textures["UVMap"].data[fi].image = (
-                            mtl_image(mtl))
+            # Add material to list of materials for the mesh
+            self.bl_mesh.materials.append(mtl[0])
+            # Assign corresponding image to UV image texture (AKA facetex)
+            for fi, f in enumerate(self.bl_mesh.polygons):
+                if f.material_index == mi:
+                    self.bl_mesh.uv_textures["UVMap"].data[fi].image = mtl[1]
 
     def get_bl_mesh(self):
         if self.bl_mesh and self.setup_complete:
