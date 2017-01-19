@@ -35,93 +35,6 @@ class ValueWarning(Warning):
     pass
 
 
-def register_texture(texnum, read_mats=True):
-    """Add a texture to the texture reference if it isn't already there.
-
-    Add a texture to the global texture dictionary if it isn't already in it.
-    New entries in the dictionary have the texture number as the key, and the
-    Blender material as the value. Return the Blender material associated with
-    the newly-registered texture, or the existing Blender material if said
-    texture is already in the dictionary.
-
-    @param texnum The texture number to register
-    """
-
-    bmtl_name = "{0:0>8d}".format(texnum)
-
-    def get_teximg(texnum, bl_mat):
-        mfiledir = self.mfilepath[:self.mfilepath.rfind(dirsep)]
-        mat_pfx = bmtl_name + "."
-
-        def get_img_fname():
-            img_extns = ("bmp", "png", "jpg", "jpeg", "tga", "gif", "dds",
-                         "mat")
-            print("Searching", mfiledir, "for textures...")
-            # Search for high-quality images first.
-            for entry in listdir(mfiledir):
-                for extn in img_extns:
-                    mat_fname = mat_pfx + extn
-                    if entry.lower() == mat_fname:
-                        return entry
-            return None
-
-        mat_fname = get_img_fname()
-
-        if mat_fname is not None:
-            # mat_fname is not a MAT.
-            if not mat_fname.lower().endswith("mat"):
-                bl_img = bpy.data.images.load(mat_fname)
-                texmats[texnum][2] = bl_img
-
-                bl_mtexslot = bl_mat.texture_slots.add()
-                bl_mtexslot.texture_coords = "UV"
-
-                bl_mtex = bpy.data.textures.new(mat_fname, "IMAGE")
-                bl_mtex.image = bl_img
-
-                bl_mtexslot.texture = bl_mtex
-            else:
-                # mat_fname is a MAT.
-                if read_mats:
-                    mat_path = mfiledir + dirsep + mat_fname
-                    mat_reader = mat_read.MATReader(mat_path)
-                    mat_reader.read()
-                    mat_reader.flip_y()
-                    bl_img = bpy.data.images.new(
-                        mat_path[mat_path.rfind(dirsep):],
-                        mat_reader.img_width,
-                        mat_reader.img_height,
-                        True
-                    )
-                    bl_img.pixels = [
-                        x / 255 for x in mat_reader.pixels.tolist()]
-
-                    bl_mtexslot = bl_mat.texture_slots.add()
-                    bl_mtexslot.texture_coords = "UV"
-                    bl_mtexslot.uv_layer = "UVMap"
-
-                    bl_mtex = bpy.data.textures.new(mat_fname, "IMAGE")
-                    bl_mtex.image = bl_img
-
-                    bl_mtexslot.texture = bl_mtex
-        else:
-            print("Image not found for texture {0:0>8d}!".format(texnum))
-
-    if texnum in texmats.keys():
-        return texmats[texnum][1]
-    else:
-        bl_mat = bpy.data.materials.new(bmtl_name)
-
-        texmats[texnum] = [bmtl_name, bl_mat, None]
-        if (texnum & 0xff000000) == 0x7f000000:
-            # Flat colour material
-            bl_mat.diffuse_color = iff_mesh.texnum_colour(texnum)
-        else:
-            # Last element in this list will become the image file path
-            get_teximg(texnum, bl_mat)
-        return bl_mat
-
-
 def approx_equal(num1, num2, error):
     return (abs(num2 - num1) <= abs(error))
 
@@ -147,10 +60,94 @@ class ImportBackend:
         self.read_mats = read_mats
         self.dranges = None
         self.lod_objs = []
-        self.base_name = ""
+        self.base_name = filepath[filepath.rfind(dirsep):-3]
 
     def load_materials(self):
-        pass
+        """Add a texture to the texture reference if it isn't already there.
+
+        Add a texture to the texture dictionary if it isn't already in it.
+        New entries in the dictionary have the texture number and light flags
+        as the key, and the Blender material as the value. Return the Blender
+        material associated with the newly-registered texture, or the existing
+        Blender material if said texture is already in the dictionary.
+
+        @param texnum The texture number to register
+        """
+
+        for mtl in self.texmats.keys():
+            bmtl_name = "{0:0>8d}_{:d}".format(*mtl)
+
+            def get_teximg(texnum, bl_mat):
+                mfiledir = self.mfilepath[:self.mfilepath.rfind(dirsep)]
+                mat_pfx = bmtl_name + "."
+
+                def get_img_fname():
+                    img_extns = ("bmp", "png", "jpg", "jpeg", "tga", "gif", "dds",
+                                 "mat")
+                    print("Searching", mfiledir, "for textures...")
+                    # Search for high-quality images first.
+                    for entry in listdir(mfiledir):
+                        for extn in img_extns:
+                            mat_fname = mat_pfx + extn
+                            if entry.lower() == mat_fname:
+                                return entry
+                    return None
+
+                mat_fname = get_img_fname()
+
+                if mat_fname is not None:
+                    # mat_fname is not a MAT.
+                    if not mat_fname.lower().endswith("mat"):
+                        bl_img = bpy.data.images.load(mat_fname)
+                        self.texmats[texnum][2] = bl_img
+
+                        bl_mtexslot = bl_mat.texture_slots.add()
+                        bl_mtexslot.texture_coords = "UV"
+
+                        bl_mtex = bpy.data.textures.new(mat_fname, "IMAGE")
+                        bl_mtex.image = bl_img
+
+                        bl_mtexslot.texture = bl_mtex
+                    else:
+                        # mat_fname is a MAT.
+                        if read_mats:
+                            mat_path = mfiledir + dirsep + mat_fname
+                            mat_reader = mat_read.MATReader(mat_path)
+                            mat_reader.read()
+                            mat_reader.flip_y()
+                            bl_img = bpy.data.images.new(
+                                mat_path[mat_path.rfind(dirsep):],
+                                mat_reader.img_width,
+                                mat_reader.img_height,
+                                True
+                            )
+                            bl_img.pixels = [
+                                x / 255 for x in mat_reader.pixels.tolist()]
+
+                            bl_mtexslot = bl_mat.texture_slots.add()
+                            bl_mtexslot.texture_coords = "UV"
+                            bl_mtexslot.uv_layer = "UVMap"
+
+                            bl_mtex = bpy.data.textures.new(mat_fname, "IMAGE")
+                            bl_mtex.image = bl_img
+
+                            bl_mtexslot.texture = bl_mtex
+                else:
+                    print("Image not found for texture {0:0>8d}!".format(texnum))
+
+            if texnum in self.texmats.keys():
+                return self.texmats[texnum][1]
+            else:
+                bl_mat = bpy.data.materials.new(bmtl_name)
+
+                self.texmats[texnum] = [bmtl_name, bl_mat, None]
+                if (texnum & 0xff000000) == 0x7f000000:
+                    # Flat colour material
+                    bl_mat.diffuse_color = iff_mesh.texnum_colour(texnum)
+                else:
+                    # Last element in this list will become the image file path
+                    get_teximg(texnum, bl_mat)
+                return bl_mat
 
 
 class LODMesh:
@@ -469,28 +466,26 @@ class IFFImporter(ImportBackend):
             #     "geom read:", geom_bytes_read,
             #     "current position:", self.iff_file.tell()
             # )
-        try:
-            lodm = LODMesh(mesh_vers, mesh_name, vert_data, vtnm_data,
-                           fvrt_data, face_data, cntr_data, radi_data)
-            lodm.setup()
-            mtlinfo = lodm.get_mtlinfo()
-            if isinstance(self.reorient_matrix, Matrix):
-                bl_mesh.transform(self.reorient_matrix)
-            bl_obname = CHLD_LOD_NAMES[lod_lev].format(self.base_name)
-            bl_ob = bpy.data.objects.new(bl_obname, bl_mesh)
-            bpy.context.scene.objects.link(bl_ob)
-            if lod_lev > 0:
-                # Set drange custom property
+        lodm = LODMesh(mesh_vers, mesh_name, vert_data, vtnm_data,
+                       fvrt_data, face_data, cntr_data, radi_data)
+        lodm.setup()
+        for visinfo in lodm.get_mtlinfo().keys():
+            if visinfo not in self.texmats:
+                self.texmats[visinfo] = None  # Assign a Blender material
+        bl_mesh.transform(self.reorient_matrix)
+        bl_obname = CHLD_LOD_NAMES[lod_lev].format(mesh_name)
+        bl_ob = bpy.data.objects.new(bl_obname, bl_mesh)
+        bpy.context.scene.objects.link(bl_ob)
+        if lod_lev > 0:
+            # Set drange custom property
+            try:
+                bl_ob["drange"] = self.dranges[lod_lev]
+            except IndexError:
                 try:
-                    bl_ob["drange"] = self.dranges[lod_lev]
-                except IndexError:
-                    try:
-                        del bl_ob["drange"]
-                    except KeyError:
-                        pass
-            self.lod_objs.append(bl_ob)
-        except AssertionError:
-            lodm.debug_info()
+                    del bl_ob["drange"]
+                except KeyError:
+                    pass
+        self.lod_objs.append(bl_ob)
 
     def read_hard_data(self, major_form):
         mjrf_bytes_read = 4
