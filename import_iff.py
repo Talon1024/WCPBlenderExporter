@@ -30,9 +30,6 @@ MAX_NUM_LODS = 7
 # MAIN_LOD_NAMES = ["detail-" + str(lod) for lod in range(MAX_NUM_LODS)]
 CHLD_LOD_NAMES = ["{{0}}-lod{0:d}".format(lod) for lod in range(MAX_NUM_LODS)]
 
-mfilepath = None  # These are Initialized in ImportBackend constructor
-texmats = None
-
 
 class ValueWarning(Warning):
     pass
@@ -53,7 +50,7 @@ def register_texture(texnum, read_mats=True):
     bmtl_name = "{0:0>8d}".format(texnum)
 
     def get_teximg(texnum, bl_mat):
-        mfiledir = mfilepath[:mfilepath.rfind(dirsep)]
+        mfiledir = self.mfilepath[:self.mfilepath.rfind(dirsep)]
         mat_pfx = bmtl_name + "."
 
         def get_img_fname():
@@ -140,11 +137,8 @@ class ImportBackend:
                  import_bsp=False,
                  read_mats=False):
 
-        global mfilepath
-        global texmats
-
-        mfilepath = filepath
-        texmats = {}
+        self.mfilepath = filepath
+        self.texmats = {}
 
         self.reorient_matrix = reorient_matrix
         self.import_all_lods = import_all_lods
@@ -155,7 +149,8 @@ class ImportBackend:
         self.lod_objs = []
         self.base_name = ""
 
-    def
+    def load_materials(self):
+        pass
 
 
 class LODMesh:
@@ -198,7 +193,7 @@ class LODMesh:
                 structstr, vtnm_data, idx * structlen)
 
         # Faces
-        structstr = "<ifiiii" if version >= 11 else "<ifiii"
+        structstr = "<ifiiii" if version >= 11 else "<ifiii"  # No light flags.
         structlen = 28 if version >= 11 else 24  # 4 bytes * (6 ints + 1 float)
         num_faces = len(face_data) // structlen
         self._faces = [None] * num_faces
@@ -289,11 +284,8 @@ class LODMesh:
 
             # Get texture info
             # f[2] = Texture number, f[5] = Light flags
-            self.mtlinfo[(f[2], f[5])] = None  # Assign material later
-            # if f[2] in texmats.keys():
-            #     if texmats[f[2]][0] not in self.bl_mesh.materials:
-            #         self.mtlinfo[f[2]] = len(self.bl_mesh.materials)
-            #         self.bl_mesh.materials.append(texmats[f[2]][1])
+            visinfo = (f[2], f[5]) if self.version >= 11 else (f[2], 0)
+            self.mtlinfo[visinfo] = None  # Assign material later
 
         self.bl_mesh.edges.add(len(face_edges))
         for eidx, ed in enumerate(face_edges):
@@ -314,9 +306,10 @@ class LODMesh:
 
             self.bl_mesh.polygons[fidx].vertices = f_verts
 
+            visinfo = (f[2], f[5]) if self.version >= 11 else (f[2], 0)
             # Assign corresponding material to polygon
             self.bl_mesh.polygons[fidx].material_index = (
-                list(self.mtlinfo).index((f[2], f[5])))
+                list(self.mtlinfo).index(visinfo))
 
             assert(len(f_verts) == len(f_edgerefs) == f[4])
 
@@ -531,7 +524,7 @@ class IFFImporter(ImportBackend):
         return cstring.decode("iso-8859-1")
 
     def load(self):
-        self.iff_reader = iff_read.IffReader(mfilepath)
+        self.iff_reader = iff_read.IffReader(self.mfilepath)
         root_form = self.iff_reader.read_data()
         if root_form["type"] == "form":
             print("Root form is:", root_form["name"])
