@@ -143,19 +143,19 @@ class ImportBackend:
             bl_mat = bpy.data.materials.new(bmtl_name)
             bl_img = None
 
-            if (mat[0] & 0xff000000) == 0x7f000000:
+            if (mtl[0] & 0xff000000) == 0x7f000000:
                 # Flat colour material
-                bl_mat.diffuse_color = iff_mesh.texnum_colour(mat[0])
+                bl_mat.diffuse_color = iff_mesh.texnum_colour(mtl[0])
             else:
                 # Last element in this list will become the image file path
                 bl_img = get_teximg(mtl[0], bl_mat)
 
-            if mat[1] == 2:
+            if mtl[1] == 2:
                 bl_mat.use_shadeless = True
-            elif mat[1] != 0 or mat[1] != 2:
-                if mat[1] & 2 == 2:
+            elif mtl[1] != 0 or mtl[1] != 2:
+                if mtl[1] & 2 == 2:
                     bl_mat.use_shadeless = True
-                bl_mat["light_flags"] = mat[1]
+                bl_mat["light_flags"] = mtl[1]
 
             self.texmats[mtl] = [bl_mat, bl_img]
 
