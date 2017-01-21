@@ -59,7 +59,8 @@ class ImportBackend:
         self.import_bsp = import_bsp
         self.read_mats = read_mats
         self.dranges = None
-        self.lod_objs = []
+        self.lod0_obj = None
+        self.lod_meshes = []
         self.base_name = filepath[filepath.rfind(dirsep):-3]
 
     def load_materials(self):
@@ -380,15 +381,16 @@ class IFFImporter(ImportBackend):
 
             mnrmsh = self.iff_reader.read_data()
             if mnrmsh["type"] == "form" and mnrmsh["name"] == b"MESH":
+                # Mesh LOD form
                 self.parse_minor_mesh_form(mnrmsh, lod_lev)
             elif mnrmsh["type"] == "form" and mnrmsh["name"] == b"EMPT":
+                # Empty LOD Form - no mesh
                 if self.base_name != "":
                     bl_obname = CHLD_LOD_NAMES[lod_lev].format(self.base_name)
                 else:
                     bl_obname = "detail-{}".format(lod_lev)
                 bl_ob = bpy.data.objects.new(bl_obname, None)
                 bpy.context.scene.objects.link(bl_ob)
-                self.lod_objs.append(bl_ob)
 
             mjrmsh_read += 8 + lod_form["length"]
             print("mjrmsh_read:", mjrmsh_read, "of", mesh_form["length"])
@@ -471,7 +473,9 @@ class IFFImporter(ImportBackend):
         bl_obname = CHLD_LOD_NAMES[lod_lev].format(mesh_name)
         bl_ob = bpy.data.objects.new(bl_obname, bl_mesh)
         bpy.context.scene.objects.link(bl_ob)
-        if lod_lev > 0:
+        if lod_lev == 0:
+            self.lod0_obj = bl_ob
+        elif lod_lev > 0:
             # Set drange custom property
             try:
                 bl_ob["drange"] = self.dranges[lod_lev]
@@ -480,7 +484,6 @@ class IFFImporter(ImportBackend):
                     del bl_ob["drange"]
                 except KeyError:
                     pass
-        self.lod_objs.append(bl_ob)
 
     def read_hard_data(self, major_form):
         mjrf_bytes_read = 4
@@ -492,7 +495,7 @@ class IFFImporter(ImportBackend):
             bl_ob = hardpt.to_bl_obj()
 
             bpy.context.scene.objects.link(bl_ob)
-            bl_ob.parent = self.lod_objs[0]
+            bl_ob.parent = self.lod0_obj
 
     def read_coll_data(self):
         coll_data = self.iff_reader.read_data()
@@ -501,7 +504,7 @@ class IFFImporter(ImportBackend):
 
             bl_obj = coll_sphere.to_bl_obj("collsphr")
             bpy.context.scene.objects.link(bl_obj)
-            bl_obj.parent = self.lod_objs[0]
+            bl_obj.parent = self.lod0_obj
 
     def read_cstring(self, data, ofs):
         cstring = bytearray()
