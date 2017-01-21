@@ -344,7 +344,15 @@ class LODMesh:
 
             self.bl_mesh.polygons[fidx].loop_start = f_startloop
             self.bl_mesh.polygons[fidx].loop_total = f[4]
-        # Materials need to be assigned afterwards
+
+        # Check for faces that use textures that aren't flat colours.
+        # If there are none, the setup is complete.
+        flat_mats = 0
+        for visinfo in self.mtlinfo.keys():
+            if visinfo[0] & 0xff000000 == 0x7f000000:
+                flat_mats += 1
+        if flat_mats == len(self.mtlinfo):
+            self.setup_complete = True
 
     def get_mtlinfo(self):
         return self.mtlinfo
@@ -357,6 +365,7 @@ class LODMesh:
             for fi, f in enumerate(self.bl_mesh.polygons):
                 if f.material_index == mi:
                     self.bl_mesh.uv_textures["UVMap"].data[fi].image = mtl[1]
+        self.setup_complete = True
 
     def get_bl_mesh(self):
         if self.bl_mesh and self.setup_complete:
@@ -469,10 +478,6 @@ class IFFImporter(ImportBackend):
         for visinfo in lodm.get_mtlinfo().keys():
             if visinfo not in self.texmats:
                 self.texmats[visinfo] = None  # Assign a Blender material
-        bl_mesh.transform(self.reorient_matrix)
-        bl_obname = CHLD_LOD_NAMES[lod_lev].format(mesh_name)
-        bl_ob = bpy.data.objects.new(bl_obname, bl_mesh)
-        bpy.context.scene.objects.link(bl_ob)
         if lod_lev == 0:
             self.lod0_obj = bl_ob
         elif lod_lev > 0:
