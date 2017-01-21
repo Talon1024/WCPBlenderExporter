@@ -35,10 +35,6 @@ class ValueWarning(Warning):
     pass
 
 
-def approx_equal(num1, num2, error):
-    return (abs(num2 - num1) <= abs(error))
-
-
 class ImportBackend:
 
     def __init__(self,
