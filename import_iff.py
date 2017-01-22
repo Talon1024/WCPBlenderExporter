@@ -42,6 +42,7 @@ class MaterialManager:
     def __init__(self, mfilepath):
         self.mfilepath = mfilepath
         self.mtimages = {}  # Texnum -> Blender image
+        self.mtexs = {}  # Texnum -> Blender texture
         self.materials = {}  # texnum, lf -> Blender material
 
     @classmethod
@@ -59,6 +60,10 @@ class MaterialManager:
 
         def get_teximg(texnum, bl_mat):
             if texnum in self.mtimages:
+                bl_mtexslot = bl_mat.texture_slots.add()
+                bl_mtexslot.texture_coords = "UV"
+                bl_mtexslot.uv_layer = "UVMap"
+                bl_mtexslot.texture = self.mtexs[texnum]
                 return self.mtimages[texnum]
             mfiledir = self.mfilepath[:self.mfilepath.rfind(dirsep)]
 
@@ -97,6 +102,7 @@ class MaterialManager:
 
                 bl_mtex = bpy.data.textures.new(mat_fname, "IMAGE")
                 bl_mtex.image = bl_img
+                self.mtexs[texnum] = bl_mtex
 
                 bl_mtexslot.texture = bl_mtex
             else:
@@ -109,6 +115,7 @@ class MaterialManager:
 
                 bl_mtex = bpy.data.textures.new(mat_fname, "IMAGE")
                 bl_mtex.image = bl_img
+                self.mtexs[texnum] = bl_mtex
 
                 bl_mtexslot.texture = bl_mtex
 
