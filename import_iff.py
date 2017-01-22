@@ -165,10 +165,8 @@ class ImportBackend:
 class LODMesh:
 
     def __init__(self, version, name, vert_data, vtnm_data, fvrt_data,
-                 face_data, cntr_data, radi_data):
+                 face_data):
         self._name = name
-        self._cntr = None
-        self._radi = None
         self.mtlinfo = OrderedDict()
         self.version = version  # Used for FACE struct handling.
 
@@ -208,29 +206,9 @@ class LODMesh:
             self._faces[idx] = struct.unpack_from(
                 structstr, vtnm_data, idx * structlen)
 
-        # Center
-        structstr = "<fff"
-        self._cntr = struct.unpack(structstr, cntr_data)
-
-        structstr = "<f"
-        self._radi = struct.unpack(structstr, radi_data)[0]  # Tuple
-
     def set_name(self, name):
         """Set the name of this mesh."""
         self._name = name.strip()
-
-    def set_cntr(self, cntr):
-        """Set the center point for this mesh."""
-        if len(cntr) == 3 and all(map(lambda e: isinstance(e, float), cntr)):
-            self._cntr = cntr
-        else:
-            raise TypeError("{0!r} ain't no CNTR!".format(cntr))
-
-    def set_radi(self, radi):
-        """Set the radius of this mesh."""
-        if not isinstance(radi, float):
-            raise TypeError("{0!r} is not a valid radius!".format(radi))
-        self._radi = radi
 
     def edges_from_verts(self, verts):
         """Generates vertex reference tuples for edges."""
@@ -451,12 +429,12 @@ class IFFImporter(ImportBackend):
             #     "geom read:", geom_bytes_read,
             #     "current position:", self.iff_file.tell()
             # )
+
         lodm = LODMesh(mesh_vers, mesh_name, vert_data, vtnm_data,
-                       fvrt_data, face_data, cntr_data, radi_data)
-        lodm.setup()
-        for visinfo in lodm.get_mtlinfo().keys():
-            if visinfo not in self.texmats:
-                self.texmats[visinfo] = None  # Assign a Blender material
+                       fvrt_data, face_data)
+        bl_obname = CHLD_LOD_NAMES[lod_lev].format(self.base_name, lod_lev)
+        bl_ob = bpy.data.objects.new(bl_obname, lodm.to_bl_mesh())
+
         if lod_lev == 0:
             self.lod0_obj = bl_ob
         elif lod_lev > 0:
@@ -468,6 +446,18 @@ class IFFImporter(ImportBackend):
                     del bl_ob["drange"]
                 except KeyError:
                     pass
+        bpy.context.scene.objects.link(bl_ob)
+
+        # Make and link cntradi object
+        center = struct.unpack("<fff", cntr_data)
+        radius = struct.unpack("<f", radi_data)
+        cntradi_ob = bpy.data.objects.new("cntradi", None)
+        cntradi_ob.scale = radius * 3  # Radius is a tuple
+        cntradi_ob.location = center
+        cntradi_ob.empty_draw_type = "SPHERE"
+
+        bpy.context.scene.objects.link(cntradi_ob)
+        cntradi_ob.parent = bl_ob
 
     def read_hard_data(self, major_form):
         mjrf_bytes_read = 4
