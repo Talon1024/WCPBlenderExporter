@@ -140,7 +140,7 @@ class MaterialManager:
 
         if light_flags == 2:
             bl_mat.use_shadeless = True
-        elif light_flags != 0 or light_flags != 2:
+        elif light_flags != 0 and light_flags != 2:
             if light_flags & 2 == 2:
                 bl_mat.use_shadeless = True
             bl_mat["light_flags"] = light_flags
