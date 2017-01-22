@@ -38,17 +38,21 @@ class ValueWarning(Warning):
 class MaterialManager:
 
     instance = None
+    mfilepath = ""
 
-    def __init__(self, mfilepath):
-        self.mfilepath = mfilepath
+    def __init__(self):
         self.mtimages = {}  # Texnum -> Blender image
         self.mtexs = {}  # Texnum -> Blender texture
         self.materials = {}  # texnum, lf -> Blender material
 
     @classmethod
-    def get_instance(self, mfilepath=""):
+    def set_mfilepath(self, mfilepath):
+        self.mfilepath = mfilepath
+
+    @classmethod
+    def get_instance(self):
         if self.instance is None:
-            self.instance = MaterialManager(mfilepath)
+            self.instance = MaterialManager()
         return self.instance
 
     def get_teximg(self, texnum):
@@ -168,7 +172,7 @@ class ImportBackend:
         self.lod0_obj = None
         self.lod_meshes = []
         self.base_name = filepath[filepath.rfind(dirsep) + 1:-4]
-        MaterialManager.get_instance(filepath)  # Setup MaterialManager
+        MaterialManager.set_mfilepath(filepath)  # Setup MaterialManager
 
 
 class LODMesh:
