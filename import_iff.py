@@ -157,7 +157,7 @@ class ImportBackend:
         self.dranges = None
         self.lod0_obj = None
         self.lod_meshes = []
-        self.base_name = filepath[filepath.rfind(dirsep):-3]
+        self.base_name = filepath[filepath.rfind(dirsep) + 1:-4]
         MaterialManager.get_instance(filepath)  # Setup MaterialManager
 
 
