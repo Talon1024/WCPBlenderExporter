@@ -61,14 +61,13 @@ class MaterialManager:
             if texnum in self.mtimages:
                 return self.mtimages[texnum]
             mfiledir = self.mfilepath[:self.mfilepath.rfind(dirsep)]
-            mat_pfx = texfname + "."
 
             # Search directory of mesh file for textures
             img_extns = ("bmp", "png", "jpg", "jpeg", "tga", "gif",
                          "dds", "mat")
             print("Searching", mfiledir, "for textures...")
             for extn in img_extns:
-                mat_fname = mat_pfx + extn
+                mat_fname = texfname + "." + extn
                 # A map object cannot be iterated over more than once.
                 files = map(lambda x: x.lower(), listdir(mfiledir))
                 if mat_fname in files:
