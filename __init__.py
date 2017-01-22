@@ -34,7 +34,7 @@ bl_info = {
     "name": "WCP/SO Mesh File",
     "author": "Kevin Caccamo",
     "description": "Export to a WCP/SO mesh file.",
-    "version": (2, 1, 0),
+    "version": (2, 1, 1),
     "blender": (2, 65, 0),
     "location": "File > Export",
     "warning": "%{GIT_COMMIT}",
@@ -64,17 +64,17 @@ class ImportIFF(Operator, ImportHelper):
         "filename if blank"
     )
 
-    import_all_lods = BoolProperty(
-        name="Import all LODs",
-        description="Import all LOD meshes as separate models",
-        default=False
-    )
+    # import_all_lods = BoolProperty(
+    #     name="Import all LODs",
+    #     description="Import all LOD meshes as separate models",
+    #     default=False
+    # )
 
-    use_facetex = BoolProperty(
-        name="Use Face Textures",
-        description="Use face textures instead of materials for texturing",
-        default=False
-    )
+    # use_facetex = BoolProperty(
+    #     name="Use Face Textures",
+    #     description="Use face textures instead of materials for texturing",
+    #     default=False
+    # )
 
     # read_mats = BoolProperty(
     #     name="Read MATs",
@@ -94,7 +94,7 @@ class ImportIFF(Operator, ImportHelper):
 
         importer = getattr(import_iff, self.backend_class_name)(
             self.filepath, self.texname, wc_orientation_matrix,
-            self.import_all_lods, self.use_facetex, self.import_bsp
+            self.import_bsp
         )
 
         importer.load()
