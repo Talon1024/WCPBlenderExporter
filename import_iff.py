@@ -71,11 +71,18 @@ class MaterialManager:
             img_extns = ("bmp", "png", "jpg", "jpeg", "tga", "gif",
                          "dds", "mat")
             print("Searching", mfiledir, "for textures...")
+            filelist = listdir(mfiledir)
             for extn in img_extns:
                 mat_fname = texfname + "." + extn
                 # A map object cannot be iterated over more than once.
-                files = map(lambda x: x.lower(), listdir(mfiledir))
-                if mat_fname in files:
+                files = map(lambda x: x.lower(), filelist)
+                fileidx = 0
+                for fname in files:
+                    if fname == mat_fname:
+                        mat_fname = filelist[fileidx]
+                        break
+                    fileidx += 1
+                if fileidx != len(filelist):
                     break
             else:
                 print("Image not found for texture {:0>8d}!".format(texnum))
