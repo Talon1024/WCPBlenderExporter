@@ -35,6 +35,107 @@ class ValueWarning(Warning):
     pass
 
 
+class MaterialManager:
+
+    instance = None
+
+    def __init__(self, mfilepath):
+        self.mfilepath = mfilepath
+        self.mtimages = {}  # Texnum -> Blender image
+        self.materials = {}  # texnum, lf -> Blender material
+
+    @classmethod
+    def get_instance(self, mfilepath):
+        if self.instance is None:
+            self.instance = MaterialManager(mfilepath)
+        return self.instance
+
+    def get_material(self, texnum, light_flags):
+        if (texnum, light_flags) in self.materials:
+            return self.materials[(texnum, light_flags)]
+
+        texfname = "{:0>8d}".format(texnum)
+        bmtl_name = "{}_{}".format(texfname, light_flags)
+
+        def get_teximg(texnum, bl_mat):
+            if texnum in self.mtimages:
+                return self.mtimages[texnum]
+            mfiledir = self.mfilepath[:self.mfilepath.rfind(dirsep)]
+            mat_pfx = texfname + "."
+
+            # Search directory of mesh file for textures
+            img_extns = ("bmp", "png", "jpg", "jpeg", "tga", "gif",
+                         "dds", "mat")
+            print("Searching", mfiledir, "for textures...")
+            for extn in img_extns:
+                mat_fname = mat_pfx + extn
+                # A map object cannot be iterated over more than once.
+                files = map(lambda x: x.lower(), listdir(mfiledir))
+                if mat_fname in files:
+                    break
+            else:
+                print("Image not found for texture {:0>8d}!".format(texnum))
+                return None
+
+            if mat_fname.lower().endswith("mat"):
+                mat_path = mfiledir + dirsep + mat_fname
+                mat_reader = mat_read.MATReader(mat_path)
+                mat_reader.read()
+                mat_reader.flip_y()
+                bl_img = bpy.data.images.new(
+                    mat_path[mat_path.rfind(dirsep):],
+                    mat_reader.img_width,
+                    mat_reader.img_height,
+                    True
+                )
+                bl_img.pixels = [
+                    x / 255 for x in mat_reader.pixels.tolist()]
+                self.mtimages[texnum] = bl_img
+
+                bl_mtexslot = bl_mat.texture_slots.add()
+                bl_mtexslot.texture_coords = "UV"
+                bl_mtexslot.uv_layer = "UVMap"
+
+                bl_mtex = bpy.data.textures.new(mat_fname, "IMAGE")
+                bl_mtex.image = bl_img
+
+                bl_mtexslot.texture = bl_mtex
+            else:
+                # mat_fname is not a MAT.
+                bl_img = bpy.data.images.load(mat_fname)
+                self.mtimages[texnum] = bl_img
+
+                bl_mtexslot = bl_mat.texture_slots.add()
+                bl_mtexslot.texture_coords = "UV"
+
+                bl_mtex = bpy.data.textures.new(mat_fname, "IMAGE")
+                bl_mtex.image = bl_img
+
+                bl_mtexslot.texture = bl_mtex
+
+            return bl_img
+
+        bl_mat = bpy.data.materials.new(bmtl_name)
+        bl_img = None
+
+        if (texnum & 0xff000000) == 0x7f000000:
+            # Flat colour material
+            bl_mat.diffuse_color = iff_mesh.texnum_colour(texnum)
+        else:
+            # Last element in this list will become the image file path
+            bl_img = get_teximg(texnum, bl_mat)
+
+        if light_flags == 2:
+            bl_mat.use_shadeless = True
+        elif light_flags != 0 or light_flags != 2:
+            if light_flags & 2 == 2:
+                bl_mat.use_shadeless = True
+            bl_mat["light_flags"] = light_flags
+
+        self.materials[(texnum, light_flags)] = bl_mat
+        return self.materials[(texnum, light_flags)]
+
+
 class ImportBackend:
 
     def __init__(self,
@@ -58,103 +159,6 @@ class ImportBackend:
         self.lod0_obj = None
         self.lod_meshes = []
         self.base_name = filepath[filepath.rfind(dirsep):-3]
-
-    def load_materials(self):
-        """Load the textures into the material dictionary.
-
-        Entries in the dictionary have the texture number and light flags
-        as the key, and will have their values replaced by the Blender material
-        and image.
-        """
-
-        tximgs = {}
-        for mtl in self.texmats.keys():
-            bmtl_name = "{0:0>8d}_{:d}".format(*mtl)
-
-            def get_teximg(texnum, bl_mat):
-                if texnum in tximgs:
-                    return tximgs[texnum]
-                mfiledir = self.mfilepath[:self.mfilepath.rfind(dirsep)]
-                mat_pfx = bmtl_name + "."
-
-                def get_img_fname():
-                    img_extns = ("bmp", "png", "jpg", "jpeg", "tga", "gif",
-                                 "dds", "mat")
-                    print("Searching", mfiledir, "for textures...")
-                    # Search for high-quality images first.
-                    for entry in listdir(mfiledir):
-                        for extn in img_extns:
-                            mat_fname = mat_pfx + extn
-                            if entry.lower() == mat_fname:
-                                return entry
-                    return None
-
-                mat_fname = get_img_fname()
-
-                if mat_fname is not None:
-                    if mat_fname.lower().endswith("mat"):
-                        if self.read_mats:
-                            mat_path = mfiledir + dirsep + mat_fname
-                            mat_reader = mat_read.MATReader(mat_path)
-                            mat_reader.read()
-                            mat_reader.flip_y()
-                            bl_img = bpy.data.images.new(
-                                mat_path[mat_path.rfind(dirsep):],
-                                mat_reader.img_width,
-                                mat_reader.img_height,
-                                True
-                            )
-                            bl_img.pixels = [
-                                x / 255 for x in mat_reader.pixels.tolist()]
-
-                            bl_mtexslot = bl_mat.texture_slots.add()
-                            bl_mtexslot.texture_coords = "UV"
-                            bl_mtexslot.uv_layer = "UVMap"
-
-                            bl_mtex = bpy.data.textures.new(mat_fname, "IMAGE")
-                            bl_mtex.image = bl_img
-
-                            bl_mtexslot.texture = bl_mtex
-
-                            tximgs[texnum] = bl_img
-                            return bl_img
-                    else:
-                        # mat_fname is not a MAT.
-                        bl_img = bpy.data.images.load(mat_fname)
-                        self.texmats[texnum][2] = bl_img
-
-                        bl_mtexslot = bl_mat.texture_slots.add()
-                        bl_mtexslot.texture_coords = "UV"
-
-                        bl_mtex = bpy.data.textures.new(mat_fname, "IMAGE")
-                        bl_mtex.image = bl_img
-
-                        bl_mtexslot.texture = bl_mtex
-
-                        tximgs[texnum] = bl_img
-                        return bl_img
-                else:
-                    print("Image not found for texture {0:0>8d}!".format(
-                          texnum))
-
-            bl_mat = bpy.data.materials.new(bmtl_name)
-            bl_img = None
-
-            if (mtl[0] & 0xff000000) == 0x7f000000:
-                # Flat colour material
-                bl_mat.diffuse_color = iff_mesh.texnum_colour(mtl[0])
-            else:
-                # Last element in this list will become the image file path
-                bl_img = get_teximg(mtl[0], bl_mat)
-
-            if mtl[1] == 2:
-                bl_mat.use_shadeless = True
-            elif mtl[1] != 0 or mtl[1] != 2:
-                if mtl[1] & 2 == 2:
-                    bl_mat.use_shadeless = True
-                bl_mat["light_flags"] = mtl[1]
-
-            self.texmats[mtl] = [bl_mat, bl_img]
 
 
 class LODMesh:
