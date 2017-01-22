@@ -45,7 +45,7 @@ class MaterialManager:
         self.materials = {}  # texnum, lf -> Blender material
 
     @classmethod
-    def get_instance(self, mfilepath):
+    def get_instance(self, mfilepath=""):
         if self.instance is None:
             self.instance = MaterialManager(mfilepath)
         return self.instance
@@ -159,6 +159,7 @@ class ImportBackend:
         self.lod0_obj = None
         self.lod_meshes = []
         self.base_name = filepath[filepath.rfind(dirsep):-3]
+        MaterialManager.get_instance(filepath)  # Setup MaterialManager
 
 
 class LODMesh:
@@ -169,9 +170,7 @@ class LODMesh:
         self._cntr = None
         self._radi = None
         self.mtlinfo = OrderedDict()
-        self.setup_complete = False
-        self.version = version
-        self.bl_mesh = None
+        self.version = version  # Used for FACE struct handling.
 
         # Vertices
         structlen = 12  # 4 bytes * 3 floats (XYZ)
@@ -244,19 +243,20 @@ class LODMesh:
         else:
             raise TypeError("{0!r} ain't vertex references!")
 
-    def setup(self):
+    def to_bl_mesh(self):
         """Take the WC mesh data and convert it to Blender mesh data."""
+        matman = MaterialManager.get_instance()
         assert(
             len(self._verts) > 0 and len(self._norms) > 0 and
             len(self._fvrts) > 0 and len(self._faces) > 0 and
             self._name != "")
 
-        self.bl_mesh = bpy.data.meshes.new(self._name)
-        self.bl_mesh.vertices.add(len(self._verts))
+        bl_mesh = bpy.data.meshes.new(self._name)
+        bl_mesh.vertices.add(len(self._verts))
 
         for vidx, v in enumerate(self._verts):
-            self.bl_mesh.vertices[vidx].co = v
-            self.bl_mesh.vertices[vidx].co[0] *= -1
+            bl_mesh.vertices[vidx].co = v
+            bl_mesh.vertices[vidx].co[0] *= -1
 
         face_edges = []  # The edges (tuples of indices of two verts)
         edge_refs = []  # indices of edges of faces, as lists per face
@@ -271,10 +271,10 @@ class LODMesh:
                 cur_fvrt = f[3] + fvrt_ofs  # f[3] is index of first FVRT
                 cur_face_verts.append(self._fvrts[cur_fvrt][0])
 
-                self.bl_mesh.vertices[self._fvrts[cur_fvrt][0]].normal = (
+                bl_mesh.vertices[self._fvrts[cur_fvrt][0]].normal = (
                     self._norms[self._fvrts[cur_fvrt][1]])
 
-                self.bl_mesh.vertices[self._fvrts[cur_fvrt][0]].normal[0] *= -1
+                bl_mesh.vertices[self._fvrts[cur_fvrt][0]].normal[0] *= -1
                 # used_fvrts.append(f[3] + fvrt_ofs)
             edge_refs.append([])
 
@@ -290,17 +290,12 @@ class LODMesh:
                         eidx = face_edges.index(tuple(reversed(ed)))
                 edge_refs[fidx].append(eidx)
 
-            # Get texture info
-            # f[2] = Texture number, f[5] = Light flags
-            visinfo = (f[2], f[5]) if self.version >= 11 else (f[2], 0)
-            self.mtlinfo[visinfo] = None  # Assign material later
-
-        self.bl_mesh.edges.add(len(face_edges))
+        bl_mesh.edges.add(len(face_edges))
         for eidx, ed in enumerate(face_edges):
-            self.bl_mesh.edges[eidx].vertices = ed
+            bl_mesh.edges[eidx].vertices = ed
 
-        self.bl_mesh.polygons.add(len(self._faces))
-        self.bl_mesh.uv_textures.new("UVMap")
+        bl_mesh.polygons.add(len(self._faces))
+        bl_mesh.uv_textures.new("UVMap")
         num_loops = 0
 
         for fidx, f in enumerate(self._faces):
@@ -312,11 +307,19 @@ class LODMesh:
             f_edgerefs = edge_refs[fidx]
             f_startloop = num_loops
 
-            self.bl_mesh.polygons[fidx].vertices = f_verts
+            bl_mesh.polygons[fidx].vertices = f_verts
 
-            visinfo = (f[2], f[5]) if self.version >= 11 else (f[2], 0)
+            if self.version >= 11:
+                # f[2] and f[5] are texnum and light flags, respectively.
+                visinfo = f[2], f[5]
+            else:
+                visinfo = f[2], 0
+
+            if visinfo not in self.mtlinfo:
+                self.mtlinfo[visinfo] = matman.get_material(*visinfo)
+                bl_mesh.materials.append(matman.get_material(*visinfo))
             # Assign corresponding material to polygon
-            self.bl_mesh.polygons[fidx].material_index = (
+            bl_mesh.polygons[fidx].material_index = (
                 list(self.mtlinfo).index(visinfo))
 
             assert(len(f_verts) == len(f_edgerefs) == f[4])
@@ -328,48 +331,24 @@ class LODMesh:
             # only reverse the vertices.
             for fvidx, vrt, edg in zip(
                     count(), reversed(f_verts), f_edgerefs):
-                self.bl_mesh.loops.add(1)
-                self.bl_mesh.loops[num_loops].edge_index = edg
-                self.bl_mesh.loops[num_loops].vertex_index = vrt
+                bl_mesh.loops.add(1)
+                bl_mesh.loops[num_loops].edge_index = edg
+                bl_mesh.loops[num_loops].vertex_index = vrt
 
                 # print("Loop", num_loops, "vertex index:", vrt)
                 # print("Loop", num_loops, "edge index:", edg)
                 # print("Edge", edg, "vertices",
-                #       self.bl_mesh.edges[edg].vertices[0],
-                #       self.bl_mesh.edges[edg].vertices[1])
+                #       bl_mesh.edges[edg].vertices[0],
+                #       bl_mesh.edges[edg].vertices[1])
 
-                self.bl_mesh.uv_layers["UVMap"].data[num_loops].uv = (
+                bl_mesh.uv_layers["UVMap"].data[num_loops].uv = (
                     f_uvs[fvidx])
                 num_loops += 1
 
-            self.bl_mesh.polygons[fidx].loop_start = f_startloop
-            self.bl_mesh.polygons[fidx].loop_total = f[4]
+            bl_mesh.polygons[fidx].loop_start = f_startloop
+            bl_mesh.polygons[fidx].loop_total = f[4]
 
-        # Check for faces that use textures that aren't flat colours.
-        # If there are none, the setup is complete.
-        flat_mats = 0
-        for visinfo in self.mtlinfo.keys():
-            if visinfo[0] & 0xff000000 == 0x7f000000:
-                flat_mats += 1
-        if flat_mats == len(self.mtlinfo):
-            self.setup_complete = True
-
-    def get_mtlinfo(self):
-        return self.mtlinfo
-
-    def assign_materials(self, materials):
-        for mi, mtl in enumerate(materials):
-            # Add material to list of materials for the mesh
-            self.bl_mesh.materials.append(mtl[0])
-            # Assign corresponding image to UV image texture (AKA facetex)
-            for fi, f in enumerate(self.bl_mesh.polygons):
-                if f.material_index == mi:
-                    self.bl_mesh.uv_textures["UVMap"].data[fi].image = mtl[1]
-        self.setup_complete = True
-
-    def get_bl_mesh(self):
-        if self.bl_mesh and self.setup_complete:
-            return self.bl_mesh
+        return bl_mesh
 
 
 class IFFImporter(ImportBackend):
