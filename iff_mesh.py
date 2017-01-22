@@ -20,8 +20,6 @@
 
 # Classes for WCP/SO IFF Meshes
 from . import iff
-import array
-import warnings
 
 
 def colour_texnum(colour):
