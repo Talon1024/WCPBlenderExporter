@@ -433,7 +433,9 @@ class IFFImporter(ImportBackend):
         lodm = LODMesh(mesh_vers, mesh_name, vert_data, vtnm_data,
                        fvrt_data, face_data)
         bl_obname = CHLD_LOD_NAMES[lod_lev].format(self.base_name, lod_lev)
-        bl_ob = bpy.data.objects.new(bl_obname, lodm.to_bl_mesh())
+        bl_mesh = lodm.to_bl_mesh()
+        bl_mesh.transform(self.reorient_matrix)
+        bl_ob = bpy.data.objects.new(bl_obname, bl_mesh)
 
         if lod_lev == 0:
             self.lod0_obj = bl_ob
@@ -446,6 +448,7 @@ class IFFImporter(ImportBackend):
                     del bl_ob["drange"]
                 except KeyError:
                     pass
+
         bpy.context.scene.objects.link(bl_ob)
 
         # Make and link cntradi object
