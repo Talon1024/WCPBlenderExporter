@@ -52,6 +52,9 @@ class MaterialManager:
         return self.instance
 
     def get_teximg(self, texnum):
+        if texnum in self.mtimages:
+            return self.mtimages[texnum]
+
         texfname = "{:0>8d}".format(texnum)
         mfiledir = self.mfilepath[:self.mfilepath.rfind(dirsep)]
 
@@ -74,7 +77,13 @@ class MaterialManager:
                 break
         else:
             print("Image not found for texture {:0>8d}!".format(texnum))
-            return None
+            # Use placeholder image instead
+            bl_img = bpy.data.images.new(
+                "{:0>8d}".format(texnum),
+                256, 256, False, False
+            )
+            self.mtimages[texnum] = bl_img
+            return bl_img
 
         if mat_fname.lower().endswith("mat"):
             mat_path = mfiledir + dirsep + mat_fname
@@ -107,7 +116,7 @@ class MaterialManager:
         bl_mat = bpy.data.materials.new(bmtl_name)
         bl_img = None
 
-        if (texnum & 0xff000000) == 0x7f000000:
+        if self.is_flat(texnum):
             # Flat colour material
             bl_mat.diffuse_color = iff_mesh.texnum_colour(texnum)
         else:
@@ -133,11 +142,8 @@ class MaterialManager:
         self.materials[(texnum, light_flags)] = bl_mat
         return self.materials[(texnum, light_flags)]
 
-    def get_image(self, texnum):
-        if texnum in self.mtimages:
-            return self.mtimages[texnum]
-
-        self.mtimages[texnum] = self.get_teximg(texnum)
+    def is_flat(self, texnum):
+        return texnum & 0xff000000 == 0x7f000000
 
 
 class ImportBackend:
@@ -300,8 +306,9 @@ class LODMesh:
             bl_mesh.polygons[fidx].material_index = (
                 list(self.mtlinfo).index(visinfo))
             # Face texture (Visible in Multitexture shading mode)
-            bl_mesh.uv_textures["UVMap"].data[fidx].image = (
-                matman.get_image(f[2]))
+            if not matman.is_flat(f[2]):
+                bl_mesh.uv_textures["UVMap"].data[fidx].image = (
+                    matman.get_teximg(f[2]))
 
             assert(len(f_verts) == len(f_edgerefs) == f[4])
 
