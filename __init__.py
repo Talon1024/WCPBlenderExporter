@@ -76,11 +76,11 @@ class ImportIFF(Operator, ImportHelper):
         default=False
     )
 
-    read_mats = BoolProperty(
-        name="Read MATs",
-        description="Attempt to read MAT files (experimental)",
-        default=True
-    )
+    # read_mats = BoolProperty(
+    #     name="Read MATs",
+    #     description="Attempt to read MAT files (experimental)",
+    #     default=True
+    # )
 
     backend_class_name = "IFFImporter"
 
@@ -94,8 +94,7 @@ class ImportIFF(Operator, ImportHelper):
 
         importer = getattr(import_iff, self.backend_class_name)(
             self.filepath, self.texname, wc_orientation_matrix,
-            self.import_all_lods, self.use_facetex, self.import_bsp,
-            self.read_mats
+            self.import_all_lods, self.use_facetex, self.import_bsp
         )
 
         importer.load()
