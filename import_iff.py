@@ -211,14 +211,11 @@ class LODMesh:
 
     def edges_from_verts(self, verts):
         """Generates vertex reference tuples for edges."""
-        if all(map(lambda e: isinstance(e, int), verts)):
-            for idx in range(len(verts)):
-                first_idx = verts[idx]
-                if (idx + 1) >= len(verts): next_idx = verts[0]
-                else: next_idx = verts[idx + 1]
-                yield (first_idx, next_idx)
-        else:
-            raise TypeError("{0!r} ain't vertex references!")
+        for idx in range(len(verts)):
+            first_idx = verts[idx]
+            if (idx + 1) >= len(verts): next_idx = verts[0]
+            else: next_idx = verts[idx + 1]
+            yield (first_idx, next_idx)
 
     def to_bl_mesh(self):
         """Take the WC mesh data and convert it to Blender mesh data."""
