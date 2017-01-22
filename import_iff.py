@@ -193,9 +193,9 @@ class LODMesh:
         structlen = 16  # 4 bytes * (2 ints + 2 floats)
         num_fvrts = len(fvrt_data) // structlen
         self._fvrts = [None] * num_fvrts
-        for idx in range(num_norms):
+        for idx in range(num_fvrts):
             self._fvrts[idx] = struct.unpack_from(
-                structstr, vtnm_data, idx * structlen)
+                structstr, fvrt_data, idx * structlen)
 
         # Faces
         structstr = "<ifiiii" if version >= 11 else "<ifiii"  # No light flags.
@@ -204,7 +204,7 @@ class LODMesh:
         self._faces = [None] * num_faces
         for idx in range(num_faces):
             self._faces[idx] = struct.unpack_from(
-                structstr, vtnm_data, idx * structlen)
+                structstr, face_data, idx * structlen)
 
     def set_name(self, name):
         """Set the name of this mesh."""
