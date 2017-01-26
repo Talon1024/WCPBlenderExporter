@@ -492,12 +492,8 @@ class IFFImporter(ImportBackend):
         bpy.context.scene.objects.link(bl_ob)
 
         # Make and link cntradi object
-        center = struct.unpack("<fff", cntr_data)
-        radius = struct.unpack("<f", radi_data)
-        cntradi_ob = bpy.data.objects.new("cntradi", None)
-        cntradi_ob.scale = radius * 3  # Radius is a tuple
-        cntradi_ob.location = center
-        cntradi_ob.empty_draw_type = "SPHERE"
+        cntradi_sph = iff_mesh.Sphere.from_cntradi_chunks(cntr_data, radi_data)
+        cntradi_ob = cntradi_sph.to_bl_obj()
 
         bpy.context.scene.objects.link(cntradi_ob)
         cntradi_ob.parent = bl_ob
