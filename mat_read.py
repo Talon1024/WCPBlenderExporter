@@ -21,15 +21,41 @@
 # MAT reader
 import struct
 import array
+import os
+import os.path
 from . import iff_read
 
 
 class MATReader:
 
     def __init__(self, matfpath):
+        self.matfpath = matfpath
         self.iff_reader = iff_read.IffReader(matfpath)
         self.palette = None  # To be initialized in read_palette
         self.pixels = None  # To be initialized in read_info
+
+    def look_for(self, fname, in_dir, par_dir=True):
+        from os.path import join, normpath, isfile, isdir
+        mfiledir = self.matfpath[:self.matfpath.rfind(os.sep)]
+        if par_dir:
+            abs_dir = normpath(join(mfiledir, ".."))
+            dirents = os.listdir(abs_dir)
+            # Enter in_dir
+            for dirent in dirents:
+                if (dirent.lower() == in_dir.lower() and
+                        isdir(join(abs_dir, dirent))):
+                    abs_dir = normpath(join(abs_dir, dirent))
+                    break
+        else:
+            # Enter in_dir
+            abs_dir = normpath(join(mfiledir, in_dir))
+
+        # Get the file
+        dirents = os.listdir(abs_dir)
+        for dirent in dirents:
+            if (dirent.lower() == fname.lower() and
+                    isfile(join(abs_dir, dirent))):
+                return normpath(join(abs_dir, dirent))
 
     def read_info(self, info_chunk):
         dimensions = struct.unpack_from("<II", info_chunk["data"], 0)
@@ -40,7 +66,26 @@ class MATReader:
 
     def read_palette(self, cmap_chunk):
         # Each colour is three bytes (R, G, B)
-        self.palette = array.array("B", cmap_chunk["data"])
+        if cmap_chunk["name"] == b"CMAP":
+            self.palette = array.array("B", cmap_chunk["data"])
+            return self.palette
+        elif cmap_chunk["name"] == b"NAME":
+            palname = cmap_chunk["data"].decode("ascii").strip(" \x00\t")
+            palname = palname.lower() + ".pal"
+            palpath = self.look_for(palname, "pal")
+            if palpath is not None:
+                palreader = iff_read.IffReader(palpath)
+                palform = palreader.read_data()
+                if palform["type"] == "form" and palform["name"] == b"PAL ":
+                    paldata = palreader.read_data()
+                    self.palette = array.array("B", paldata["data"])
+                    return self.palette
+
+        # Generate placeholder grayscale palette
+        gspal = []
+        for x in range(256): gspal.extend([x] * 3)
+        self.palette = array.array("B", gspal)
+        return self.palette
 
     def read_pxls(self, pxls_chunk):
         # One byte references a colour in the palette

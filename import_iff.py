@@ -20,6 +20,7 @@
 
 import bpy
 import struct
+import array
 from . import iff_read, iff_mesh, mat_read
 from mathutils import Matrix
 from itertools import starmap, count
@@ -55,7 +56,31 @@ class MaterialManager:
             self.instance = MaterialManager()
         return self.instance
 
+    def look_for(self, fname, in_dir, par_dir=True):
+        from os.path import join, normpath, isfile, isdir
+        mfiledir = self.mfilepath[:self.mfilepath.rfind(dirsep)]
+        if par_dir:
+            abs_dir = normpath(join(mfiledir, ".."))
+            dirents = listdir(abs_dir)
+            # Enter in_dir
+            for dirent in dirents:
+                if (dirent.lower() == in_dir.lower() and
+                        isdir(join(abs_dir, dirent))):
+                    abs_dir = normpath(join(abs_dir, dirent))
+                    break
+        else:
+            # Enter in_dir
+            abs_dir = normpath(join(mfiledir, in_dir))
+
+        # Get the file
+        dirents = listdir(abs_dir)
+        for dirent in dirents:
+            if (dirent.lower() == fname.lower() and
+                    isfile(join(abs_dir, dirent))):
+                return normpath(join(abs_dir, dirent))
+
     def get_teximg(self, texnum):
+        from os.path import join
         if texnum in self.mtimages:
             return self.mtimages[texnum]
 
@@ -65,37 +90,38 @@ class MaterialManager:
         # Search directory of mesh file for textures
         img_extns = ("bmp", "png", "jpg", "jpeg", "tga", "gif",
                      "dds", "mat")
-        print("Searching", mfiledir, "for textures...")
+        # print("Searching", mfiledir, "for textures...")
+
+        # Look in current directory
         filelist = listdir(mfiledir)
         for extn in img_extns:
             mat_fname = texfname + "." + extn
             # A map object cannot be iterated over more than once.
-            files = map(lambda x: x.lower(), filelist)
             fileidx = 0
-            for fname in files:
-                if fname == mat_fname:
-                    mat_fname = filelist[fileidx]
+            for fname in filelist:
+                if fname.lower() == mat_fname:
+                    mat_fname = join(mfiledir, fname)
                     break
                 fileidx += 1
             if fileidx != len(filelist):
                 break
+
+            # Look in MAT directory
+            if extn == "mat":
+                mat_fname = self.look_for(mat_fname, "mat")
+                if mat_fname is not None:
+                    break
         else:
             print("Image not found for texture {:0>8d}!".format(texnum))
-            # Use placeholder image instead
-            bl_img = bpy.data.images.new(
-                "{:0>8d}".format(texnum),
-                256, 256, False, False
-            )
-            self.mtimages[texnum] = bl_img
-            return bl_img
+            self.mtimages[texnum] = None
+            return None
 
         if mat_fname.lower().endswith("mat"):
-            mat_path = mfiledir + dirsep + mat_fname
-            mat_reader = mat_read.MATReader(mat_path)
+            mat_reader = mat_read.MATReader(mat_fname)
             mat_reader.read()
             mat_reader.flip_y()
             bl_img = bpy.data.images.new(
-                mat_path[mat_path.rfind(dirsep):],
+                mat_fname[mat_fname.rfind(dirsep):],
                 mat_reader.img_width,
                 mat_reader.img_height,
                 True
