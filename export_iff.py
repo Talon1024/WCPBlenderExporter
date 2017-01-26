@@ -312,7 +312,7 @@ class ModelManager:
                         x, y, z = cntr_vec
                         x *= -1
                         self.dsphrs[lod] = iff_mesh.Sphere(
-                            x, y, z, max(cobj.scale)
+                            x, z, y, max(cobj.scale)
                         )
 
                     elif (cobj.name.lower().startswith(self.COLLSPHR_PFX) and
@@ -325,7 +325,7 @@ class ModelManager:
                             x *= -1
                             self.collider = iff_mesh.Collider(
                                 "sphere",
-                                iff_mesh.Sphere(x, y, z, max(cobj.scale))
+                                iff_mesh.Sphere(x, z, y, max(cobj.scale))
                             )
                             collider_lod = lod
 
@@ -395,8 +395,8 @@ class ModelManager:
         # Generate CNTR/RADI data for each LOD where it does not exist.
         for lod_idx in range(len(self.dsphrs)):
             if self.dsphrs[lod_idx] is None:
-                lod_obj = (
-                    bpy.data.scenes[self.scene].objects[self.lods[lod_idx]])
+                lod_obj = (bpy.data.scenes[self.scene]
+                           .objects[self.lods[lod_idx]])
 
                 dsphr_vec = lod_obj.location.copy()
                 dsphr_vec.rotate(self.wc_matrix)
@@ -404,7 +404,7 @@ class ModelManager:
                 x, y, z = dsphr_vec
                 x *= -1
                 r = max(lod_obj.dimensions) / 2
-                self.dsphrs[lod_idx] = iff_mesh.Sphere(x, y, z, r)
+                self.dsphrs[lod_idx] = iff_mesh.Sphere(x, z, y, r)
 
             print("LOD {} CNTR/RADI: {}".format(lod_idx, self.dsphrs[lod_idx]))
 
@@ -433,7 +433,7 @@ class ModelManager:
             x *= -1
             r = max(lod_obj.dimensions) / 2
             self.collider = iff_mesh.Collider(
-                "sphere", iff_mesh.Sphere(x, y, z, r)
+                "sphere", iff_mesh.Sphere(x, z, y, r)
             )
 
         print("Collider:", self.collider)
