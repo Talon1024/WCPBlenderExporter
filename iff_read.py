@@ -20,8 +20,8 @@
 
 # IFF reader class
 from os.path import exists as fexists
-import struct
-import io
+from struct import unpack
+from io import BytesIO
 
 
 class IffReader:
@@ -32,7 +32,7 @@ class IffReader:
         if isinstance(iff_file, str):
             self._iff_file = open(iff_file, "rb")
         elif isinstance(iff_file, bytes) or isinstance(iff_file, bytearray):
-            self._iff_file = io.BytesIO(iff_file)
+            self._iff_file = BytesIO(iff_file)
 
     def id_isvalid(self, iffid):
         if len(iffid) != 4:
@@ -57,7 +57,7 @@ class IffReader:
             # Don't skip the entire FORM, just the header (length and name).
         elif self.id_isvalid(head):
             # Skip the entire CHUNK
-            length = struct.unpack(">i", self._iff_file.read(4))[0]
+            length = unpack(">i", self._iff_file.read(4))[0]
             bytes_to_skip = length
             bytes_to_skip += 1 if length % 2 == 1 else 0
             self._iff_file.seek(self._iff_file.tell() + bytes_to_skip)
@@ -76,7 +76,7 @@ class IffReader:
 
         if head in self._iff_heads:
 
-            length = (struct.unpack(">i", self._iff_file.read(4))[0])
+            length = (unpack(">i", self._iff_file.read(4))[0])
             name = self._iff_file.read(4)
 
             return {
@@ -119,7 +119,7 @@ class IffReader:
 
         elif self.id_isvalid(head):
             name = head
-            length = struct.unpack(">i", self._iff_file.read(4))[0]
+            length = unpack(">i", self._iff_file.read(4))[0]
             data = self._iff_file.read(length)
 
             # IFF Chunks and FORMs are aligned at even offsets

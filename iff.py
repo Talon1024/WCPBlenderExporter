@@ -21,8 +21,8 @@
 # Classes for IFF data structures
 # See the EA IFF 85 specification here:
 # https://github.com/1fish2/IFF/tree/master/IFF docs with Commodore revisions/
-import struct
-import io
+from struct import pack
+from io import StringIO
 
 
 class IffForm:
@@ -102,7 +102,7 @@ class IffForm:
 
     def to_xmf(self):
         """Convert this FORM to an XMF (IFF Source) string"""
-        xmf_string = io.StringIO()
+        xmf_string = StringIO()
         xmf_string.write('\nFORM "%s"\n{\n' % self._name)
         for x in self._members:
             xmf_string.write(x.to_xmf())  # All members of a FORM are CHUNKs.
@@ -121,8 +121,7 @@ class IffForm:
                 iffbytes.append(0)
                 form_length += 1
 
-        iffbytes = (b"FORM" +
-                    struct.pack(">l", form_length) +
+        iffbytes = (b"FORM" + pack(">l", form_length) +
                     self._name.encode("ascii", "replace") +
                     iffbytes)
         return iffbytes
@@ -245,7 +244,7 @@ class IffChunk(IffForm):
         """
         Returns an XMF string.
         """
-        xmf_string = io.StringIO()
+        xmf_string = StringIO()
         xmf_string.write('CHUNK "%s"\n{\n' % self._name)
         for x in self._members:
             if isinstance(x, int):
@@ -262,16 +261,15 @@ class IffChunk(IffForm):
         iffbytes = bytearray()
         for x in self._members:
             if isinstance(x, int):
-                iffbytes.extend(struct.pack("<l", x))
+                iffbytes.extend(pack("<l", x))
             if isinstance(x, float):
-                iffbytes.extend(struct.pack("<f", x))
+                iffbytes.extend(pack("<f", x))
             if isinstance(x, str):
                 iffbytes.extend(x.encode("ascii", "replace"))
                 iffbytes.append(0)
 
         iffbytes = (self._name.encode("ascii", "replace") +
-                    struct.pack(">l", self._length) +
-                    iffbytes)
+                    pack(">l", self._length) + iffbytes)
         return iffbytes
 
     def get_length(self):
@@ -298,7 +296,7 @@ class IffFile:
         self.comment = b""
 
     def to_xmf(self):
-        xmf_string = io.StringIO()
+        xmf_string = StringIO()
         xmf_string.write('IFF "')
         xmf_string.write(self.filename)
         xmf_string.write('"\n{')
