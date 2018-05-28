@@ -118,8 +118,7 @@ class MaterialManager:
 
         if mat_fname.lower().endswith("mat"):
             mat_reader = mat_read.MATReader(mat_fname)
-            mat_reader.read()
-            mat_reader.flip_y()
+            mat_reader.read(True)
             bl_img = bpy.data.images.new(
                 mat_fname[mat_fname.rfind(dirsep):],
                 mat_reader.img_width,
@@ -127,7 +126,7 @@ class MaterialManager:
                 True
             )
             bl_img.pixels = [
-                x / 255 for x in mat_reader.pixels.tolist()]
+                x / 255 for x in mat_reader.pixels]
             self.mtimages[texnum] = bl_img
         else:
             # mat_fname is not a MAT.

@@ -61,8 +61,6 @@ class MATReader:
         dimensions = struct.unpack_from("<II", info_chunk["data"], 0)
         self.img_width, self.img_height = dimensions
         # Image width * height * 4 channels per pixel (RGB + Alpha)
-        self.pixels = array.array(
-            'B', [0 for x in range(self.img_width * self.img_height * 4)])
 
     def read_palette(self, cmap_chunk):
         # Each colour is three bytes (R, G, B)
@@ -88,15 +86,33 @@ class MATReader:
         return self.palette
 
     def read_pxls(self, pxls_chunk):
+        self.pixels = array.array(
+            'B', [0 for x in range(self.img_width * self.img_height * 4)])
+        palpixels = array.array("B", pxls_chunk["data"])
         # One byte references a colour in the palette
         for cpxl in range(pxls_chunk["length"]):
-            palref = struct.unpack_from(
-                "<B", pxls_chunk["data"], cpxl)[0]
+            palref = palpixels[cpxl]
 
             self.pixels[cpxl * 4:cpxl * 4 + 3] = (
                 self.palette[palref * 3:palref * 3 + 3])
             # Colour at index 0 is transparent by default.
             self.pixels[cpxl * 4 + 3] = 0 if palref == 0 else 255
+
+    def read_pxls_flipped(self, pxls_chunk):
+        self.pixels = array.array(
+            'B', [0 for x in range(self.img_width * self.img_height * 4)])
+        palpixels = array.array("B", pxls_chunk["data"])
+        for row in range(self.img_height):
+            rrow = self.img_height - row - 1
+            for col in range(self.img_width):
+                ipxl = self.img_height * row + col
+                cpxl = rrow * self.img_height + col
+                palref = palpixels[cpxl]
+
+                self.pixels[ipxl * 4:ipxl * 4 + 3] = (
+                    self.palette[palref * 3:palref * 3 + 3])
+                # Colour at index 0 is transparent by default.
+                self.pixels[ipxl * 4 + 3] = 0 if palref == 0 else 255
 
     def read_alph(self, alph_chunk):
         # One byte for each pixel. The alpha channel is inverted,
@@ -105,7 +121,7 @@ class MATReader:
             self.pixels[apxl * 4 + 3] = 255 - (struct.unpack_from(
                 "<B", alph_chunk["data"], apxl)[0])
 
-    def read(self):
+    def read(self, blender=False):
         root_form = self.iff_reader.read_data()
         if root_form["name"] == b"BITM":
             inner_rform = self.iff_reader.read_data()
@@ -125,7 +141,10 @@ class MATReader:
 
                     elif (mat_data["type"] == "chunk" and
                             mat_data["name"] == b"PXLS"):
-                        self.read_pxls(mat_data)
+                        if blender:
+                            self.read_pxls_flipped(mat_data)
+                        else:
+                            self.read_pxls(mat_data)
 
                     elif (mat_data["type"] == "chunk" and
                             mat_data["name"] == b"ALPH"):
@@ -142,16 +161,13 @@ class MATReader:
 
     def flip_y(self):
         # Flip the image vertically, row by row
-        img_rows = []
+        img_rows = array.array("B")
 
         for rowidx in range(self.img_height):
             # Get each row of pixels, and put them into a list of pixel rows
-            cur_row_start = rowidx * self.img_width * 4
+            cur_row_start = (self.img_height - rowidx) * self.img_width * 4
             cur_row_end = cur_row_start + self.img_width * 4
 
-            img_rows.append(self.pixels[cur_row_start:cur_row_end])
+            img_rows.extend(self.pixels[cur_row_start:cur_row_end])
 
-        self.pixels = array.array("B")
-
-        for row in reversed(img_rows):
-            self.pixels.extend(row)
+        self.pixels = img_rows
