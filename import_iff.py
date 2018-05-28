@@ -277,10 +277,10 @@ class LODMesh:
         face_edge_sets = {}  # The edges (sets of indices of two verts)
         face_edges = array.array("I")  # Same, but as a flat array
         face_edge_counts = array.array("I")  # Edge counts per face
-        edge_refs = []  # indices of edges of faces, as tuples per face
+        edge_refs = array.array("I")  # Face edge indices, as pairs per face
 
         for fidx, f in enumerate(self._faces):
-            cur_face_verts = []
+            cur_face_verts = array.array("I")
 
             for fvrt_ofs in range(f[4]):  # f[4] is number of FVRTS of the face
 
@@ -292,8 +292,8 @@ class LODMesh:
 
                 bl_mesh.vertices[self._fvrts[cur_fvrt][0]].normal[0] *= -1
 
-            edge_refs.append(array.array("I"))
             face_edge_counts.append(len(cur_face_verts))
+            cur_face_verts.reverse()
 
             for ed in self.edges_from_verts(cur_face_verts):
                 eset = frozenset(ed)
@@ -303,7 +303,7 @@ class LODMesh:
                     eidx = len(face_edge_sets)
                     face_edge_sets[eset] = eidx
                     face_edges.extend(ed)
-                edge_refs[fidx].append(eidx)
+                edge_refs.append(eidx)
 
         edge_count = len(face_edges) // 2
         bl_mesh.edges.add(edge_count)
@@ -320,7 +320,9 @@ class LODMesh:
             f_verts = [fvrt[0] for fvrt in cur_face_fvrts]
             f_uvs = [
                 (fvrt[2], 1 - fvrt[3]) for fvrt in reversed(cur_face_fvrts)]
-            f_edgerefs = edge_refs[fidx]
+            f_edgerefi = sum(face_edge_counts[0:fidx])
+            f_edgerefc = face_edge_counts[fidx]
+            f_edgerefs = edge_refs[f_edgerefi:f_edgerefi+f_edgerefc]
             f_startloop = num_loops
 
             bl_mesh.polygons[fidx].vertices = f_verts
