@@ -23,9 +23,9 @@ import struct
 import array
 import os
 import os.path
+import threading
 from . import iff_read
 from multiprocessing import cpu_count
-from concurrent.futures import ThreadPoolExecutor
 
 
 class MATReader:
@@ -103,15 +103,21 @@ class MATReader:
                 self.pixels[cpxl * 4 + 3] = 0 if palref == 0 else 255
 
         cores = cpu_count()
-        with ThreadPoolExecutor(max_workers=cores) as tpe:
-            # Process X rows at a time, where X is the number of CPU cores
-            pxl_amt = len(pxls_chunk["data"]) // cores
-            for pxl_set in range(cores):
-                pxl_start = pxl_set * pxl_amt
-                pxl_end = pxl_start + pxl_amt
-                if pxl_set == cores - 1:
-                    pxl_end = len(pxls_chunk["data"])
-                tpe.submit(modify_pixels, pxl_start, pxl_end)
+        threads = []
+        pxl_amt = len(pxls_chunk["data"]) // cores
+        for pxl_set in range(cores):
+            pxl_start = pxl_set * pxl_amt
+            pxl_end = pxl_start + pxl_amt
+            if pxl_set == cores - 1:
+                pxl_end = len(pxls_chunk["data"])
+            thread = threading.Thread(
+                target=modify_pixels, args=(pxl_start, pxl_end))
+            threads.append(thread)
+
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
 
     def read_pxls_flipped(self, pxls_chunk):
         self.pixels = array.array(
@@ -133,15 +139,20 @@ class MATReader:
                     self.pixels[ipxl * 4 + 3] = 0 if palref == 0 else 255
 
         cores = cpu_count()
-        with ThreadPoolExecutor(max_workers=cores) as tpe:
-            # Process X rows at a time, where X is the number of CPU cores
-            row_amt = self.img_height // cores
-            for row_set in range(cores):
-                row_start = row_set * row_amt
-                row_end = row_start + row_amt
-                if row_set == cores - 1:
-                    row_end = self.img_height
-                tpe.submit(modify_rows, row_start, row_end)
+        threads = []
+        row_amt = self.img_height // cores
+        for row_set in range(cores):
+            row_start = row_set * row_amt
+            row_end = row_start + row_amt
+            if row_set == cores - 1:
+                row_end = self.img_height
+            thread = threading.Thread(
+                target=modify_rows, args=(row_start, row_end))
+            threads.append(thread)
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
 
     def read_alph(self, alph_chunk):
         # One byte for each pixel. The alpha channel is inverted,
