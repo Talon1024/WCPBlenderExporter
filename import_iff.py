@@ -20,6 +20,7 @@
 
 import bpy
 import struct
+import array
 from . import iff_read, iff_mesh, mat_read
 from mathutils import Matrix
 from itertools import starmap, count
@@ -274,7 +275,8 @@ class LODMesh:
             bl_mesh.vertices[vidx].co[0] *= -1
 
         face_edge_sets = {}  # The edges (sets of indices of two verts)
-        face_edges = []  # Same, but using tuples
+        face_edges = array.array("I")  # Same, but as a flat array
+        face_edge_counts = array.array("I")  # Edge counts per face
         edge_refs = []  # indices of edges of faces, as tuples per face
 
         for fidx, f in enumerate(self._faces):
@@ -289,7 +291,9 @@ class LODMesh:
                     self._norms[self._fvrts[cur_fvrt][1]])
 
                 bl_mesh.vertices[self._fvrts[cur_fvrt][0]].normal[0] *= -1
-            edge_refs.append([])
+
+            edge_refs.append(array.array("I"))
+            face_edge_counts.append(len(cur_face_verts))
 
             for ed in self.edges_from_verts(cur_face_verts):
                 eset = frozenset(ed)
@@ -298,12 +302,13 @@ class LODMesh:
                 else:
                     eidx = len(face_edge_sets)
                     face_edge_sets[eset] = eidx
-                    face_edges.append(ed)
+                    face_edges.extend(ed)
                 edge_refs[fidx].append(eidx)
 
-        bl_mesh.edges.add(len(face_edges))
-        for eidx, ed in enumerate(face_edges):
-            bl_mesh.edges[eidx].vertices = ed
+        edge_count = len(face_edges) // 2
+        bl_mesh.edges.add(edge_count)
+        for eidx in range(edge_count):
+            bl_mesh.edges[eidx].vertices = face_edges[eidx*2:eidx*2+2]
 
         bl_mesh.polygons.add(len(self._faces))
         bl_mesh.uv_textures.new("UVMap")
