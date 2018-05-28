@@ -24,6 +24,8 @@ import array
 import os
 import os.path
 from . import iff_read
+from multiprocessing import cpu_count
+from concurrent.futures import ThreadPoolExecutor
 
 
 class MATReader:
@@ -89,30 +91,57 @@ class MATReader:
         self.pixels = array.array(
             'B', [0 for x in range(self.img_width * self.img_height * 4)])
         palpixels = array.array("B", pxls_chunk["data"])
-        # One byte references a colour in the palette
-        for cpxl in range(pxls_chunk["length"]):
-            palref = palpixels[cpxl]
 
-            self.pixels[cpxl * 4:cpxl * 4 + 3] = (
-                self.palette[palref * 3:palref * 3 + 3])
-            # Colour at index 0 is transparent by default.
-            self.pixels[cpxl * 4 + 3] = 0 if palref == 0 else 255
+        def modify_pixels(start, end):
+            # One byte references a colour in the palette
+            for cpxl in range(start, end):
+                palref = palpixels[cpxl]
+
+                self.pixels[cpxl * 4:cpxl * 4 + 3] = (
+                    self.palette[palref * 3:palref * 3 + 3])
+                # Colour at index 0 is transparent by default.
+                self.pixels[cpxl * 4 + 3] = 0 if palref == 0 else 255
+
+        cores = cpu_count()
+        with ThreadPoolExecutor(max_workers=cores) as tpe:
+            # Process X rows at a time, where X is the number of CPU cores
+            pxl_amt = len(pxls_chunk["data"]) // cores
+            for pxl_set in range(cores):
+                pxl_start = pxl_set * pxl_amt
+                pxl_end = pxl_start + pxl_amt
+                if pxl_set == cores - 1:
+                    pxl_end = len(pxls_chunk["data"])
+                tpe.submit(modify_pixels, pxl_start, pxl_end)
 
     def read_pxls_flipped(self, pxls_chunk):
         self.pixels = array.array(
             'B', [0 for x in range(self.img_width * self.img_height * 4)])
         palpixels = array.array("B", pxls_chunk["data"])
-        for row in range(self.img_height):
-            rrow = self.img_height - row - 1
-            for col in range(self.img_width):
-                ipxl = self.img_height * row + col
-                cpxl = rrow * self.img_height + col
-                palref = palpixels[cpxl]
 
-                self.pixels[ipxl * 4:ipxl * 4 + 3] = (
-                    self.palette[palref * 3:palref * 3 + 3])
-                # Colour at index 0 is transparent by default.
-                self.pixels[ipxl * 4 + 3] = 0 if palref == 0 else 255
+        def modify_rows(start_row, end_row):
+            # For reader threads
+            for row in range(start_row, end_row):
+                rrow = self.img_height - row - 1
+                for col in range(self.img_width):
+                    ipxl = self.img_height * row + col
+                    cpxl = rrow * self.img_height + col
+                    palref = palpixels[cpxl]
+
+                    self.pixels[ipxl * 4:ipxl * 4 + 3] = (
+                        self.palette[palref * 3:palref * 3 + 3])
+                    # Colour at index 0 is transparent by default.
+                    self.pixels[ipxl * 4 + 3] = 0 if palref == 0 else 255
+
+        cores = cpu_count()
+        with ThreadPoolExecutor(max_workers=cores) as tpe:
+            # Process X rows at a time, where X is the number of CPU cores
+            row_amt = self.img_height // cores
+            for row_set in range(cores):
+                row_start = row_set * row_amt
+                row_end = row_start + row_amt
+                if row_set == cores - 1:
+                    row_end = self.img_height
+                tpe.submit(modify_rows, row_start, row_end)
 
     def read_alph(self, alph_chunk):
         # One byte for each pixel. The alpha channel is inverted,

@@ -118,7 +118,8 @@ class MaterialManager:
 
         if mat_fname.lower().endswith("mat"):
             mat_reader = mat_read.MATReader(mat_fname)
-            mat_reader.read(True)
+            mat_reader.read()
+            mat_reader.flip_y()
             bl_img = bpy.data.images.new(
                 mat_fname[mat_fname.rfind(dirsep):],
                 mat_reader.img_width,
