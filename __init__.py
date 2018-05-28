@@ -19,6 +19,7 @@
 # <pep8-80 compliant>
 
 import bpy
+import time
 import warnings
 from . import import_iff
 from . import export_iff
@@ -85,6 +86,7 @@ class ImportIFF(Operator, ImportHelper):
     backend_class_name = "IFFImporter"
 
     def execute(self, context):
+        import_time = time.perf_counter()
         warnings.resetwarnings()
 
         # WIP
@@ -101,6 +103,8 @@ class ImportIFF(Operator, ImportHelper):
         with warnings.catch_warnings(record=True) as wlist:
             for warning in wlist:
                 self.report({"WARNING"}, warning.message)
+        import_time = time.perf_counter() - import_time
+        print("Import took", import_time, "seconds")
         return {"FINISHED"}
 
 

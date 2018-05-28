@@ -312,7 +312,8 @@ class LODMesh:
 
         bl_mesh.polygons.add(len(self._faces))
         bl_mesh.uv_textures.new("UVMap")
-        num_loops = 0
+        bl_mesh.loops.add(len(edge_refs))
+        loop_num = 0
 
         for fidx, f in enumerate(self._faces):
 
@@ -323,7 +324,7 @@ class LODMesh:
             f_edgerefi = sum(face_edge_counts[0:fidx])
             f_edgerefc = face_edge_counts[fidx]
             f_edgerefs = edge_refs[f_edgerefi:f_edgerefi+f_edgerefc]
-            f_startloop = num_loops
+            f_startloop = loop_num
 
             bl_mesh.polygons[fidx].vertices = f_verts
 
@@ -353,19 +354,18 @@ class LODMesh:
             # only reverse the vertices.
             for fvidx, vrt, edg in zip(
                     count(), reversed(f_verts), f_edgerefs):
-                bl_mesh.loops.add(1)
-                bl_mesh.loops[num_loops].edge_index = edg
-                bl_mesh.loops[num_loops].vertex_index = vrt
+                bl_mesh.loops[loop_num].edge_index = edg
+                bl_mesh.loops[loop_num].vertex_index = vrt
 
-                # print("Loop", num_loops, "vertex index:", vrt)
-                # print("Loop", num_loops, "edge index:", edg)
+                # print("Loop", loop_num, "vertex index:", vrt)
+                # print("Loop", loop_num, "edge index:", edg)
                 # print("Edge", edg, "vertices",
                 #       bl_mesh.edges[edg].vertices[0],
                 #       bl_mesh.edges[edg].vertices[1])
 
-                bl_mesh.uv_layers["UVMap"].data[num_loops].uv = (
+                bl_mesh.uv_layers["UVMap"].data[loop_num].uv = (
                     f_uvs[fvidx])
-                num_loops += 1
+                loop_num += 1
 
             bl_mesh.polygons[fidx].loop_start = f_startloop
             bl_mesh.polygons[fidx].loop_total = f[4]
