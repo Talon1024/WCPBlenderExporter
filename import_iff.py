@@ -20,7 +20,6 @@
 
 import bpy
 import struct
-import array
 from . import iff_read, iff_mesh, mat_read
 from mathutils import Matrix
 from itertools import starmap, count
@@ -253,8 +252,10 @@ class LODMesh:
         """Generates vertex reference tuples for edges."""
         for idx in range(len(verts)):
             first_idx = verts[idx]
-            if (idx + 1) >= len(verts): next_idx = verts[0]
-            else: next_idx = verts[idx + 1]
+            if (idx + 1) >= len(verts):
+                next_idx = verts[0]
+            else:
+                next_idx = verts[idx + 1]
             yield (first_idx, next_idx)
 
     def to_bl_mesh(self):
@@ -272,12 +273,11 @@ class LODMesh:
             bl_mesh.vertices[vidx].co = v
             bl_mesh.vertices[vidx].co[0] *= -1
 
-        face_edges = []  # The edges (tuples of indices of two verts)
-        edge_refs = []  # indices of edges of faces, as lists per face
+        face_edge_sets = {}  # The edges (sets of indices of two verts)
+        face_edges = []  # Same, but using tuples
+        edge_refs = []  # indices of edges of faces, as tuples per face
 
         for fidx, f in enumerate(self._faces):
-
-            # used_fvrts = []
             cur_face_verts = []
 
             for fvrt_ofs in range(f[4]):  # f[4] is number of FVRTS of the face
@@ -289,19 +289,16 @@ class LODMesh:
                     self._norms[self._fvrts[cur_fvrt][1]])
 
                 bl_mesh.vertices[self._fvrts[cur_fvrt][0]].normal[0] *= -1
-                # used_fvrts.append(f[3] + fvrt_ofs)
             edge_refs.append([])
 
-            for ed in self.edges_from_verts(tuple(reversed(cur_face_verts))):
-                if (ed not in face_edges and
-                        tuple(reversed(ed)) not in face_edges):
-                    eidx = len(face_edges)
-                    face_edges.append(ed)
+            for ed in self.edges_from_verts(cur_face_verts):
+                eset = frozenset(ed)
+                if eset in face_edge_sets:
+                    eidx = face_edge_sets[eset]
                 else:
-                    if face_edges.count(ed) == 1:
-                        eidx = face_edges.index(ed)
-                    else:
-                        eidx = face_edges.index(tuple(reversed(ed)))
+                    eidx = len(face_edge_sets)
+                    face_edge_sets[eset] = eidx
+                    face_edges.append(ed)
                 edge_refs[fidx].append(eidx)
 
         bl_mesh.edges.add(len(face_edges))
@@ -524,7 +521,8 @@ class IFFImporter(ImportBackend):
         the_byte = 1
         while the_byte != 0:
             the_byte = data[ofs]
-            if the_byte == 0: break
+            if the_byte == 0:
+                break
             cstring.append(the_byte)
             ofs += 1
         return cstring.decode("iso-8859-1")
