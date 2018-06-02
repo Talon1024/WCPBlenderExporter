@@ -107,10 +107,9 @@ class MaterialManager:
                 break
 
             # Look in MAT directory
-            if extn == "mat":
-                mat_fname = self.look_for(mat_fname, "mat")
-                if mat_fname is not None:
-                    break
+            mat_fname = self.look_for(mat_fname, "mat")
+            if mat_fname is not None:
+                break
         else:
             print("Image not found for texture {:0>8d}!".format(texnum))
             self.mtimages[texnum] = None
