@@ -35,8 +35,8 @@ bl_info = {
     "name": "WCP/SO Mesh File",
     "author": "Kevin Caccamo",
     "description": "Export to a WCP/SO mesh file.",
-    "version": (2, 2, 0),
-    "blender": (2, 65, 0),
+    "version": (3, 0, 0),
+    "blender": (2, 80, 0),
     "location": "File > Export",
     "warning": "%{GIT_COMMIT}",
     "wiki_url": "http://www.ciinet.org/kevin/bl_wcp_exporter/",
@@ -180,11 +180,7 @@ class ExportIFF(Operator, ExportHelper):
         default='Z',
     )
 
-    use_facetex = BoolProperty(
-        name="Use Face Textures",
-        description="Use face textures instead of materials for texturing",
-        default=False
-    )
+    # use_facetex is now deprecated because Blender 2.80 doesn't support it.
 
     include_far_chunk = BoolProperty(
         name="Include FAR Chunk",
@@ -212,21 +208,6 @@ class ExportIFF(Operator, ExportHelper):
         options={"HIDDEN"}
     )
 
-    # output_version = EnumProperty(
-    #     name="Mesh version",
-    #     items=(("8", "Mesh version 8", "Use mesh version 8"),
-    #            ("9", "Mesh version 9", "Use mesh version 9"),
-    #            ("10", "Mesh version 10", "Use mesh version 10"),
-    #            ("11", "Mesh version 11", "Use mesh version 11"),
-    #            ("12", "Mesh version 12", "Use mesh version 12"),
-    #            ("13", "Mesh version 13", "Use mesh version 13")),
-    #     description="The mesh version to export the model(s) as. This "
-    #                 "determines how the game loads and uses the model(s). "
-    #                 "You should really leave this alone, unless you really "
-    #                 "know what you are doing.",
-    #     default="12"
-    # )
-
     backend_class_name = "IFFExporter"
 
     def check(self, context):
@@ -241,124 +222,14 @@ class ExportIFF(Operator, ExportHelper):
             self.axis_forward, self.axis_up, "Z", "Y"
         ).to_4x4()
 
+        depsgraph = context.evaluated_depsgraph_get()
+
         # self.output_version = "12"
 
         exporter = getattr(export_iff, self.backend_class_name)(
-            self.filepath, self.texnum, self.apply_modifiers,
-            self.active_as_lod0, self.use_facetex, wc_orientation_matrix,
+            self.filepath, depsgraph, self.texnum, self.apply_modifiers,
+            self.active_as_lod0, wc_orientation_matrix,
             self.include_far_chunk, self.drang_increment, self.generate_bsp,
-            self.test_run
-        )
-
-        exporter.export()
-        with warnings.catch_warnings(record=True) as wlist:
-            for warning in wlist:
-                self.report({"WARNING"}, warning.message)
-        return {"FINISHED"}
-
-
-class ExportXMF(Operator, ExportHelper):
-    """Export to XMF source code for a WCP/WCSO IFF mesh file"""
-    # important since its how bpy.ops.import_test.some_data is constructed
-    bl_idname = "export_scene.xmf"
-
-    bl_label = "Export WCP/SO IFF mesh XMF source file"
-
-    # ExportHelper mixin class uses this
-    filename_ext = ".pas"
-
-    filter_glob = StringProperty(
-        default="*.pas",
-        options={'HIDDEN'},
-    )
-
-    # List of operator properties, the attributes will be assigned
-    # to the class instance from the operator settings before calling.
-    texnum = IntProperty(
-        name="MAT number",
-        description="The number that the MAT texture indices"
-        " will start at",
-        default=22000,
-        subtype="UNSIGNED",
-        min=0,
-        max=99999990
-    )
-
-    apply_modifiers = BoolProperty(
-        name="Apply Modifiers",
-        description="Apply Modifiers to exported model",
-        default=True
-    )
-
-    active_as_lod0 = BoolProperty(
-        name="Active object is LOD0",
-        description="Use the active object as the LOD 0 mesh",
-        default=True
-    )
-
-    # Not implemented as of now
-    # generate_bsp = BoolProperty(
-    #         name = "Generate BSP",
-    #         description = "Generate a BSP tree "
-    #         "(for corvette and capship component meshes)",
-    #         default = False
-    #     )
-
-    axis_forward = EnumProperty(
-        name="Forward Axis",
-        items=(('X', "X Forward", ""),
-               ('Y', "Y Forward", ""),
-               ('Z', "Z Forward", ""),
-               ('-X', "-X Forward", ""),
-               ('-Y', "-Y Forward", ""),
-               ('-Z', "-Z Forward", ""),
-               ),
-        default='Y',
-    )
-
-    axis_up = EnumProperty(
-        name="Up Axis",
-        items=(('X', "X Up", ""),
-               ('Y', "Y Up", ""),
-               ('Z', "Z Up", ""),
-               ('-X', "-X Up", ""),
-               ('-Y', "-Y Up", ""),
-               ('-Z', "-Z Up", ""),
-               ),
-        default='Z',
-    )
-
-    use_facetex = BoolProperty(
-        name="Use Face Textures",
-        description="Use face textures instead of materials for texturing",
-        default=False
-    )
-
-    backend_class_name = "XMFExporter"
-
-    def execute(self, context):
-        warnings.resetwarnings()
-
-        # Get the matrix to transform the model to "WCP/SO" orientation
-        wc_orientation_matrix = axis_conversion(
-            self.axis_forward, self.axis_up, "Z", "Y"
-        ).to_4x4()
-
-        # Create the output file if it doesn't already exist
-        try:
-            outfile = open(self.filepath, "x")
-            outfile.close()
-        except FileExistsError:
-            self.report({"INFO"}, "File already exists!")
-
-        # NOTE: BSP Tree generation is not implemented!
-        # As a fallback measure, I'm hard-coding this attribute
-        self.generate_bsp = False
-
-        exporter = getattr(export_iff, self.backend_class_name)(
-            self.filepath, self.texnum, self.apply_modifiers,
-            self.active_as_lod0, self.use_facetex, wc_orientation_matrix,
-            self.generate_bsp
         )
 
         exporter.export()
@@ -377,18 +248,11 @@ def menu_func_import_iff(self, context):
     self.layout.operator(ImportIFF.bl_idname, text="WCP/SO IFF Mesh (.iff)")
 
 
-def menu_func_export_xmf(self, context):
-    self.layout.operator(ExportXMF.bl_idname,
-                         text="WCP/SO IFF Mesh XMF source (.pas)")
-
-
 def register():
     bpy.utils.register_class(ImportIFF)
     bpy.types.INFO_MT_file_import.append(menu_func_import_iff)
     bpy.utils.register_class(ExportIFF)
     bpy.types.INFO_MT_file_export.append(menu_func_export_iff)
-    # bpy.utils.register_class(ExportXMF)
-    # bpy.types.INFO_MT_file_export.append(menu_func_export_xmf)
 
 
 def unregister():
@@ -396,8 +260,6 @@ def unregister():
     bpy.types.INFO_MT_file_import.append(menu_func_import_iff)
     bpy.utils.unregister_class(ExportIFF)
     bpy.types.INFO_MT_file_export.remove(menu_func_export_iff)
-    # bpy.utils.unregister_class(ExportXMF)
-    # bpy.types.INFO_MT_file_export.remove(menu_func_export_xmf)
 
 
 if __name__ == "__main__":
