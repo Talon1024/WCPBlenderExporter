@@ -27,7 +27,7 @@ import time
 from os import sep as dirsep
 from . import iff_mesh
 from math import radians
-from collections import OrderedDict
+from collections import namedtuple, OrderedDict
 from itertools import repeat, starmap
 
 LFLAG_UNKNOWN1 = 1
@@ -91,9 +91,9 @@ class ModelManager:
     # Transformation to convert hardpoints to WC orientation.
     HP_WC_XFM = mathutils.Euler((radians(90), 0, radians(180)), "XYZ")
 
-    def __init__(self, base_name, base_obj, use_facetex, drang_increment,
+    def __init__(self, base_name, base_obj, drang_increment,
                  far_chunk, modeldir, gen_bsp, scene_name, wc_matrix,
-                 test_run):
+                 depsgraph):
 
         if not isinstance(base_name, str):
             raise TypeError("Model name must be a string!")
@@ -144,12 +144,11 @@ class ModelManager:
         self.collider = None  # COLL form
 
         # Material/texture stuff
-        self.use_mtltex = not use_facetex
         self.mtltexs = OrderedDict()  # Material -> texnum dict
         self.image_txns = OrderedDict()  # Images used by face textures.
 
         # Misc fields
-        self.test_run = test_run
+        self.depsgraph = depsgraph
         self.setup_complete = False
 
     def _get_lod(self, lod_obj, base=False):
@@ -441,72 +440,62 @@ class ModelManager:
         # Convert all LOD objects to meshes to populate the LOD mesh list.
         for lidx, lod in enumerate(self.lods):
             try:
-                self.lodms.append(
-                    bpy.data.scenes[self.scene].objects[lod].to_mesh(
-                        bpy.data.scenes[self.scene], True, "PREVIEW")
-                )
+                lodm = bpy.data.scenes[self.scene].objects[lod].to_mesh(
+                        preserve_all_data_layers=True,
+                        depsgraph=self.depsgraph
+                    )
+                lodm.transform(self.wc_matrix)
+                lodm.calc_normals_split()
+                lodm.calc_loop_triangles()
+                self.lodms.append(lodm)
             except RuntimeError:
                 print("Object {} is an empty.".format(lod))
                 self.lod_empty[lidx] = True
 
         # Get the textures used by all LODs for this model
-        used_materials = []
+        used_materials = OrderedDict()
         for lodm in self.lodms:
-            lodm.transform(self.wc_matrix.to_4x4())
-            lodm.calc_normals()
-            lodm.calc_tessface()
             # tf_mtl = None  # The material for this tessface
             # tf_mlf = 0  # The light flags for this tessface
             # tf_mtf = False  # Is the material a flat colour
-            for tf in lodm.tessfaces:
+            for tf in lodm.loop_triangles:
                 # Ensure material for this face exists
                 try:
                     tf_mtl = lodm.materials[tf.material_index]
                 except IndexError:
+                    # Shouldn't happen with Blender 2.8x
                     raise ValueError("You must have a valid material "
                                      "assigned to each face!")
 
                 if tf_mtl not in used_materials:
-                    used_materials.append(tf_mtl)
+                    used_materials[tf_mtl.name] = tf_mtl
 
+        MaterialInfo = namedtuple("MaterialInfo", "name, light_flags, texnum")
         # Get information about materials.
-        for tf_mtl in used_materials:
+        for tf_mtl in used_materials.values():
 
             # Get light flags for this material
-            tf_mlf = 0
-            if tf_mtl.get("light_flags") is not None:
-                tf_mlf = int(tf_mtl.get("light_flags"))
-            elif tf_mtl.use_shadeless:
-                tf_mlf |= LFLAG_FULLBRIGHT
+            tf_mlf = int(tf_mtl.get("light_flags", 0))
+            # Determine whether to use a flat colour or not
+            tf_flat = tf_mtl.use_nodes is False
 
-            tf_mtexs = self.texs_for_mtl(tf_mtl)  # Valid texture slots
-
-            if len(tf_mtexs) == 0 or not self.use_mtltex:
-                # Flat colour material; Use the colour of the material.
-                tf_img = iff_mesh.colour_texnum(tf_mtl.diffuse_color)
+            if tf_flat:
+                # Flat colour material; Use the albedo colour of the material
+                tf_txnm = iff_mesh.colour_texnum(tf_mtl.diffuse_color)
             else:
-                # Textured material; Use first valid texture slot.
-                tf_img = tf_mtexs[0].image.filepath
+                # Textured material; Get texture number for this texture
+                tf_txnm = 0
 
-            tf_txnm = tf_img if isinstance(tf_img, int) else None
-
-            mtldata = [tf_mlf, tf_img, tf_txnm]
+            mtl_info = MaterialInfo(tf_mtl.name, tf_mlf, tf_txnm)
             if tf_mtl.name not in self.mtltexs:
-                self.mtltexs[tf_mtl.name] = mtldata
+                self.mtltexs[tf_mtl.name] = mtl_info
 
         del used_materials
 
-        if not self.use_mtltex:
-            for lodm in self.lodms:
-                for tf, tfuv in zip(lodm.tessfaces,
-                                    lodm.tessface_uv_textures.active.data):
-                    if (tfuv.image is not None and tfuv.image.filepath not in
-                            self.image_txns):
-                        self.image_txns[tfuv.image.filepath] = None
-
         print("Materials used by this model:")
-        for mtl, mtx in self.mtltexs.items():
-            print("{}: {} (Light flags: {})".format(mtl, mtx[1], mtx[0]))
+        for mtx in self.mtltexs.values():
+            print("{}: {} (Light flags: {})".format(
+                mtx.name, mtx.texnum, mtx.light_flags))
 
         self.setup_complete = True
 
@@ -514,16 +503,7 @@ class ModelManager:
         if not self.setup_complete:
             raise ValueError("You must set the model up first!")
 
-        if self.use_mtltex:
-            used_textures = []
-            for mtex in self.mtltexs.values():
-                if (not isinstance(mtex[1], int) and
-                        mtex[1] not in used_textures):
-                    used_textures.append(mtex[1])
-
-            return used_textures
-        else:
-            return self.image_txns.keys()
+        return self.mtltexs.values()
 
     def mtls_for_img(self, img_fname):
         for mtl, mtldata in self.mtltexs.items():
@@ -532,16 +512,10 @@ class ModelManager:
 
     def assign_mtltxns(self, mtltxns):
         print("Assigning texture numbers to {}...".format(self.modelname))
-        if self.use_mtltex:
-            for img, txnm in mtltxns.items():
-                for mtl in self.mtls_for_img(img):
-                    print("Assigning {} to {}...".format(txnm, mtl))
-                    self.mtltexs[mtl][2] = txnm
-        else:
-            for img, txnm in mtltxns.items():
-                if img in self.image_txns.keys():
-                    print("Assigning {} to {}...".format(txnm, img))
-                    self.image_txns[img] = txnm
+        for img, txnm in mtltxns.items():
+            for mtl in self.mtls_for_img(img):
+                print("Assigning {} to {}...".format(txnm, mtl))
+                self.mtltexs[mtl][2] = txnm
 
     def calc_dplane(self, vert, facenrm):
         """Calculate the D-Plane of the face.
@@ -593,7 +567,7 @@ class ModelManager:
                 cur_lodm = self.lodms[lodi]
 
                 for vert in cur_lodm.vertices:
-                    ilodm.add_vertex(vert.co.x * -1, vert.co.y, vert.co.z)
+                    ilodm.add_vertex(vert.co.x, vert.co.y, vert.co.z)
 
                 unique_normals = {}
                 norm_idx = 0
@@ -608,7 +582,7 @@ class ModelManager:
                         # Smooth - use individual vertex normals
                         for vert in tf.vertices:
                             nx, ny, nz = cur_lodm.vertices[vert].normal
-                            nx *= -1
+                            # nx *= -1
                             vnrm = array.array("f", (nx, ny, nz)).tobytes()
                             if vnrm not in unique_normals:
                                 unique_normals[vnrm] = norm_idx
@@ -618,7 +592,7 @@ class ModelManager:
                     # Flat - use face normal. This normal will be added anyway,
                     # since it is referenced by the FACE chunk.
                     nx, ny, nz = tf.normal
-                    nx *= -1
+                    # nx *= -1
                     fnrm = array.array("f", (nx, ny, nz)).tobytes()
                     if fnrm not in unique_normals:
                         unique_normals[fnrm] = norm_idx
@@ -631,12 +605,12 @@ class ModelManager:
                         vtnm_idx = None
                         if tf.use_smooth:
                             nx, ny, nz = cur_lodm.vertices[fvrt].normal
-                            nx *= -1
+                            # nx *= -1
                             vnrm = array.array("f", (nx, ny, nz)).tobytes()
                             vtnm_idx = unique_normals[vnrm]
                         else:
                             nx, ny, nz = tf.normal
-                            nx *= -1
+                            # nx *= -1
                             vnrm = array.array("f", (nx, ny, nz)).tobytes()
                             vtnm_idx = unique_normals[vnrm]
                         ilodm.add_fvrt(fvrt, vtnm_idx, tfuv.uv[uv_idx][0],
@@ -645,24 +619,16 @@ class ModelManager:
                     del uv_idx
 
                     # Get the texnum and light flags
-                    if self.use_mtltex:
-                        texnum = self.mtltexs[
-                            cur_lodm.materials[tf.material_index].name][2]
-                    else:
-                        if tfuv.image is not None:
-                            texnum = self.image_txns[tfuv.image.filepath]
-                        else:
-                            # This should be a flat colour
-                            texnum = self.mtltexs[
-                                cur_lodm.materials[tf.material_index].name][2]
+                    texnum = self.mtltexs[
+                        cur_lodm.materials[tf.material_index].name].texnum
                     light_flags = self.mtltexs[
-                        cur_lodm.materials[tf.material_index].name][0]
+                        cur_lodm.materials[tf.material_index].name].light_flags
 
                     first_vert = cur_lodm.vertices[tf.vertices[-1]].co.copy()
-                    first_vert.x *= -1
+                    # first_vert.x *= -1
 
                     face_nrm = tf.normal.copy()
-                    face_nrm.x *= -1
+                    # face_nrm.x *= -1
 
                     # Add the face
                     ilodm.add_face(
@@ -674,43 +640,40 @@ class ModelManager:
                 ilodm = iff_mesh.EmptyLODForm(lodi)
 
             modelfile.add_lod(ilodm, drange)
-        if not self.test_run:
-            modelfile.write_file_bin()
+
+        modelfile.write_file_bin()
 
 
 class ExportBackend:
 
     def __init__(self,
                  filepath,
+                 depsgraph,
                  start_texnum=22000,
-                 apply_modifiers=True,
                  export_active_only=True,
-                 use_facetex=False,
                  wc_matrix=None,
                  include_far_chunk=True,
                  drang_increment=500.0,
-                 generate_bsp=False,
-                 test_run=False):
+                 generate_bsp=False):
         self.filepath = filepath
+        self.depsgraph = depsgraph
         self.start_texnum = start_texnum
-        self.apply_modifiers = apply_modifiers
         self.export_active_only = export_active_only
-        self.use_facetex = use_facetex
         self.wc_matrix = wc_matrix
         self.include_far_chunk = include_far_chunk
         self.drang_incval = drang_increment
         self.generate_bsp = generate_bsp
-        self.test_run = test_run
         self.modelname = ""
 
     def get_texnums(self, textures):
         """Convert all of the named textures to texture numbers.
 
         Returns a mapping from texture filenames to texture numbers."""
-        RE_NUMERIC_TX = re.compile(r"\b(\d{1,8})(?:\.\w+)?$")
+        RE_NUMERIC_TX = re.compile(r"(\d{1,8})")
 
         # Keep track of which textures are numeric, and which ones are not.
-        numeric_txs = [None for x in range(len(textures))]
+        named_txs = []
+        used_texnums = set()
 
         # Associate each texture filename with a texture number,
         # beginning at the user's specified starting texture number.
@@ -718,20 +681,27 @@ class ExportBackend:
         last_txnum = self.start_texnum
 
         # See which numeric textures are being used.
-        for idx, txfname in enumerate(textures):
+        for txfname in textures:
+            # Set texture number for textures with numeric names to the texture
+            # name, but converted to a number.
             numtx_match = RE_NUMERIC_TX.search(txfname)
             if numtx_match:
-                numeric_txs[idx] = int(numtx_match.group(1))
-
-        for idx, txfname in enumerate(textures):
-            if numeric_txs[idx] is not None:
-                texnums[txfname] = numeric_txs[idx]
+                # The texture name is numeric
+                tx_number = int(numtx_match.group(1))
+                texnums[txfname] = tx_number
+                used_texnums.add(tx_number)
             else:
-                curr_txnum = last_txnum
-                while curr_txnum in numeric_txs:
-                    curr_txnum += 1
-                texnums[txfname] = curr_txnum
-                last_txnum = curr_txnum + 1
+                # The texture name is not numeric; assign a number to it later
+                named_txs.append(txfname)
+
+        for txfname in named_txs:
+            # Find number for each texture
+            curr_txnum = last_txnum
+            while curr_txnum in used_texnums:
+                curr_txnum += 1
+            texnums[txfname] = curr_txnum
+            # Make assignment for the next named texture slightly quicker
+            last_txnum = curr_txnum + 1
 
         return texnums
 
@@ -758,22 +728,21 @@ class ExportBackend:
 class HierarchyManager:
     """A valid object, and its valid children."""
 
-    def __init__(self, root_obj, modelname, modeldir, use_facetex, far_chunk,
+    def __init__(self, root_obj, modelname, modeldir, far_chunk,
                  drang_increment, generate_bsp, scene_name, wc_matrix,
-                 test_run):
+                 depsgraph):
 
         self.root_obj = root_obj
         self.root_lods = self.lods_of(root_obj.name)
 
         self.modelname = modelname  # The filename the user specified.
         self.modeldir = modeldir
-        self.use_facetex = use_facetex
         self.far_chunk = far_chunk
         self.drang_incval = drang_increment
         self.generate_bsp = generate_bsp
         self.scene_name = scene_name
         self.wc_matrix = wc_matrix
-        self.test_run = test_run
+        self.depsgraph = depsgraph
         self.managers = []
         self.mgrtexs = []
 
@@ -964,10 +933,10 @@ class HierarchyManager:
     def setup(self):
         for hobj in self.hierarchy_objects:
             cur_manager = ModelManager(
-                self.modelname, hobj.name, self.use_facetex,
+                self.modelname, hobj.name,
                 self.drang_incval, self.far_chunk, self.modeldir,
                 self.generate_bsp, self.scene_name, self.wc_matrix,
-                self.test_run)
+                self.depsgraph)
             cur_manager.exp_fname = self.hierarchy_str_for(hobj)
             print("Export filename for {}: {}.iff".format(
                 hobj.name, cur_manager.exp_fname))
@@ -979,15 +948,7 @@ class HierarchyManager:
         self.mgrtexs = [mgr.get_materials() for mgr in self.managers]
 
     def get_materials(self):
-        mats = []
-
-        # Flatten matlsts
-        for mtlst in self.mgrtexs:
-            for mat in mtlst:
-                if mat not in mats:
-                    mats.append(mat)
-
-        return mats
+        mats = self.mgrtexs
 
     def assign_mtltxns(self, mtltxns):
         for manager in self.managers:
@@ -1030,19 +991,19 @@ class IFFExporter(ExportBackend):
 
             managers.append(HierarchyManager(
                 bpy.context.active_object, modelname, modeldir,
-                self.use_facetex, self.include_far_chunk, self.drang_incval,
+                self.include_far_chunk, self.drang_incval,
                 self.generate_bsp, bpy.context.scene.name,
-                self.wc_matrix, self.test_run))
+                self.wc_matrix, self.depsgraph))
 
         else:
             for obj in bpy.context.scene.objects:
                 if obj.parent is None and not obj.hide:
                     if MAIN_LOD_RE.match(obj.name):
                         managers.append(HierarchyManager(
-                            obj, modelname, modeldir, self.use_facetex,
+                            obj, modelname, modeldir,
                             self.include_far_chunk, self.drang_increment,
                             self.generate_bsp, bpy.context.scene.name,
-                            self.wc_matrix, self.test_run
+                            self.wc_matrix, self.depsgraph
                         ))
                         warnings.warn("detail-x LOD naming scheme is "
                                       "deprecated.", DeprecationWarning)
@@ -1050,10 +1011,10 @@ class IFFExporter(ExportBackend):
                         obj_match = CHLD_LOD_RE.match(obj.name)
                         if obj_match.group(1) not in used_names:
                             managers.append(HierarchyManager(
-                                obj, modelname, modeldir, self.use_facetex,
+                                obj, modelname, modeldir,
                                 self.include_far_chunk, self.drang_increment,
                                 self.generate_bsp, bpy.context.scene.name,
-                                self.wc_matrix, self.test_run
+                                self.wc_matrix, self.depsgraph
                             ))
                             used_names.add(obj_match.group(1))
 
