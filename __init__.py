@@ -186,7 +186,7 @@ class ExportIFF(Operator, ExportHelper):
         name="Include FAR Chunk",
         description="Include the 'FAR' CHUNK when exporting to IFF. Only "
         "required if the mesh being exported is a fighter mesh.",
-        default=False
+        default=True
     )
 
     drang_increment = FloatProperty(
@@ -218,16 +218,25 @@ class ExportIFF(Operator, ExportHelper):
         warnings.resetwarnings()
 
         # Get the matrix to transform the model to "WCP/SO" orientation
+        right_to_left_hand = Matrix((
+            (-1, 0, 0, 0),
+            (0, 1, 0, 0),
+            (0, 0, 1, 0),
+            (0, 0, 0, 1)
+        ))
         wc_orientation_matrix = axis_conversion(
             self.axis_forward, self.axis_up, "Z", "Y"
-        ).to_4x4()
+        ).to_4x4() @ right_to_left_hand
 
-        depsgraph = context.evaluated_depsgraph_get()
+        if self.apply_modifiers:
+            depsgraph = context.evaluated_depsgraph_get()
+        else:
+            depsgraph = None
 
         # self.output_version = "12"
 
         exporter = getattr(export_iff, self.backend_class_name)(
-            self.filepath, depsgraph, self.texnum, self.apply_modifiers,
+            self.filepath, depsgraph, self.texnum,
             self.active_as_lod0, wc_orientation_matrix,
             self.include_far_chunk, self.drang_increment, self.generate_bsp,
         )
